@@ -1,0 +1,195 @@
+================================================================================
+  SocialFlow MVP - Project Summary (for AI Agents & Developers)
+  Last updated: 2026-02-27
+  Status: MVP Complete, UUID migration done, Facebook SDK integrated
+================================================================================
+
+1. WHAT IS THIS PROJECT?
+========================
+SocialFlow is a multi-platform social media post publisher.
+Users create posts and publish them to Facebook, X/Twitter, and LinkedIn via real platform APIs.
+
+Core Flow: Register → Create Brand → Connect Social Accounts → Create Post → Publish
+
+
+2. TECH STACK
+=============
+- Frontend: Next.js 16 (App Router, TypeScript, CSS, port 3000)
+- Backend:  Java Spring Boot 3.2.3 (REST API, port 8080)
+- Database: PostgreSQL on Neon serverless
+- Auth:     JWT (jjwt library, BCrypt passwords)
+- HTTP:     Spring WebFlux WebClient (for platform API calls)
+
+
+3. ARCHITECTURE
+===============
+Single-domain architecture:
+- Only the frontend domain (port 3000) is exposed externally
+- Next.js `rewrites` in next.config.ts proxy `/api/*` → backend (localhost:8080)
+- This simplifies deployment and handles OAuth redirect URIs correctly
+
+Backend proxy config in next.config.ts:
+  /api/:path* → http://localhost:8080/api/:path*
+
+
+4. DATA MODEL (All IDs are UUID)
+================================
+User (UUID id)
+ └── Brand (UUID id)
+      └── SocialConnection (UUID id) — unique by (brand_id + platform + account_id)
+           └── SocialPage (UUID id) — unique by (connection_id + platform_page_id)
+                └── Post (UUID id)
+                     └── PublishResult (UUID id)
+
+IMPORTANT: All entity IDs use java.util.UUID with GenerationType.UUID.
+Frontend uses string IDs everywhere (not numbers).
+JWT stores userId as a string claim.
+
+
+5. UPSERT LOGIC (Reconnect)
+============================
+When a user reconnects an existing account:
+- SocialConnectionRepository.findByBrandIdAndPlatformAndAccountId() → finds existing → updates token
+- SocialPageRepository.findByConnectionIdAndPlatformPageId() → finds existing → updates token
+- No duplicate records are created on reconnect
+
+
+6. BACKEND STRUCTURE (f:\SocialFlow\backend\)
+=============================================
+src/main/java/com/socialflow/
+├── config/
+│   ├── SecurityConfig.java      — Spring Security: JWT filter, CORS, public endpoints
+│   └── CorsConfig.java          — CORS: allows localhost:3000, base-url, frontend-url
+├── security/
+│   ├── JwtUtil.java             — JWT generation/validation (UUID userId as string claim)
+│   └── JwtAuthFilter.java       — Extracts JWT → loads User → sets SecurityContext
+├── model/
+│   ├── User.java                — UUID id, email, passwordHash, name, brands[]
+│   ├── Brand.java               — UUID id, name, description, logoUrl, user, connections[]
+│   ├── SocialConnection.java    — UUID id, platform, accountName, accountId, accessToken, brand, pages[]
+│   ├── SocialPage.java          — UUID id, platformPageId, pageName, pageAccessToken, connection, posts[]
+│   ├── Post.java                — UUID id, content, status, page, publishResults[]
+│   ├── PublishResult.java       — UUID id, platformPostId, platformPostUrl, success, errorMessage
+│   └── enums/
+│       ├── PlatformType.java    — FACEBOOK, TWITTER, LINKEDIN
+│       └── PostStatus.java      — DRAFT, PUBLISHING, PUBLISHED, FAILED
+├── repository/
+│   ├── UserRepository.java              — findByEmail, existsByEmail
+│   ├── BrandRepository.java             — findByUserId
+│   ├── SocialConnectionRepository.java  — findByBrandId, findByBrandIdAndPlatformAndAccountId (upsert)
+│   ├── SocialPageRepository.java        — findByConnectionId, findByConnectionIdAndPlatformPageId (upsert)
+│   ├── PostRepository.java              — findByPageId, findByPageConnectionBrandUserId
+│   └── PublishResultRepository.java
+├── dto/
+│   ├── RegisterRequest.java     — name, email, password
+│   ├── LoginRequest.java        — email, password
+│   ├── LoginResponse.java       — token, email, name, userId (UUID)
+│   ├── CreateBrandRequest.java  — name, description, logoUrl
+│   ├── CreatePostRequest.java   — content, pageIds (List<UUID>)
+│   └── PostResponse.java        — id, content, status, page info, publishResults
+├── service/
+│   ├── AuthService.java         — register, login (returns JWT + user info)
+│   ├── BrandService.java        — CRUD for brands
+│   ├── PostService.java         — CRUD + publish for posts
+│   ├── OAuthService.java        — OAuth flows + Facebook SDK token handler + upsert logic
+│   └── publisher/
+│       ├── PublisherService.java   — Routes to platform-specific publisher
+│       ├── FacebookPublisher.java  — POST /{pageId}/feed via Graph API
+│       ├── TwitterPublisher.java   — POST /2/tweets via Twitter API
+│       └── LinkedInPublisher.java  — POST /v2/ugcPosts via LinkedIn API
+└── controller/
+    ├── AuthController.java       — POST /api/auth/register, /api/auth/login
+    ├── BrandController.java      — GET/POST/DELETE /api/brands
+    ├── ConnectionController.java — GET /api/brands/{id}/connections, pages, DELETE
+    ├── OAuthController.java      — GET /api/oauth/{platform}/url, callbacks, POST facebook/connect
+    ├── PostController.java       — GET/POST/DELETE /api/posts, POST /api/posts/{id}/publish
+    └── WebhookController.java    — GET/POST /api/webhook/facebook (verification + events)
+
+
+7. API ENDPOINTS
+================
+PUBLIC:
+  POST /api/auth/register           — Register new user
+  POST /api/auth/login              — Login, returns JWT
+  GET  /api/oauth/*/callback        — OAuth redirect callbacks (Facebook, Twitter, LinkedIn)
+  GET  /api/webhook/facebook        — Facebook webhook verification
+  POST /api/webhook/facebook        — Facebook webhook events
+
+PROTECTED (Bearer JWT):
+  GET    /api/brands                           — List user's brands
+  POST   /api/brands                           — Create brand
+  DELETE /api/brands/{id}                      — Delete brand
+  GET    /api/brands/{brandId}/connections      — List connections for brand
+  GET    /api/brands/{brandId}/pages            — List all pages across connections
+  GET    /api/connections/{connId}/pages         — List pages for connection
+  DELETE /api/connections/{id}                   — Delete connection
+  GET    /api/oauth/{platform}/url?brandId=...   — Get OAuth URL for platform
+  POST   /api/oauth/facebook/connect             — Facebook SDK token connect (body: {accessToken, brandId})
+  GET    /api/posts                              — List user's posts
+  GET    /api/posts/{id}                         — Get post detail
+  POST   /api/posts                              — Create post (body: {content, pageIds[]})
+  POST   /api/posts/{id}/publish                 — Publish post
+  DELETE /api/posts/{id}                         — Delete post
+
+
+8. FRONTEND STRUCTURE (f:\SocialFlow\frontend\)
+===============================================
+src/
+├── lib/
+│   └── api.ts                   — Centralized API client, JWT handling, all IDs are string (UUID)
+├── components/
+│   ├── AppShell.tsx             — Layout wrapper with auth guard (redirects to /login if no token)
+│   └── Sidebar.tsx              — Navigation sidebar
+└── app/
+    ├── layout.tsx               — Root layout
+    ├── globals.css              — Dark theme design system (all CSS variables and components)
+    ├── page.tsx                 — Dashboard: brands list + recent posts
+    ├── login/page.tsx           — Login form
+    ├── register/page.tsx        — Registration form
+    ├── accounts/page.tsx        — Social account connections (Facebook SDK popup + redirect for others)
+    ├── create/page.tsx          — Create post: select brand → select pages → write content → publish
+    └── posts/[id]/page.tsx      — Post detail: status, content, publish results
+
+Facebook SDK Integration (accounts/page.tsx):
+  - Loads FB JS SDK asynchronously
+  - FB.login() opens popup for Facebook authorization
+  - On success, sends accessToken to POST /api/oauth/facebook/connect
+  - Twitter/LinkedIn still use OAuth redirect flow via getOAuthUrl()
+
+
+9. FACEBOOK APP CONFIGURATION
+==============================
+- App ID: 1867627970477000 (hardcoded in accounts/page.tsx)
+- Products needed: "Facebook Login" (standard, not Business)
+- Required permissions: pages_manage_posts, pages_read_engagement, pages_show_list
+- Webhook verify token: socialflow_webhook_verify_2026
+- Webhook URL: {base-url}/api/webhook/facebook
+
+
+10. CONFIGURATION (application.properties)
+==========================================
+- Database: Neon PostgreSQL connection string
+- JWT: secret key + expiration (86400000ms = 24h)
+- OAuth: client-id, client-secret, redirect-uri for Facebook, Twitter, LinkedIn
+- Base URLs: app.base-url (external domain), app.frontend-url (for OAuth redirects)
+- Webhook: webhook.verify-token
+
+
+11. HOW TO RUN
+==============
+1. Configure application.properties with DB + OAuth credentials
+2. Start Backend:  cd backend  && mvn spring-boot:run    (port 8080)
+3. Start Frontend: cd frontend && npm run dev             (port 3000)
+4. Access: http://localhost:3000
+
+
+12. KNOWN LIMITATIONS / NEXT STEPS
+===================================
+- No token refresh logic for expired OAuth tokens
+- No global error handling middleware
+- No pagination for lists
+- Image uploads not supported (text-only posts)
+- No scheduled posting (immediate only)
+- LinkedIn publisher may need org vs personal URN adjustments
+- No unit tests
+- No Docker / deployment scripts

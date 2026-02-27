@@ -1,0 +1,38 @@
+package com.socialflow.dto;
+
+import com.socialflow.model.enums.PlatformType;
+import com.socialflow.model.enums.PostStatus;
+import lombok.Builder;
+import lombok.Data;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Data @Builder
+public class PostResponse {
+    private UUID id;
+    private String content;
+    private PostStatus status;
+    private LocalDateTime createdAt;
+    private LocalDateTime publishedAt;
+    private PageInfo page;
+    private List<PublishResultResponse> publishResults;
+
+    @Data @Builder
+    public static class PageInfo {
+        private UUID id;
+        private String pageName;
+        private PlatformType platform;
+        private String brandName;
+    }
+
+    @Data @Builder
+    public static class PublishResultResponse {
+        private UUID id;
+        private String platformPostId;
+        private String platformPostUrl;
+        private Boolean success;
+        private String errorMessage;
+        private LocalDateTime createdAt;
+    }
+}
