@@ -12,4 +12,7 @@ public class CreatePostRequest {
 
     // List of page IDs to publish to (for multi-page publish)
     private List<UUID> pageIds;
+
+    // List of uploaded media IDs to attach
+    private List<UUID> mediaIds;
 }

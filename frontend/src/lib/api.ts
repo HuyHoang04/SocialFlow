@@ -78,7 +78,7 @@ export const api = {
     getPosts: () => request('/posts'),
     getPost: (id: string) => request(`/posts/${id}`),
     getPostsByPage: (pageId: string) => request(`/pages/${pageId}/posts`),
-    createPost: (data: { content: string; pageIds: string[] }) =>
+    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[] }) =>
         request('/posts', { method: 'POST', body: JSON.stringify(data) }),
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
@@ -90,4 +90,21 @@ export const api = {
     // Bluesky connect (handle + app password, no OAuth)
     blueskyConnect: (data: { handle: string; appPassword: string; brandId: string }) =>
         request('/oauth/bluesky/connect', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Media upload
+    uploadMedia: async (file: File) => {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE}/media/upload`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || res.statusText);
+        }
+        return res.json();
+    },
 };

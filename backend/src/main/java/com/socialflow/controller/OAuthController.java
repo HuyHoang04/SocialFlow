@@ -64,10 +64,14 @@ public class OAuthController {
 
     /** Facebook JS SDK connect */
     @PostMapping("/facebook/connect")
-    public Map<String, Object> facebookConnect(@RequestBody Map<String, Object> body) {
-        String accessToken = (String) body.get("accessToken");
-        UUID brandId = UUID.fromString(body.get("brandId").toString());
-        return oauthService.handleFacebookToken(accessToken, brandId);
+    public org.springframework.http.ResponseEntity<?> facebookConnect(@RequestBody Map<String, Object> body) {
+        try {
+            String accessToken = (String) body.get("accessToken");
+            UUID brandId = UUID.fromString(body.get("brandId").toString());
+            return org.springframework.http.ResponseEntity.ok(oauthService.handleFacebookToken(accessToken, brandId));
+        } catch (Exception e) {
+            return org.springframework.http.ResponseEntity.badRequest().body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        }
     }
 
     /** Bluesky connect — handle + app password, no OAuth */

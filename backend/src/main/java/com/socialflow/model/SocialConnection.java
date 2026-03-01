@@ -34,6 +34,9 @@ public class SocialConnection {
 
     private LocalDateTime tokenExpiresAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String scopes;  // comma-separated granted permissions
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

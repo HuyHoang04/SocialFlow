@@ -35,6 +35,11 @@ public class Post {
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @OrderBy("sortOrder ASC")
+    private List<PostMedia> mediaFiles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<PublishResult> publishResults = new ArrayList<>();
 
     @PrePersist

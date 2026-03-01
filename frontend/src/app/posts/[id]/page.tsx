@@ -20,6 +20,7 @@ interface Post {
     createdAt: string;
     publishedAt: string | null;
     page: { id: string; pageName: string; platform: string; brandName: string };
+    mediaFiles: { id: string; url: string; contentType: string; originalName: string }[];
     publishResults: PublishResult[];
 }
 
@@ -53,7 +54,7 @@ export default function PostDetailPage() {
     };
 
     const platformIcon = (p: string) => {
-        switch (p) { case 'FACEBOOK': return '📘'; case 'TWITTER': return '✖️'; case 'LINKEDIN': return '💼'; default: return '🌐'; }
+        switch (p) { case 'FACEBOOK': return '📘'; case 'TWITTER': return '✖️'; case 'LINKEDIN': return '💼'; case 'BLUESKY': return '🦋'; case 'THREADS': return '🧵'; default: return '🌐'; }
     };
 
     const badgeClass = (s: string) => {
@@ -98,6 +99,33 @@ export default function PostDetailPage() {
                     </span>
                 </div>
                 <p style={{ fontSize: 15, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{post.content}</p>
+
+                {/* Media Attachments */}
+                {post.mediaFiles && post.mediaFiles.length > 0 && (
+                    <div style={{
+                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                        gap: 12, marginTop: 16, paddingTop: 16,
+                        borderTop: '1px solid var(--border)',
+                    }}>
+                        {post.mediaFiles.map(m => (
+                            <div key={m.id} style={{
+                                borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                                border: '1px solid var(--border)',
+                            }}>
+                                {m.contentType.startsWith('image/') ? (
+                                    <img src={m.url} alt={m.originalName}
+                                        style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                                ) : m.contentType.startsWith('video/') ? (
+                                    <video src={m.url} controls
+                                        style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                                ) : null}
+                                <div style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-muted)' }}>
+                                    {m.originalName}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {post.publishResults.length > 0 && (

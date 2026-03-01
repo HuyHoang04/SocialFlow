@@ -16,14 +16,17 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\security\JwtUtil.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\ThreadsPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\LoginRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\SocialConnectionRepository.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\config\DatabaseMigration.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\CreatePostRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\UserRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\PostResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\PostService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\ConnectionController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\User.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PostMediaRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\LinkedInPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\CorsConfig.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\controller\MediaController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\BrandController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\BlueskyPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\FacebookPublisher.java
@@ -31,6 +34,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\model\SocialPage.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\AuthService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PublishResultRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\PostController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\model\PostMedia.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PostRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\SocialPageRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\BrandService.java

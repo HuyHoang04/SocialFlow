@@ -16,6 +16,7 @@ public class PostResponse {
     private LocalDateTime createdAt;
     private LocalDateTime publishedAt;
     private PageInfo page;
+    private List<MediaInfo> mediaFiles;
     private List<PublishResultResponse> publishResults;
 
     @Data @Builder
@@ -34,5 +35,13 @@ public class PostResponse {
         private Boolean success;
         private String errorMessage;
         private LocalDateTime createdAt;
+    }
+
+    @Data @Builder
+    public static class MediaInfo {
+        private UUID id;
+        private String url;
+        private String contentType;
+        private String originalName;
     }
 }

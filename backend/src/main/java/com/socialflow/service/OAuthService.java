@@ -116,7 +116,8 @@ public class OAuthService {
                 .block();
 
         String userAccessToken = tokenResp.get("access_token").asText();
-        upsertFacebookConnection(brand, userAccessToken);
+        long expiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 0;
+        upsertFacebookConnection(brand, userAccessToken, expiresIn);
 
         return frontendUrl + "/accounts?connected=facebook";
     }
@@ -162,6 +163,9 @@ public class OAuthService {
         connection.setAccountName("@" + username);
         connection.setAccessToken(accessToken);
         connection.setRefreshToken(refreshToken);
+        connection.setScopes("tweet.read, tweet.write, users.read");
+        long twExpiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 7200;
+        connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(twExpiresIn));
         connection = connectionRepository.save(connection);
 
         final SocialConnection savedConn = connection;
@@ -221,6 +225,9 @@ public class OAuthService {
                         .build());
         connection.setAccountName(name);
         connection.setAccessToken(accessToken);
+        connection.setScopes("w_member_social, r_organization_admin, w_organization_social");
+        long liExpiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 5184000;
+        connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(liExpiresIn));
         connection = connectionRepository.save(connection);
 
         final SocialConnection savedConn = connection;
@@ -294,6 +301,9 @@ public class OAuthService {
                         .build());
         connection.setAccountName("@" + username);
         connection.setAccessToken(longLivedToken);
+        connection.setScopes("threads_basic, threads_content_publish");
+        long thExpiresIn = longLivedResp.has("expires_in") ? longLivedResp.get("expires_in").asLong() : 5184000;
+        connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(thExpiresIn));
         connection = connectionRepository.save(connection);
 
         final SocialConnection savedConn = connection;
@@ -317,7 +327,7 @@ public class OAuthService {
     public Map<String, Object> handleFacebookToken(String accessToken, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException("Brand not found"));
-        return upsertFacebookConnection(brand, accessToken);
+        return upsertFacebookConnection(brand, accessToken, 0);
     }
 
     public Map<String, Object> handleBlueskyConnect(String handle, String appPassword, UUID brandId) {
@@ -347,6 +357,8 @@ public class OAuthService {
         connection.setAccountName(resolvedHandle);
         connection.setAccessToken(accessJwt);
         connection.setRefreshToken(appPassword);
+        connection.setScopes("atproto (full access)");
+        // Bluesky session tokens expire in ~2h but re-created on each publish
         connection = connectionRepository.save(connection);
 
         final SocialConnection savedConn = connection;
@@ -367,7 +379,7 @@ public class OAuthService {
 
     // ==================== Shared Facebook upsert ====================
 
-    private Map<String, Object> upsertFacebookConnection(Brand brand, String accessToken) {
+    private Map<String, Object> upsertFacebookConnection(Brand brand, String accessToken, long expiresIn) {
         WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
         JsonNode meResp = fb.get()
@@ -383,13 +395,70 @@ public class OAuthService {
                         .platform(PlatformType.FACEBOOK).accountId(accountId).brand(brand).build());
         connection.setAccountName(accountName);
         connection.setAccessToken(accessToken);
+
+        // Get granted permissions
+        try {
+            JsonNode permsResp = fb.get()
+                    .uri(uri -> uri.path("/me/permissions").queryParam("access_token", accessToken).build())
+                    .retrieve().bodyToMono(JsonNode.class).block();
+            if (permsResp != null && permsResp.has("data")) {
+                List<String> granted = new ArrayList<>();
+                for (JsonNode perm : permsResp.get("data")) {
+                    if ("granted".equals(perm.get("status").asText())) {
+                        granted.add(perm.get("permission").asText());
+                    }
+                }
+                connection.setScopes(String.join(", ", granted));
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch FB permissions: {}", e.getMessage());
+            connection.setScopes("pages_manage_posts, pages_read_engagement, pages_show_list");
+        }
+
+        // Token expiry
+        if (expiresIn > 0) {
+            connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(expiresIn));
+        } else {
+            // Short-lived tokens expire in ~1h, try debug_token
+            try {
+                JsonNode debugResp = fb.get()
+                        .uri(uri -> uri.path("/debug_token")
+                                .queryParam("input_token", accessToken)
+                                .queryParam("access_token", fbClientId + "|" + fbClientSecret)
+                                .build())
+                        .exchangeToMono(resp -> {
+                            if (resp.statusCode().isError()) {
+                                return resp.bodyToMono(String.class).handle((body, sink) -> 
+                                    sink.error(new RuntimeException("FB debug_token error: " + body)));
+                            }
+                            return resp.bodyToMono(JsonNode.class);
+                        }).block();
+                if (debugResp != null && debugResp.has("data") && debugResp.get("data").has("expires_at")) {
+                    long expiresAt = debugResp.get("data").get("expires_at").asLong();
+                    if (expiresAt > 0) {
+                        connection.setTokenExpiresAt(
+                                LocalDateTime.ofEpochSecond(expiresAt, 0, java.time.ZoneOffset.UTC));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Could not debug FB token: {}", e.getMessage());
+                connection.setTokenExpiresAt(LocalDateTime.now().plusHours(1));
+            }
+        }
+
         connection = connectionRepository.save(connection);
 
         int pageCount = 0;
         final SocialConnection savedConn = connection;
         JsonNode pagesResp = fb.get()
                 .uri(uri -> uri.path("/me/accounts").queryParam("access_token", accessToken).build())
-                .retrieve().bodyToMono(JsonNode.class).block();
+                .exchangeToMono(resp -> {
+                    if (resp.statusCode().isError()) {
+                        return resp.bodyToMono(String.class).handle((body, sink) -> 
+                            sink.error(new RuntimeException("FB /me/accounts error: " + body)));
+                    }
+                    return resp.bodyToMono(JsonNode.class);
+                }).block();
 
         if (pagesResp != null && pagesResp.has("data")) {
             for (JsonNode pageNode : pagesResp.get("data")) {

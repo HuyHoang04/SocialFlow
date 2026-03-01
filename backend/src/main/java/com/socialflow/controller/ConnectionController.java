@@ -57,6 +57,8 @@ public class ConnectionController {
         map.put("accountId", conn.getAccountId());
         map.put("createdAt", conn.getCreatedAt());
         map.put("pageCount", conn.getPages().size());
+        map.put("tokenExpiresAt", conn.getTokenExpiresAt());
+        map.put("scopes", conn.getScopes());
         return map;
     }
 

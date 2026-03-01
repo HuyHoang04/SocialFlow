@@ -22,6 +22,7 @@ interface Brand { id: string; name: string; connectionCount: number; }
 interface Connection {
     id: string; platform: string; accountName: string; accountId: string;
     createdAt: string; pageCount: number;
+    tokenExpiresAt: string | null; scopes: string | null;
 }
 
 const PLATFORMS = [
@@ -346,6 +347,65 @@ function AccountsContent() {
                                                         {new Date(conn.createdAt).toLocaleDateString('vi-VN')}
                                                     </div>
                                                 </div>
+
+                                                {/* Token Expiry */}
+                                                {conn.tokenExpiresAt && (() => {
+                                                    const expires = new Date(conn.tokenExpiresAt);
+                                                    const now = new Date();
+                                                    const diffMs = expires.getTime() - now.getTime();
+                                                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                                    const isExpired = diffMs <= 0;
+                                                    const isWarning = !isExpired && diffDays < 7;
+
+                                                    return (
+                                                        <div style={{
+                                                            padding: '8px 12px', marginBottom: 8,
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            fontSize: 12,
+                                                            background: isExpired ? 'rgba(239,68,68,0.1)' : isWarning ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.08)',
+                                                            color: isExpired ? '#ef4444' : isWarning ? '#f59e0b' : '#22c55e',
+                                                            display: 'flex', alignItems: 'center', gap: 6,
+                                                        }}>
+                                                            <span>{isExpired ? '⚠️' : isWarning ? '⏳' : '✅'}</span>
+                                                            <span style={{ fontWeight: 600 }}>
+                                                                {isExpired ? 'Token expired!' :
+                                                                    diffDays > 0 ? `Token expires in ${diffDays} day${diffDays !== 1 ? 's' : ''}` :
+                                                                        `Token expires in ${diffHours}h`}
+                                                            </span>
+                                                            <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
+                                                                {expires.toLocaleDateString('vi-VN')}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Scopes / Permissions */}
+                                                {conn.scopes && (
+                                                    <div style={{
+                                                        padding: '8px 12px', marginBottom: 12,
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-glass)',
+                                                        fontSize: 11, color: 'var(--text-muted)',
+                                                    }}>
+                                                        <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            🔑 Permissions
+                                                        </div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                            {conn.scopes.split(',').map((s: string, i: number) => (
+                                                                <span key={i} style={{
+                                                                    padding: '2px 8px',
+                                                                    background: 'rgba(99,102,241,0.15)',
+                                                                    borderRadius: 100,
+                                                                    fontSize: 10, fontWeight: 500,
+                                                                    color: 'var(--text-secondary)',
+                                                                }}>
+                                                                    {s.trim()}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <div style={{ display: 'flex', gap: 8 }}>
                                                     <button className="btn btn-secondary btn-sm" style={{ flex: 1 }}

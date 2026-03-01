@@ -22,6 +22,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final SocialPageRepository pageRepository;
+    private final PostMediaRepository mediaRepository;
     private final PublisherService publisherService;
 
     public List<PostResponse> getPostsByUser(User user) {
@@ -42,6 +43,18 @@ public class PostService {
 
     @Transactional
     public List<PostResponse> createPost(CreatePostRequest request) {
+        // Load media files if provided
+        List<PostMedia> mediaFiles = new ArrayList<>();
+        if (request.getMediaIds() != null && !request.getMediaIds().isEmpty()) {
+            for (int i = 0; i < request.getMediaIds().size(); i++) {
+                UUID mediaId = request.getMediaIds().get(i);
+                PostMedia media = mediaRepository.findById(mediaId)
+                        .orElseThrow(() -> new RuntimeException("Media not found: " + mediaId));
+                media.setSortOrder(i);
+                mediaFiles.add(media);
+            }
+        }
+
         List<PostResponse> responses = new ArrayList<>();
 
         for (UUID pageId : request.getPageIds()) {
@@ -54,6 +67,31 @@ public class PostService {
                     .page(page)
                     .build();
             post = postRepository.save(post);
+
+            // Link media to post
+            for (PostMedia media : mediaFiles) {
+                PostMedia copy;
+                if (request.getPageIds().size() == 1) {
+                    // Single page — link directly
+                    media.setPost(post);
+                    mediaRepository.save(media);
+                    copy = media;
+                } else {
+                    // Multi-page — create copy of media reference for each post
+                    copy = PostMedia.builder()
+                            .filename(media.getFilename())
+                            .originalName(media.getOriginalName())
+                            .contentType(media.getContentType())
+                            .fileSize(media.getFileSize())
+                            .url(media.getUrl())
+                            .sortOrder(media.getSortOrder())
+                            .post(post)
+                            .build();
+                    mediaRepository.save(copy);
+                }
+                post.getMediaFiles().add(copy);
+            }
+
             responses.add(toResponse(post));
         }
 
@@ -112,6 +150,14 @@ public class PostService {
                         .platform(page.getPlatform())
                         .brandName(conn.getBrand().getName())
                         .build())
+                .mediaFiles(post.getMediaFiles().stream()
+                        .map(m -> PostResponse.MediaInfo.builder()
+                                .id(m.getId())
+                                .url(m.getUrl())
+                                .contentType(m.getContentType())
+                                .originalName(m.getOriginalName())
+                                .build())
+                        .collect(Collectors.toList()))
                 .publishResults(post.getPublishResults().stream()
                         .map(r -> PostResponse.PublishResultResponse.builder()
                                 .id(r.getId())

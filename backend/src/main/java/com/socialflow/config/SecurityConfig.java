@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/oauth/*/callback").permitAll()
                 .requestMatchers("/api/webhook/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/media/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
