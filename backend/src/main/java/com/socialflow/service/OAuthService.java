@@ -53,6 +53,14 @@ public class OAuthService {
     @Value("${oauth.linkedin.redirect-uri:}")
     private String liRedirectUri;
 
+    // Threads
+    @Value("${oauth.threads.client-id:${oauth.facebook.client-id:}}")
+    private String threadsClientId;
+    @Value("${oauth.threads.client-secret:${oauth.facebook.client-secret:}}")
+    private String threadsClientSecret;
+    @Value("${oauth.threads.redirect-uri:${app.base-url}/api/oauth/threads/callback}")
+    private String threadsRedirectUri;
+
     // ==================== Get OAuth URL ====================
 
     public String getOAuthUrl(PlatformType platform, UUID brandId) {
@@ -77,6 +85,13 @@ public class OAuthService {
                     + "&redirect_uri=" + encode(liRedirectUri)
                     + "&scope=w_member_social%20r_organization_admin%20w_organization_social"
                     + "&state=" + state;
+            case THREADS -> "https://threads.net/oauth/authorize?"
+                    + "client_id=" + threadsClientId
+                    + "&redirect_uri=" + encode(threadsRedirectUri)
+                    + "&scope=threads_basic,threads_content_publish"
+                    + "&response_type=code"
+                    + "&state=" + state;
+            case BLUESKY -> "";
         };
     }
 
@@ -137,7 +152,6 @@ public class OAuthService {
         String username = userResp.get("data").get("username").asText();
         String userId = userResp.get("data").get("id").asText();
 
-        // Upsert connection
         SocialConnection connection = connectionRepository
                 .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.TWITTER, userId)
                 .orElse(SocialConnection.builder()
@@ -145,13 +159,11 @@ public class OAuthService {
                         .accountId(userId)
                         .brand(brand)
                         .build());
-
         connection.setAccountName("@" + username);
         connection.setAccessToken(accessToken);
         connection.setRefreshToken(refreshToken);
         connection = connectionRepository.save(connection);
 
-        // Upsert page
         final SocialConnection savedConn = connection;
         SocialPage page = pageRepository
                 .findByConnectionIdAndPlatformPageId(savedConn.getId(), userId)
@@ -200,7 +212,6 @@ public class OAuthService {
         String name = userResp.has("name") ? userResp.get("name").asText() : "LinkedIn User";
         String sub = userResp.get("sub").asText();
 
-        // Upsert connection
         SocialConnection connection = connectionRepository
                 .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.LINKEDIN, sub)
                 .orElse(SocialConnection.builder()
@@ -212,7 +223,6 @@ public class OAuthService {
         connection.setAccessToken(accessToken);
         connection = connectionRepository.save(connection);
 
-        // Upsert page
         final SocialConnection savedConn = connection;
         SocialPage personalPage = pageRepository
                 .findByConnectionIdAndPlatformPageId(savedConn.getId(), sub)
@@ -229,7 +239,80 @@ public class OAuthService {
         return frontendUrl + "/accounts?connected=linkedin";
     }
 
-    // ==================== Facebook SDK Token Connect ====================
+    public String handleThreadsCallback(String code, String state) {
+        UUID brandId = UUID.fromString(state);
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+        WebClient threads = webClientBuilder.baseUrl("https://graph.threads.net").build();
+
+        JsonNode tokenResp = threads.post()
+                .uri("/oauth/access_token")
+                .body(BodyInserters.fromFormData("client_id", threadsClientId)
+                        .with("client_secret", threadsClientSecret)
+                        .with("grant_type", "authorization_code")
+                        .with("redirect_uri", threadsRedirectUri)
+                        .with("code", code))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String shortLivedToken = tokenResp.get("access_token").asText();
+        String threadsUserId = tokenResp.get("user_id").asText();
+
+        // Exchange for long-lived token
+        JsonNode longLivedResp = threads.get()
+                .uri(uri -> uri.path("/access_token")
+                        .queryParam("grant_type", "th_exchange_token")
+                        .queryParam("client_secret", threadsClientSecret)
+                        .queryParam("access_token", shortLivedToken)
+                        .build())
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String longLivedToken = longLivedResp.get("access_token").asText();
+
+        // Get user profile
+        JsonNode profileResp = threads.get()
+                .uri(uri -> uri.path("/v1.0/me")
+                        .queryParam("fields", "id,username,name")
+                        .queryParam("access_token", longLivedToken)
+                        .build())
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String username = profileResp.has("username") ? profileResp.get("username").asText() : "threads_user";
+
+        SocialConnection connection = connectionRepository
+                .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.THREADS, threadsUserId)
+                .orElse(SocialConnection.builder()
+                        .platform(PlatformType.THREADS)
+                        .accountId(threadsUserId)
+                        .brand(brand)
+                        .build());
+        connection.setAccountName("@" + username);
+        connection.setAccessToken(longLivedToken);
+        connection = connectionRepository.save(connection);
+
+        final SocialConnection savedConn = connection;
+        SocialPage page = pageRepository
+                .findByConnectionIdAndPlatformPageId(savedConn.getId(), threadsUserId)
+                .orElse(SocialPage.builder()
+                        .platformPageId(threadsUserId)
+                        .platform(PlatformType.THREADS)
+                        .connection(savedConn)
+                        .build());
+        page.setPageName(username);
+        page.setPageAccessToken(longLivedToken);
+        pageRepository.save(page);
+
+        log.info("Threads upserted: @{} ({})", username, threadsUserId);
+        return frontendUrl + "/accounts?connected=threads";
+    }
+
+    // ==================== Token Connect (no OAuth redirect) ====================
 
     public Map<String, Object> handleFacebookToken(String accessToken, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
@@ -237,60 +320,85 @@ public class OAuthService {
         return upsertFacebookConnection(brand, accessToken);
     }
 
-    // ==================== Shared Facebook upsert logic ====================
+    public Map<String, Object> handleBlueskyConnect(String handle, String appPassword, UUID brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+        WebClient bsky = webClientBuilder.baseUrl("https://bsky.social/xrpc").build();
+
+        JsonNode sessionResp = bsky.post()
+                .uri("/com.atproto.server.createSession")
+                .bodyValue(Map.of("identifier", handle, "password", appPassword))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String did = sessionResp.get("did").asText();
+        String resolvedHandle = sessionResp.get("handle").asText();
+        String accessJwt = sessionResp.get("accessJwt").asText();
+
+        SocialConnection connection = connectionRepository
+                .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.BLUESKY, did)
+                .orElse(SocialConnection.builder()
+                        .platform(PlatformType.BLUESKY)
+                        .accountId(did)
+                        .brand(brand)
+                        .build());
+        connection.setAccountName(resolvedHandle);
+        connection.setAccessToken(accessJwt);
+        connection.setRefreshToken(appPassword);
+        connection = connectionRepository.save(connection);
+
+        final SocialConnection savedConn = connection;
+        SocialPage page = pageRepository
+                .findByConnectionIdAndPlatformPageId(savedConn.getId(), did)
+                .orElse(SocialPage.builder()
+                        .platformPageId(did)
+                        .platform(PlatformType.BLUESKY)
+                        .connection(savedConn)
+                        .build());
+        page.setPageName(resolvedHandle);
+        page.setPageAccessToken(accessJwt);
+        pageRepository.save(page);
+
+        log.info("Bluesky upserted: {} ({})", resolvedHandle, did);
+        return Map.of("accountName", resolvedHandle, "accountId", did, "pageCount", 1);
+    }
+
+    // ==================== Shared Facebook upsert ====================
 
     private Map<String, Object> upsertFacebookConnection(Brand brand, String accessToken) {
         WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
-        // Get user info
         JsonNode meResp = fb.get()
-                .uri(uri -> uri.path("/me")
-                        .queryParam("access_token", accessToken)
-                        .build())
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block();
+                .uri(uri -> uri.path("/me").queryParam("access_token", accessToken).build())
+                .retrieve().bodyToMono(JsonNode.class).block();
 
         String accountName = meResp.has("name") ? meResp.get("name").asText() : "Facebook User";
         String accountId = meResp.get("id").asText();
 
-        // Upsert connection (find by brand + platform + accountId, or create new)
         SocialConnection connection = connectionRepository
                 .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.FACEBOOK, accountId)
                 .orElse(SocialConnection.builder()
-                        .platform(PlatformType.FACEBOOK)
-                        .accountId(accountId)
-                        .brand(brand)
-                        .build());
-
+                        .platform(PlatformType.FACEBOOK).accountId(accountId).brand(brand).build());
         connection.setAccountName(accountName);
         connection.setAccessToken(accessToken);
         connection = connectionRepository.save(connection);
 
-        // Get pages & upsert each
         int pageCount = 0;
         final SocialConnection savedConn = connection;
         JsonNode pagesResp = fb.get()
-                .uri(uri -> uri.path("/me/accounts")
-                        .queryParam("access_token", accessToken)
-                        .build())
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block();
+                .uri(uri -> uri.path("/me/accounts").queryParam("access_token", accessToken).build())
+                .retrieve().bodyToMono(JsonNode.class).block();
 
         if (pagesResp != null && pagesResp.has("data")) {
             for (JsonNode pageNode : pagesResp.get("data")) {
                 String platformPageId = pageNode.get("id").asText();
-
-                // Upsert page (find by connection + platformPageId, or create new)
                 SocialPage socialPage = pageRepository
                         .findByConnectionIdAndPlatformPageId(savedConn.getId(), platformPageId)
                         .orElse(SocialPage.builder()
-                                .platformPageId(platformPageId)
-                                .platform(PlatformType.FACEBOOK)
-                                .connection(savedConn)
-                                .build());
-
+                                .platformPageId(platformPageId).platform(PlatformType.FACEBOOK)
+                                .connection(savedConn).build());
                 socialPage.setPageName(pageNode.get("name").asText());
                 socialPage.setPageAccessToken(pageNode.get("access_token").asText());
                 pageRepository.save(socialPage);
@@ -299,11 +407,7 @@ public class OAuthService {
         }
 
         log.info("Facebook upserted: {} ({}) with {} pages", accountName, accountId, pageCount);
-        return Map.of(
-                "accountName", accountName,
-                "accountId", accountId,
-                "pageCount", pageCount
-        );
+        return Map.of("accountName", accountName, "accountId", accountId, "pageCount", pageCount);
     }
 
     // ==================== Helpers ====================

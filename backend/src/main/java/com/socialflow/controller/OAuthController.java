@@ -53,13 +53,29 @@ public class OAuthController {
         response.sendRedirect(redirectUrl);
     }
 
-    /**
-     * Facebook JS SDK connect - frontend sends accessToken after FB.login()
-     */
+    @GetMapping("/threads/callback")
+    public void threadsCallback(
+            @RequestParam String code,
+            @RequestParam String state,
+            HttpServletResponse response) throws IOException {
+        String redirectUrl = oauthService.handleThreadsCallback(code, state);
+        response.sendRedirect(redirectUrl);
+    }
+
+    /** Facebook JS SDK connect */
     @PostMapping("/facebook/connect")
     public Map<String, Object> facebookConnect(@RequestBody Map<String, Object> body) {
         String accessToken = (String) body.get("accessToken");
         UUID brandId = UUID.fromString(body.get("brandId").toString());
         return oauthService.handleFacebookToken(accessToken, brandId);
+    }
+
+    /** Bluesky connect — handle + app password, no OAuth */
+    @PostMapping("/bluesky/connect")
+    public Map<String, Object> blueskyConnect(@RequestBody Map<String, Object> body) {
+        String handle = (String) body.get("handle");
+        String appPassword = (String) body.get("appPassword");
+        UUID brandId = UUID.fromString(body.get("brandId").toString());
+        return oauthService.handleBlueskyConnect(handle, appPassword, brandId);
     }
 }

@@ -86,4 +86,8 @@ export const api = {
     // Facebook SDK connect (sends token from FB.login popup)
     facebookConnect: (data: { accessToken: string; brandId: string }) =>
         request('/oauth/facebook/connect', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Bluesky connect (handle + app password, no OAuth)
+    blueskyConnect: (data: { handle: string; appPassword: string; brandId: string }) =>
+        request('/oauth/bluesky/connect', { method: 'POST', body: JSON.stringify(data) }),
 };
