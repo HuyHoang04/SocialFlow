@@ -47,7 +47,8 @@ async function request(path: string, options: RequestInit = {}) {
         throw new Error(err || res.statusText);
     }
     if (res.status === 204) return null;
-    return res.json();
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
 }
 
 // Auth
@@ -78,7 +79,7 @@ export const api = {
     getPosts: () => request('/posts'),
     getPost: (id: string) => request(`/posts/${id}`),
     getPostsByPage: (pageId: string) => request(`/pages/${pageId}/posts`),
-    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[] }) =>
+    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[]; scheduledTime?: string; campaignId?: string }) =>
         request('/posts', { method: 'POST', body: JSON.stringify(data) }),
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
@@ -107,4 +108,19 @@ export const api = {
         }
         return res.json();
     },
+
+    getMedia: () => request('/media'),
+    deleteMedia: (id: string) => request(`/media/${id}`, { method: 'DELETE' }),
+
+    // Campaigns
+    getCampaigns: (brandId: string) => request(`/brands/${brandId}/campaigns`),
+    createCampaign: (brandId: string, data: { name: string; description?: string; startDate?: string; endDate?: string }) =>
+        request(`/brands/${brandId}/campaigns`, { method: 'POST', body: JSON.stringify(data) }),
+    deleteCampaign: (id: string) => request(`/campaigns/${id}`, { method: 'DELETE' }),
+
+    // Inbox
+    syncInbox: (brandId: string) => request(`/brands/${brandId}/inbox/sync`, { method: 'POST' }),
+    getInbox: (brandId: string) => request(`/brands/${brandId}/inbox`),
+    replyToInboxMessage: (id: string, content: string) => request(`/inbox/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
+    markInboxMessageRead: (id: string) => request(`/inbox/${id}/read`, { method: 'PUT' }),
 };

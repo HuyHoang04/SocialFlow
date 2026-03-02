@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface PostRepository extends JpaRepository<Post, UUID> {
     List<Post> findByPageIdOrderByCreatedAtDesc(UUID pageId);
     List<Post> findByPageConnectionBrandUserIdOrderByCreatedAtDesc(UUID userId);
+    List<Post> findByStatusAndScheduledTimeLessThanEqual(com.socialflow.model.enums.PostStatus status, java.time.LocalDateTime time);
 }

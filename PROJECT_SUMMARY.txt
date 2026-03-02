@@ -36,11 +36,13 @@ Backend proxy config in next.config.ts:
 ================================
 User (UUID id)
  └── Brand (UUID id)
-      └── SocialConnection (UUID id) — unique by (brand_id + platform + account_id), includes scopes & tokenExpiresAt
-           └── SocialPage (UUID id) — unique by (connection_id + platform_page_id)
-                └── Post (UUID id)
-                     ├── PostMedia (UUID id)
-                     └── PublishResult (UUID id)
+      ├── Campaign (UUID id) — includes name, description, startDate, endDate
+    └── SocialConnection (UUID id) — unique by (brand_id + platform + account_id), includes scopes & tokenExpiresAt
+         └── SocialPage (UUID id) — unique by (connection_id + platform_page_id)
+              ├── Post (UUID id) — includes scheduledTime, status, optionally belongs to a Campaign
+              │    ├── PostMedia (UUID id)
+              │    └── PublishResult (UUID id)
+              └── InboxMessage (UUID id) — comments and replies (platformMessageId, content, authorName, parentMessageId, isRead, isFromMe)
 
 IMPORTANT: All entity IDs use java.util.UUID with GenerationType.UUID.
 Frontend uses string IDs everywhere (not numbers).
@@ -92,20 +94,22 @@ src/main/java/com/socialflow/
 │   ├── Brand.java               — UUID id, name, description, logoUrl, user, connections[]
 │   ├── SocialConnection.java    — UUID id, platform, accountName, accountId, accessToken, scopes, tokenExpiresAt
 │   ├── SocialPage.java          — UUID id, platformPageId, pageName, pageAccessToken, connection, posts[]
-│   ├── Post.java                — UUID id, content, status, page, mediaFiles[], publishResults[]
-│   ├── PostMedia.java           — UUID id, filename, originalFilename, contentType, url, post
+│   ├── Post.java                — UUID id, content, status, page, mediaFiles[], publishResults[], scheduledTime
+│   ├── PostMedia.java           — UUID id, filename, originalFilename, contentType, url, post, uploader, createdAt
 │   ├── PublishResult.java       — UUID id, platformPostId, platformPostUrl, success, errorMessage
+│   ├── InboxMessage.java        — UUID id, platformMessageId, content, authorName, isRead, isFromMe, page, parentMessageId
 │   └── enums/
 │       ├── PlatformType.java    — FACEBOOK, TWITTER, LINKEDIN, BLUESKY, THREADS
-│       └── PostStatus.java      — DRAFT, PUBLISHING, PUBLISHED, FAILED
+│       └── PostStatus.java      — DRAFT, SCHEDULED, PUBLISHING, PUBLISHED, FAILED
 ├── repository/
 │   ├── UserRepository.java              — findByEmail, existsByEmail
 │   ├── BrandRepository.java             — findByUserId
 │   ├── SocialConnectionRepository.java  — findByBrandId, findByBrandIdAndPlatformAndAccountId (upsert)
 │   ├── SocialPageRepository.java        — findByConnectionId, findByConnectionIdAndPlatformPageId (upsert)
-│   ├── PostRepository.java              — findByPageId, findByPageConnectionBrandUserId
-│   ├── PostMediaRepository.java         — Custom media handling
-│   └── PublishResultRepository.java
+│   ├── PostRepository.java              — findByPageId, findByUserId, findByStatusAndScheduledTimeLessThanEqual
+│   ├── PostMediaRepository.java         — findByUploaderIdOrderByCreatedAtDesc
+│   ├── PublishResultRepository.java
+│   └── InboxMessageRepository.java      — findByPageConnectionBrandIdOrderByCreatedAtDesc, findByPlatformMessageIdAndPageId
 ├── dto/
 │   ├── RegisterRequest.java     — name, email, password
 │   ├── LoginRequest.java        — email, password
@@ -116,11 +120,13 @@ src/main/java/com/socialflow/
 ├── service/
 │   ├── AuthService.java         — register, login (returns JWT + user info)
 │   ├── BrandService.java        — CRUD for brands
-│   ├── PostService.java         — CRUD + publish for posts
+│   ├── PostService.java         — CRUD + publish for posts + handle scheduledTime
+│   ├── PostScheduler.java       — @Scheduled background job to publish due posts automatically
 │   ├── OAuthService.java        — OAuth flows + Facebook SDK + Bluesky connect + upsert logic
+│   ├── InboxService.java        — Syncs messages from Graph API, handles replies, and mark-as-read
 │   └── publisher/
 │       ├── PublisherService.java    — Routes to platform-specific publisher by PlatformType
-│       ├── FacebookPublisher.java   — POST /{pageId}/feed via Graph API
+│       ├── FacebookPublisher.java   — POST /{pageId}/feed via Graph API + fetchComments + replyToComment
 │       ├── TwitterPublisher.java    — POST /2/tweets via Twitter API v2
 │       ├── LinkedInPublisher.java   — POST /v2/ugcPosts via LinkedIn API
 │       ├── BlueskyPublisher.java    — AT Protocol: createSession → createRecord (app.bsky.feed.post)
@@ -131,8 +137,9 @@ src/main/java/com/socialflow/
     ├── ConnectionController.java — GET /api/brands/{id}/connections, pages, DELETE
     ├── OAuthController.java      — GET /api/oauth/{platform}/url, callbacks, connect endpoints
     ├── PostController.java       — GET/POST/DELETE /api/posts, POST /api/posts/{id}/publish
-    ├── MediaController.java      — POST /api/media/upload, GET /api/media/{filename}
-    └── WebhookController.java    — Facebook + LinkedIn webhook verification & event handlers
+    ├── MediaController.java      — POST /api/media/upload, GET/DELETE /api/media, GET /api/media/{filename}
+    ├── WebhookController.java    — Facebook + LinkedIn webhook verification & event handlers
+    └── InboxController.java      — GET /api/brands/{id}/inbox, POST sync, POST reply, PUT read
 
 
 8. API ENDPOINTS
@@ -160,10 +167,16 @@ PROTECTED (Bearer JWT):
   POST   /api/oauth/bluesky/connect              — Bluesky credential connect {handle, appPassword, brandId}
   GET    /api/posts                              — List user's posts
   GET    /api/posts/{id}                         — Get post detail
-  POST   /api/posts                              — Create post {content, pageIds[], mediaIds[]}
+  POST   /api/posts                              — Create post {content, pageIds[], mediaIds[], scheduledTime}
   POST   /api/posts/{id}/publish                 — Publish post
   DELETE /api/posts/{id}                         — Delete post
   POST   /api/media/upload                       — Multipart file upload for image/video
+  GET    /api/media                              — List user's media library
+  DELETE /api/media/{id}                         — Delete user's media asset
+  POST   /api/brands/{brandId}/inbox/sync        — Fetch new messages from social networks
+  GET    /api/brands/{brandId}/inbox             — Get all unified inbox messages for brand
+  POST   /api/inbox/{id}/reply                   — Reply to a specific comment
+  PUT    /api/inbox/{id}/read                    — Mark a message as read
 
 
 9. FRONTEND STRUCTURE (f:\SocialFlow\frontend\)
@@ -181,8 +194,10 @@ src/
     ├── login/page.tsx           — Login form
     ├── register/page.tsx        — Registration form
     ├── accounts/page.tsx        — Social account connections (5 platforms, Bluesky credential form)
-    ├── create/page.tsx          — Create post: select brand → select pages → write content → publish
-    └── posts/[id]/page.tsx      — Post detail: status, content, publish results
+    ├── create/page.tsx          — Create post: select brand → select pages → write content → pick Schedule Time → publish
+    ├── assets/page.tsx          — Media Asset Library: upload, view, and delete images/videos
+    ├── inbox/page.tsx           — Unified Inbox: view comments by thread and reply directly
+    └── posts/[id]/page.tsx      — Post detail: status, content, publish results, media, scheduled time
 
 Connect flows by platform:
   Facebook:  FB.login() popup → accessToken → POST /api/oauth/facebook/connect
@@ -244,7 +259,11 @@ Threads:
 - Tokens expire: the app now displays expiry and requires manual reconnect (no auto-refresh logic yet)
 - File uploads are stored locally in the `/uploads` directory (not S3/cloud storage)
 - No pagination for lists
-- No scheduled posting (immediate only)
 - LinkedIn publisher may need org vs personal URN adjustments
 - No unit tests
 - No Docker / deployment scripts
+
+14. TROUBLESHOOTING & LESSONS LEARNED
+=====================================
+- Spring Boot 3 & Security 6 Error Handling: By default, Spring Boot forwards 500 Internal Server Errors to the `/error` dispatcher. If this dispatcher is not permitted in `SecurityConfig`, the app masks the 500 error and returns a misleading `403 Forbidden`. Solution: Add `.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()` to the security filter chain.
+- Hibernate Schema Updates: When adding a `NOT NULL` column (like `@ManyToOne` for a User relationship) to an existing table that already contains data, Hibernate will fail to alter the table and throw a 500 error. A practical workaround during MVP development is to rename the `@Table(name = "new_table_name")` to force a clean schema creation.

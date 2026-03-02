@@ -15,4 +15,10 @@ public class CreatePostRequest {
 
     // List of uploaded media IDs to attach
     private List<UUID> mediaIds;
+
+    // ISO-8601 string for scheduled publishing
+    private String scheduledTime;
+
+    // Optional campaign reference
+    private UUID campaignId;
 }

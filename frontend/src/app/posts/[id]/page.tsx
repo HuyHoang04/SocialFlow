@@ -19,6 +19,8 @@ interface Post {
     status: string;
     createdAt: string;
     publishedAt: string | null;
+    scheduledTime: string | null;
+    campaignName?: string;
     page: { id: string; pageName: string; platform: string; brandName: string };
     mediaFiles: { id: string; url: string; contentType: string; originalName: string }[];
     publishResults: PublishResult[];
@@ -60,6 +62,7 @@ export default function PostDetailPage() {
     const badgeClass = (s: string) => {
         switch (s) {
             case 'DRAFT': return 'badge badge-draft';
+            case 'SCHEDULED': return 'badge badge-scheduled';
             case 'PUBLISHING': return 'badge badge-publishing';
             case 'PUBLISHED': return 'badge badge-published';
             case 'FAILED': return 'badge badge-failed';
@@ -77,11 +80,12 @@ export default function PostDetailPage() {
                     <h1 className="page-title">Post Detail</h1>
                     <p className="page-subtitle">
                         {platformIcon(post.page.platform)} {post.page.pageName} · {post.page.brandName}
+                        {post.campaignName && ` · 📈 Campaign: ${post.campaignName}`}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {post.status === 'DRAFT' && (
-                        <button className="btn btn-primary" onClick={publish}>🚀 Publish</button>
+                    {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
+                        <button className="btn btn-primary" onClick={publish}>🚀 Publish Now</button>
                     )}
                     {post.status === 'FAILED' && (
                         <button className="btn btn-primary" onClick={publish}>🔄 Retry</button>
@@ -95,6 +99,7 @@ export default function PostDetailPage() {
                     <span className={badgeClass(post.status)}>{post.status}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                         Created: {new Date(post.createdAt).toLocaleString('vi-VN')}
+                        {post.scheduledTime && ` · Scheduled for: ${new Date(post.scheduledTime).toLocaleString('vi-VN')}`}
                         {post.publishedAt && ` · Published: ${new Date(post.publishedAt).toLocaleString('vi-VN')}`}
                     </span>
                 </div>

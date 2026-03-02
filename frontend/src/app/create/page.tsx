@@ -35,6 +35,11 @@ export default function CreatePostPage() {
     const [loading, setLoading] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [error, setError] = useState('');
+    const [scheduledTime, setScheduledTime] = useState('');
+
+    // Campaigns state
+    const [campaigns, setCampaigns] = useState<{ id: string, name: string }[]>([]);
+    const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
     // Media state
     const [mediaFiles, setMediaFiles] = useState<UploadedMedia[]>([]);
@@ -53,9 +58,10 @@ export default function CreatePostPage() {
     useEffect(() => {
         if (!selectedBrand) return;
         setLoading(true);
-        api.getAllPagesForBrand(selectedBrand)
-            .then(p => { setPages(p); setSelectedPages([]); })
-            .finally(() => setLoading(false));
+        Promise.all([
+            api.getAllPagesForBrand(selectedBrand).then(p => { setPages(p); setSelectedPages([]); }),
+            api.getCampaigns(selectedBrand).then(c => { setCampaigns(c); setSelectedCampaign(''); })
+        ]).finally(() => setLoading(false));
     }, [selectedBrand]);
 
     const togglePage = (id: string) => {
@@ -113,10 +119,18 @@ export default function CreatePostPage() {
         handleFileUpload(e.dataTransfer.files);
     };
 
-    // ===== Publish/Draft =====
-    const handlePublish = async () => {
+    // ===== Publish/Schedule/Draft =====
+    const handleSubmit = async () => {
         if (!content.trim()) return setError('Please enter post content');
         if (selectedPages.length === 0) return setError('Please select at least one page');
+
+        let ISOStringTime = undefined;
+        if (scheduledTime) {
+            const date = new Date(scheduledTime);
+            if (date <= new Date()) return setError('Scheduled time must be in the future');
+            ISOStringTime = date.toISOString();
+        }
+
         setError('');
         setPublishing(true);
         try {
@@ -124,8 +138,14 @@ export default function CreatePostPage() {
                 content,
                 pageIds: selectedPages,
                 mediaIds: mediaFiles.map(m => m.id),
+                scheduledTime: ISOStringTime,
+                campaignId: selectedCampaign || undefined
             });
-            await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+
+            // If not scheduled, publish immediately
+            if (!ISOStringTime) {
+                await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+            }
             router.push('/');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Publish failed');
@@ -143,6 +163,7 @@ export default function CreatePostPage() {
                 content,
                 pageIds: selectedPages,
                 mediaIds: mediaFiles.map(m => m.id),
+                campaignId: selectedCampaign || undefined
             });
             router.push('/');
         } catch (err: unknown) {
@@ -178,6 +199,21 @@ export default function CreatePostPage() {
                         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
                             {content.length} characters
                             {content.length > 280 && <span style={{ color: 'var(--warning)' }}> (may be truncated on X/Twitter)</span>}
+                        </p>
+                    </div>
+
+                    {/* Schedule Picker Area */}
+                    <div className="form-group">
+                        <label className="form-label">Schedule Post (optional)</label>
+                        <input
+                            type="datetime-local"
+                            className="form-input"
+                            style={{ maxWidth: 250 }}
+                            value={scheduledTime}
+                            onChange={(e) => setScheduledTime(e.target.value)}
+                        />
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                            Leave empty to publish immediately.
                         </p>
                     </div>
 
@@ -285,8 +321,10 @@ export default function CreatePostPage() {
                     </div>
 
                     <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                        <button className="btn btn-primary btn-lg" onClick={handlePublish} disabled={publishing}>
-                            {publishing ? '🚀 Publishing...' : '🚀 Publish Now'}
+                        <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={publishing}>
+                            {publishing
+                                ? (scheduledTime ? '⏳ Scheduling...' : '🚀 Publishing...')
+                                : (scheduledTime ? '⏳ Schedule Post' : '🚀 Publish Now')}
                         </button>
                         <button className="btn btn-secondary btn-lg" onClick={handleSaveDraft}>
                             💾 Save Draft
@@ -302,6 +340,18 @@ export default function CreatePostPage() {
                             onChange={e => setSelectedBrand(e.target.value)}>
                             {brands.map(b => (
                                 <option key={b.id} value={b.id}>{b.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Campaign (optional)</label>
+                        <select className="form-input" value={selectedCampaign || ''}
+                            onChange={e => setSelectedCampaign(e.target.value)}
+                            disabled={campaigns.length === 0}>
+                            <option value="">No Campaign</option>
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                         </select>
                     </div>

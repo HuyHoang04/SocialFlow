@@ -24,6 +24,7 @@ public class PostService {
     private final SocialPageRepository pageRepository;
     private final PostMediaRepository mediaRepository;
     private final PublisherService publisherService;
+    private final CampaignRepository campaignRepository;
 
     public List<PostResponse> getPostsByUser(User user) {
         List<Post> posts = postRepository.findByPageConnectionBrandUserIdOrderByCreatedAtDesc(user.getId());
@@ -61,9 +62,26 @@ public class PostService {
             SocialPage page = pageRepository.findById(pageId)
                     .orElseThrow(() -> new RuntimeException("Page not found: " + pageId));
 
+            LocalDateTime scheduledTime = null;
+            PostStatus initialStatus = PostStatus.DRAFT;
+            if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
+                scheduledTime = LocalDateTime.parse(request.getScheduledTime());
+                if (scheduledTime.isAfter(LocalDateTime.now())) {
+                    initialStatus = PostStatus.SCHEDULED;
+                }
+            }
+
+            Campaign campaign = null;
+            if (request.getCampaignId() != null) {
+                campaign = campaignRepository.findById(request.getCampaignId())
+                        .orElseThrow(() -> new RuntimeException("Campaign not found: " + request.getCampaignId()));
+            }
+
             Post post = Post.builder()
                     .content(request.getContent())
-                    .status(PostStatus.DRAFT)
+                    .status(initialStatus)
+                    .scheduledTime(scheduledTime)
+                    .campaign(campaign)
                     .page(page)
                     .build();
             post = postRepository.save(post);
@@ -144,6 +162,9 @@ public class PostService {
                 .status(post.getStatus())
                 .createdAt(post.getCreatedAt())
                 .publishedAt(post.getPublishedAt())
+                .scheduledTime(post.getScheduledTime())
+                .campaignId(post.getCampaign() != null ? post.getCampaign().getId() : null)
+                .campaignName(post.getCampaign() != null ? post.getCampaign().getName() : null)
                 .page(PostResponse.PageInfo.builder()
                         .id(page.getId())
                         .pageName(page.getPageName())

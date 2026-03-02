@@ -11,4 +11,7 @@ public interface SocialPageRepository extends JpaRepository<SocialPage, UUID> {
 
     // For upsert: find existing page by connection + platformPageId
     Optional<SocialPage> findByConnectionIdAndPlatformPageId(UUID connectionId, String platformPageId);
+
+    // Find all pages for a specific brand
+    List<SocialPage> findByConnectionBrandId(UUID brandId);
 }

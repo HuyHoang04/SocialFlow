@@ -10,6 +10,8 @@ interface Post {
   status: string;
   createdAt: string;
   publishedAt: string | null;
+  scheduledTime: string | null;
+  campaignName?: string;
   page: { id: string; pageName: string; platform: string; brandName: string };
 }
 
@@ -68,6 +70,7 @@ export default function DashboardPage() {
   const badgeClass = (s: string) => {
     switch (s) {
       case 'DRAFT': return 'badge badge-draft';
+      case 'SCHEDULED': return 'badge badge-scheduled';
       case 'PUBLISHING': return 'badge badge-publishing';
       case 'PUBLISHED': return 'badge badge-published';
       case 'FAILED': return 'badge badge-failed';
@@ -156,6 +159,11 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span>{platformIcon(p.page.platform)}</span>
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.page.pageName}</span>
+                      {p.campaignName && (
+                        <span className="badge" style={{ background: 'var(--bg-glass)', color: 'var(--text-secondary)' }}>
+                          📈 {p.campaignName}
+                        </span>
+                      )}
                     </div>
                     <span className={badgeClass(p.status)}>{p.status}</span>
                   </div>
@@ -164,15 +172,19 @@ export default function DashboardPage() {
                   </p>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {new Date(p.createdAt).toLocaleDateString('vi-VN')}
+                      {p.scheduledTime
+                        ? `📅 ${new Date(p.scheduledTime).toLocaleString('vi-VN')}`
+                        : new Date(p.createdAt).toLocaleDateString('vi-VN')}
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {p.status === 'DRAFT' && (
-                        <button className="btn btn-primary btn-sm" onClick={() => publishPost(p.id)}>
-                          🚀 Publish
+                      {(p.status === 'DRAFT' || p.status === 'SCHEDULED') && (
+                        <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
+                          🚀 Publish Now
                         </button>
                       )}
-                      <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm">View</Link>
+                      <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
+                        View
+                      </Link>
                     </div>
                   </div>
                 </div>

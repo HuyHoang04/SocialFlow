@@ -2,16 +2,21 @@ package com.socialflow.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "post_media")
+@Table(name = "post_media_assets")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class PostMedia {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User uploader;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id")
@@ -33,4 +38,14 @@ public class PostMedia {
 
     @Column(nullable = false)
     private int sortOrder;          // ordering within a post
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }

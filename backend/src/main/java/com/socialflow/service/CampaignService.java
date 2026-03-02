@@ -1,0 +1,77 @@
+package com.socialflow.service;
+
+import com.socialflow.dto.CampaignRequest;
+import com.socialflow.dto.CampaignResponse;
+import com.socialflow.model.Brand;
+import com.socialflow.model.Campaign;
+import com.socialflow.repository.BrandRepository;
+import com.socialflow.repository.CampaignRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class CampaignService {
+
+    private final CampaignRepository campaignRepository;
+    private final BrandRepository brandRepository;
+
+    public CampaignResponse createCampaign(UUID brandId, UUID userId, CampaignRequest request) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+        if (!brand.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+        }
+
+        Campaign campaign = Campaign.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .brand(brand)
+                .build();
+
+        campaign = campaignRepository.save(campaign);
+        return toResponse(campaign);
+    }
+
+    public List<CampaignResponse> getCampaignsByBrand(UUID brandId, UUID userId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new RuntimeException("Brand not found"));
+
+        if (!brand.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+        }
+
+        return campaignRepository.findByBrandIdOrderByStartDateDesc(brandId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public void deleteCampaign(UUID id, UUID userId) {
+        Campaign campaign = campaignRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        if (!campaign.getBrand().getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: Campaign does not belong to user");
+        }
+
+        campaignRepository.delete(campaign);
+    }
+
+    private CampaignResponse toResponse(Campaign campaign) {
+        return CampaignResponse.builder()
+                .id(campaign.getId())
+                .name(campaign.getName())
+                .description(campaign.getDescription())
+                .startDate(campaign.getStartDate())
+                .endDate(campaign.getEndDate())
+                .brandId(campaign.getBrand().getId())
+                .build();
+    }
+}

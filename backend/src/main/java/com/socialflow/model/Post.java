@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "posts")
+@Table(name = "social_posts")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Post {
 
@@ -20,6 +20,10 @@ public class Post {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private Campaign campaign;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PostStatus status;
@@ -28,6 +32,8 @@ public class Post {
     private LocalDateTime createdAt;
 
     private LocalDateTime publishedAt;
+
+    private LocalDateTime scheduledTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "page_id", nullable = false)

@@ -17,7 +17,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+
+import com.socialflow.dto.PlatformCommentDto;
 
 @Component
 @RequiredArgsConstructor
@@ -142,5 +146,98 @@ public class FacebookPublisher {
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block();
+    }
+
+    public List<PlatformCommentDto> fetchComments(SocialPage page) {
+        List<PlatformCommentDto> results = new ArrayList<>();
+        try {
+            WebClient client = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
+            
+            // 1. Fetch recent posts
+            JsonNode feedNode = client.get()
+                    .uri(uriBuilder -> uriBuilder.path("/{pageId}/feed")
+                            .queryParam("access_token", page.getPageAccessToken())
+                            .queryParam("limit", 10)
+                            .queryParam("fields", "id")
+                            .build(page.getPlatformPageId()))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (feedNode != null && feedNode.has("data")) {
+                for (JsonNode postNode : feedNode.get("data")) {
+                    String postId = postNode.get("id").asText();
+                    
+                    // 2. Fetch comments for each post
+                    JsonNode commentsNode = client.get()
+                            .uri(uriBuilder -> uriBuilder.path("/{postId}/comments")
+                                    .queryParam("access_token", page.getPageAccessToken())
+                                    .queryParam("fields", "id,message,from,created_time,comments{id,message,from,created_time}")
+                                    .build(postId))
+                            .retrieve()
+                            .bodyToMono(JsonNode.class)
+                            .block();
+
+                    log.info("FB Comments raw response for post {}: {}", postId, commentsNode);
+
+                    if (commentsNode != null && commentsNode.has("data")) {
+                        for (JsonNode commentNode : commentsNode.get("data")) {
+                            parseFbComment(commentNode, postId, null, results);
+                        }
+                    }
+                }
+            }
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            log.error("Failed to fetch Facebook comments (HTTP {}): {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("Failed to fetch Facebook comments: {}", e.getMessage(), e);
+        }
+        return results;
+    }
+
+    private void parseFbComment(JsonNode commentNode, String postId, String parentMessageId, List<PlatformCommentDto> results) {
+        if (!commentNode.has("message") || !commentNode.has("from")) return;
+
+        String messageId = commentNode.get("id").asText();
+        String message = commentNode.get("message").asText();
+        String author = commentNode.get("from").get("name").asText();
+        String createdTimeObj = commentNode.get("created_time").asText();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+        LocalDateTime createdAt = LocalDateTime.parse(createdTimeObj, formatter);
+
+        results.add(PlatformCommentDto.builder()
+                .platformMessageId(messageId)
+                .platformPostId(postId)
+                .parentMessageId(parentMessageId)
+                .content(message)
+                .authorName(author)
+                .createdAt(createdAt)
+                .build());
+
+        // Parse nested replies
+        if (commentNode.has("comments") && commentNode.get("comments").has("data")) {
+            for (JsonNode replyNode : commentNode.get("comments").get("data")) {
+                parseFbComment(replyNode, postId, messageId, results);
+            }
+        }
+    }
+
+    public void replyToComment(SocialPage page, String commentId, String message) {
+        try {
+            WebClient client = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
+            client.post()
+                    .uri("/{commentId}/comments", commentId)
+                    .bodyValue(Map.of(
+                            "message", message,
+                            "access_token", page.getPageAccessToken()
+                    ))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+        } catch (Exception e) {
+            log.error("Failed to post Facebook reply: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to reply on Facebook: " + e.getMessage());
+        }
     }
 }

@@ -12,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.socialflow.model.User;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
@@ -47,7 +49,7 @@ public class MediaController {
      * Returns the saved PostMedia metadata.
      */
     @PostMapping("/upload")
-    public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file) throws IOException {
+    public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal User user) throws IOException {
         if (file.isEmpty()) {
             throw new RuntimeException("File is empty");
         }
@@ -77,6 +79,7 @@ public class MediaController {
                 .fileSize(file.getSize())
                 .url("/api/media/" + filename)
                 .sortOrder(0)
+                .uploader(user)
                 .build();
         media = mediaRepository.save(media);
 
@@ -114,5 +117,60 @@ public class MediaController {
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
                 .body(resource);
+    }
+
+    /**
+     * Get all media for the current user
+     */
+    @GetMapping
+    public ResponseEntity<List<Map<String, Object>>> getUserMedia(@AuthenticationPrincipal User user) {
+        List<PostMedia> mediaList = mediaRepository.findByUploaderIdOrderByCreatedAtDesc(user.getId());
+        
+        List<Map<String, Object>> response = mediaList.stream().map(m -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", m.getId().toString());
+            map.put("url", m.getUrl());
+            map.put("originalName", m.getOriginalName());
+            map.put("contentType", m.getContentType());
+            map.put("fileSize", m.getFileSize());
+            map.put("createdAt", m.getCreatedAt().toString());
+            if (m.getPost() != null) {
+                map.put("postId", m.getPost().getId().toString());
+            }
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Delete a media file
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMedia(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        PostMedia media = mediaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Media not found: " + id));
+
+        if (!media.getUploader().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized to delete this media");
+        }
+
+        if (media.getPost() != null) {
+            throw new RuntimeException("Cannot delete media that is attached to a post");
+        }
+
+        // Delete from filesystem
+        try {
+            Path filePath = uploadPath.resolve(media.getFilename()).normalize();
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            log.error("Failed to delete file from filesystem: {}", media.getFilename(), e);
+        }
+
+        // Delete from database
+        mediaRepository.delete(media);
+        log.info("Deleted media {} by user {}", id, user.getEmail());
+
+        return ResponseEntity.noContent().build();
     }
 }

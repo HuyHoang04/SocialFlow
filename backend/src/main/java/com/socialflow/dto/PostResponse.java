@@ -15,6 +15,9 @@ public class PostResponse {
     private PostStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime publishedAt;
+    private LocalDateTime scheduledTime;
+    private UUID campaignId;
+    private String campaignName;
     private PageInfo page;
     private List<MediaInfo> mediaFiles;
     private List<PublishResultResponse> publishResults;

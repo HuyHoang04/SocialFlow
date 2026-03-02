@@ -14,7 +14,10 @@ export default function Sidebar() {
 
     const nav = [
         { href: '/', icon: '📊', label: 'Dashboard' },
+        { href: '/inbox', icon: '📥', label: 'Inbox' },
         { href: '/create', icon: '✏️', label: 'Create Post' },
+        { href: '/assets', icon: '🖼️', label: 'Media Assets' },
+        { href: '/campaigns', icon: '📈', label: 'Campaigns' },
         { href: '/accounts', icon: '🔗', label: 'Accounts' },
     ];
 
