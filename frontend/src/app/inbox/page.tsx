@@ -55,20 +55,24 @@ export default function InboxPage() {
         try {
             const data = await api.getInbox(selectedBrand);
             setMessages(data);
-
-            // If already looking at a message, update it with fresh data
-            if (selectedMessage) {
-                const refreshed = data.find((m: InboxMessage) => m.id === selectedMessage.id);
-                if (refreshed) setSelectedMessage(refreshed);
-            }
         } catch (err: any) {
             setError(err.message || 'Failed to load inbox');
         } finally {
             setLoading(false);
         }
-    }, [selectedBrand, selectedMessage]);
+    }, [selectedBrand]);
 
     useEffect(() => { loadInbox(); }, [loadInbox]);
+
+    // Separate effect to update selectedMessage when messages change
+    useEffect(() => {
+        if (selectedMessage && messages.length > 0) {
+            const refreshed = messages.find((m: InboxMessage) => m.id === selectedMessage.id);
+            if (refreshed && JSON.stringify(refreshed) !== JSON.stringify(selectedMessage)) {
+                setSelectedMessage(refreshed);
+            }
+        }
+    }, [messages, selectedMessage]);
 
     const handleSync = async () => {
         if (!selectedBrand) return;
