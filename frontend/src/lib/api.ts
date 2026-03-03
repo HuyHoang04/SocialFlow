@@ -123,4 +123,15 @@ export const api = {
     getInbox: (brandId: string) => request(`/brands/${brandId}/inbox`),
     replyToInboxMessage: (id: string, content: string) => request(`/inbox/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
     markInboxMessageRead: (id: string) => request(`/inbox/${id}/read`, { method: 'PUT' }),
+
+    // Analytics
+    syncAnalytics: (brandId: string) => request(`/analytics/brands/${brandId}/sync`, { method: 'POST' }),
+    syncPostAnalytics: (brandId: string) => request(`/analytics/brands/${brandId}/sync/posts`, { method: 'POST' }),
+    syncPageAnalytics: (brandId: string) => request(`/analytics/brands/${brandId}/sync/pages`, { method: 'POST' }),
+    getAnalyticsOverview: (brandId: string) => request(`/analytics/brands/${brandId}/overview`),
+    getPostAnalyticsByBrand: (brandId: string) => request(`/analytics/brands/${brandId}/posts`),
+    getPostAnalytics: (postId: string) => request(`/analytics/posts/${postId}`),
+    getPostAnalyticsHistory: (postId: string) => request(`/analytics/posts/${postId}/history`),
+    getPageAnalytics: (pageId: string) => request(`/analytics/pages/${pageId}`),
+    getPageAnalyticsHistory: (pageId: string) => request(`/analytics/pages/${pageId}/history`),
 };

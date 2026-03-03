@@ -169,11 +169,14 @@ public class FacebookPublisher {
                     String postId = postNode.get("id").asText();
                     
                     // 2. Fetch comments for each post
+                    String commentsUrl = String.format(
+                            "https://graph.facebook.com/v18.0/%s/comments?access_token=%s&fields=%s",
+                            postId,
+                            page.getPageAccessToken(),
+                            "id,message,from,created_time,comments%7Bid,message,from,created_time%7D"
+                    );
                     JsonNode commentsNode = client.get()
-                            .uri(uriBuilder -> uriBuilder.path("/{postId}/comments")
-                                    .queryParam("access_token", page.getPageAccessToken())
-                                    .queryParam("fields", "id,message,from,created_time,comments{id,message,from,created_time}")
-                                    .build(postId))
+                            .uri(java.net.URI.create(commentsUrl))
                             .retrieve()
                             .bodyToMono(JsonNode.class)
                             .block();
