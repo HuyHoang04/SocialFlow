@@ -1,12 +1,8 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
-
-interface Brand {
-    id: string;
-    name: string;
-}
 
 interface Campaign {
     id: string;
@@ -18,8 +14,7 @@ interface Campaign {
 }
 
 export default function CampaignsPage() {
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+    const { selectedBrand: brand } = useBrand();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -32,42 +27,30 @@ export default function CampaignsPage() {
     const [endDate, setEndDate] = useState('');
     const [error, setError] = useState('');
 
-    const loadBrands = useCallback(async () => {
-        try {
-            const b = await api.getBrands();
-            setBrands(b);
-            if (b.length > 0) setSelectedBrand(b[0].id);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load brands');
-        }
-    }, []);
-
-    useEffect(() => { loadBrands(); }, [loadBrands]);
-
     const loadCampaigns = useCallback(async () => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setLoading(true);
         try {
-            const data = await api.getCampaigns(selectedBrand);
+            const data = await api.getCampaigns(brand.id);
             setCampaigns(data);
         } catch (err: any) {
             setError(err.message || 'Failed to load campaigns');
         } finally {
             setLoading(false);
         }
-    }, [selectedBrand]);
+    }, [brand]);
 
     useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedBrand) return;
+        if (!brand) return;
         if (!name.trim()) return setError('Campaign name is required');
 
         setSubmitting(true);
         setError('');
         try {
-            await api.createCampaign(selectedBrand, {
+            await api.createCampaign(brand.id, {
                 name,
                 description,
                 startDate: startDate || undefined,
@@ -104,17 +87,6 @@ export default function CampaignsPage() {
                     <p className="page-subtitle">Group and track related posts together</p>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <select
-                        className="form-input"
-                        value={selectedBrand || ''}
-                        onChange={e => setSelectedBrand(e.target.value)}
-                        style={{ minWidth: 200, margin: 0 }}
-                    >
-                        {brands.length === 0 && <option value="">Loading Brands...</option>}
-                        {brands.map(b => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                    </select>
                     <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
                         {showForm ? 'Cancel' : '➕ New Campaign'}
                     </button>

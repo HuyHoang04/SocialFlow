@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 
 interface PageAnalytics {
     id: string;
@@ -53,29 +54,16 @@ interface AnalyticsOverview {
     pages: PageAnalytics[];
 }
 
-interface Brand {
-    id: string;
-    name: string;
-}
-
 type TabType = 'overview' | 'posts' | 'pages';
 
 export default function AnalyticsPage() {
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [selectedBrand, setSelectedBrand] = useState<string>('');
+    const { selectedBrand: brand } = useBrand();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
     const [postAnalytics, setPostAnalytics] = useState<PostAnalytics[]>([]);
     const [syncing, setSyncing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [lastSynced, setLastSynced] = useState<string | null>(null);
-
-    useEffect(() => {
-        api.getBrands().then((data: Brand[]) => {
-            setBrands(data || []);
-            if (data && data.length > 0) setSelectedBrand(data[0].id);
-        });
-    }, []);
 
     const loadAnalytics = useCallback(async (brandId: string) => {
         if (!brandId) return;
@@ -88,7 +76,6 @@ export default function AnalyticsPage() {
             setOverview(ov);
             setPostAnalytics(posts || []);
         } catch {
-            // Data not yet synced — that's OK
             setOverview(null);
             setPostAnalytics([]);
         } finally {
@@ -97,16 +84,16 @@ export default function AnalyticsPage() {
     }, []);
 
     useEffect(() => {
-        if (selectedBrand) loadAnalytics(selectedBrand);
-    }, [selectedBrand, loadAnalytics]);
+        if (brand) loadAnalytics(brand.id);
+    }, [brand, loadAnalytics]);
 
     const handleSync = async () => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setSyncing(true);
         try {
-            await api.syncAnalytics(selectedBrand);
+            await api.syncAnalytics(brand.id);
             setLastSynced(new Date().toLocaleTimeString());
-            await loadAnalytics(selectedBrand);
+            await loadAnalytics(brand.id);
         } catch (e: unknown) {
             alert('Sync failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
         } finally {
@@ -140,20 +127,10 @@ export default function AnalyticsPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <select
-                            value={selectedBrand}
-                            onChange={e => setSelectedBrand(e.target.value)}
-                            className="input"
-                            style={{ minWidth: 180 }}
-                        >
-                            {brands.map(b => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </select>
                         <button
                             className="btn btn-primary"
                             onClick={handleSync}
-                            disabled={syncing || !selectedBrand}
+                            disabled={syncing || !brand}
                         >
                             {syncing ? '⏳ Syncing...' : '🔄 Sync Data'}
                         </button>

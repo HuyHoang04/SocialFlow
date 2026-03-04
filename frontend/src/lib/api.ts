@@ -26,6 +26,7 @@ export function setUser(user: { email: string; name: string; userId: string }) {
 export function logout() {
     removeToken();
     localStorage.removeItem('sf_user');
+    localStorage.removeItem('sf_selected_brand');
     window.location.href = '/login';
 }
 

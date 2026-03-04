@@ -19,7 +19,7 @@ export default function LoginPage() {
             const res = await api.login({ email, password });
             setToken(res.token);
             setUser({ email: res.email, name: res.name, userId: res.userId });
-            router.push('/');
+            router.push('/brands');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Login failed');
         } finally {

@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 
 /* global FB */
@@ -18,7 +19,6 @@ declare global {
 
 const FB_APP_ID = '1867627970477000';
 
-interface Brand { id: string; name: string; connectionCount: number; }
 interface Connection {
     id: string; platform: string; accountName: string; accountId: string;
     createdAt: string; pageCount: number;
@@ -90,13 +90,9 @@ const PLATFORMS = [
 
 function AccountsContent() {
     const searchParams = useSearchParams();
-    const brandIdParam = searchParams.get('brandId');
     const connectedParam = searchParams.get('connected');
+    const { selectedBrand: brand } = useBrand();
 
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [selectedBrand, setSelectedBrand] = useState<string | null>(
-        brandIdParam || null
-    );
     const [connections, setConnections] = useState<Connection[]>([]);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
@@ -129,34 +125,26 @@ function AccountsContent() {
         document.body.appendChild(script);
     }, []);
 
-    const loadBrands = useCallback(async () => {
-        const b = await api.getBrands();
-        setBrands(b);
-        if (!selectedBrand && b.length > 0) setSelectedBrand(b[0].id);
-        setLoading(false);
-    }, [selectedBrand]);
-
-    useEffect(() => { loadBrands(); }, [loadBrands]);
-
     const loadConnections = useCallback(async () => {
-        if (!selectedBrand) return;
-        const c = await api.getConnections(selectedBrand);
+        if (!brand) return;
+        const c = await api.getConnections(brand.id);
         setConnections(c);
-    }, [selectedBrand]);
+        setLoading(false);
+    }, [brand]);
 
     useEffect(() => { loadConnections(); }, [loadConnections]);
 
     // ========== Connect handlers ==========
 
     const connectFacebook = () => {
-        if (!selectedBrand || !window.FB) return;
+        if (!brand || !window.FB) return;
         setConnecting('facebook');
 
         window.FB.login((response) => {
             if (response.authResponse) {
                 const accessToken = response.authResponse.accessToken;
                 // Send token to backend
-                api.facebookConnect({ accessToken, brandId: selectedBrand })
+                api.facebookConnect({ accessToken, brandId: brand.id })
                     .then(() => {
                         setSuccessMsg('Facebook');
                         loadConnections();
@@ -172,10 +160,10 @@ function AccountsContent() {
     };
 
     const connectPlatformRedirect = async (platform: string) => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setConnecting(platform);
         try {
-            const res = await api.getOAuthUrl(platform, selectedBrand);
+            const res = await api.getOAuthUrl(platform, brand.id);
             window.location.href = res.url;
         } catch {
             setConnecting(null);
@@ -183,10 +171,10 @@ function AccountsContent() {
     };
 
     const connectBluesky = async () => {
-        if (!selectedBrand || !bskyHandle || !bskyAppPassword) return;
+        if (!brand || !bskyHandle || !bskyAppPassword) return;
         setConnecting('bluesky');
         try {
-            await api.blueskyConnect({ handle: bskyHandle, appPassword: bskyAppPassword, brandId: selectedBrand });
+            await api.blueskyConnect({ handle: bskyHandle, appPassword: bskyAppPassword, brandId: brand.id });
             setSuccessMsg('Bluesky');
             setBskyHandle('');
             setBskyAppPassword('');
@@ -243,33 +231,8 @@ function AccountsContent() {
 
             {loading ? (
                 <div className="loading-center"><div className="spinner" /></div>
-            ) : brands.length === 0 ? (
-                <div className="empty-state">
-                    <div className="empty-state-icon">🏢</div>
-                    <div className="empty-state-title">No brands yet</div>
-                    <div className="empty-state-text">Create a brand from the Dashboard first, then come back to connect accounts</div>
-                </div>
             ) : (
                 <>
-                    {/* Brand Selector */}
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 16,
-                        marginBottom: 36, padding: '16px 20px',
-                        background: 'var(--bg-glass)', border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius)', maxWidth: 400
-                    }}>
-                        <span style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                            BRAND
-                        </span>
-                        <select className="form-input" value={selectedBrand || ''}
-                            onChange={e => setSelectedBrand(e.target.value)}
-                            style={{ background: 'transparent', border: 'none', padding: '4px 0', fontSize: 15, fontWeight: 600 }}>
-                            {brands.map(b => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
                     {/* Platform Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
                         {PLATFORMS.map(platform => {

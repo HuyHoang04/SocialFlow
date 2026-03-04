@@ -1,12 +1,8 @@
 'use client';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
-
-interface Brand {
-    id: string;
-    name: string;
-}
 
 interface InboxMessage {
     id: string;
@@ -25,8 +21,7 @@ interface InboxMessage {
 }
 
 export default function InboxPage() {
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+    const { selectedBrand: brand } = useBrand();
     const [messages, setMessages] = useState<InboxMessage[]>([]);
     const [selectedMessage, setSelectedMessage] = useState<InboxMessage | null>(null);
     const [loading, setLoading] = useState(false);
@@ -37,30 +32,18 @@ export default function InboxPage() {
     const [replyContent, setReplyContent] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
 
-    const loadBrands = useCallback(async () => {
-        try {
-            const b = await api.getBrands();
-            setBrands(b);
-            if (b.length > 0) setSelectedBrand(b[0].id);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load brands');
-        }
-    }, []);
-
-    useEffect(() => { loadBrands(); }, [loadBrands]);
-
     const loadInbox = useCallback(async () => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setLoading(true);
         try {
-            const data = await api.getInbox(selectedBrand);
+            const data = await api.getInbox(brand.id);
             setMessages(data);
         } catch (err: any) {
             setError(err.message || 'Failed to load inbox');
         } finally {
             setLoading(false);
         }
-    }, [selectedBrand]);
+    }, [brand]);
 
     useEffect(() => { loadInbox(); }, [loadInbox]);
 
@@ -75,11 +58,11 @@ export default function InboxPage() {
     }, [messages, selectedMessage]);
 
     const handleSync = async () => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setSyncing(true);
         setError('');
         try {
-            await api.syncInbox(selectedBrand);
+            await api.syncInbox(brand.id);
             await loadInbox();
         } catch (err: any) {
             setError(err.message || 'Failed to sync inbox');
@@ -140,17 +123,6 @@ export default function InboxPage() {
                     <p className="page-subtitle">Engage with your audience across all platforms</p>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <select
-                        className="form-input"
-                        value={selectedBrand || ''}
-                        onChange={e => { setSelectedBrand(e.target.value); setSelectedMessage(null); }}
-                        style={{ minWidth: 200, margin: 0 }}
-                    >
-                        {brands.length === 0 && <option value="">Loading Brands...</option>}
-                        {brands.map(b => (
-                            <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                    </select>
                     <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
                         {syncing ? '🔄 Syncing...' : '🔄 Sync Inbox'}
                     </button>

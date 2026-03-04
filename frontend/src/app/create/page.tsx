@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 
 interface PageItem {
@@ -10,11 +11,6 @@ interface PageItem {
     platform: string;
     connectionName: string;
     platformPageId: string;
-}
-
-interface Brand {
-    id: string;
-    name: string;
 }
 
 interface UploadedMedia {
@@ -27,8 +23,7 @@ interface UploadedMedia {
 
 export default function CreatePostPage() {
     const router = useRouter();
-    const [brands, setBrands] = useState<Brand[]>([]);
-    const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+    const { selectedBrand: brand } = useBrand();
     const [pages, setPages] = useState<PageItem[]>([]);
     const [selectedPages, setSelectedPages] = useState<string[]>([]);
     const [content, setContent] = useState('');
@@ -47,22 +42,14 @@ export default function CreatePostPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
 
-    const loadBrands = useCallback(async () => {
-        const b = await api.getBrands();
-        setBrands(b);
-        if (b.length > 0) setSelectedBrand(b[0].id);
-    }, []);
-
-    useEffect(() => { loadBrands(); }, [loadBrands]);
-
     useEffect(() => {
-        if (!selectedBrand) return;
+        if (!brand) return;
         setLoading(true);
         Promise.all([
-            api.getAllPagesForBrand(selectedBrand).then(p => { setPages(p); setSelectedPages([]); }),
-            api.getCampaigns(selectedBrand).then(c => { setCampaigns(c); setSelectedCampaign(''); })
+            api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
+            api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); })
         ]).finally(() => setLoading(false));
-    }, [selectedBrand]);
+    }, [brand]);
 
     const togglePage = (id: string) => {
         setSelectedPages(prev =>
@@ -146,7 +133,7 @@ export default function CreatePostPage() {
             if (!ISOStringTime) {
                 await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
             }
-            router.push('/');
+            router.push('/dashboard');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Publish failed');
         } finally {
@@ -165,7 +152,7 @@ export default function CreatePostPage() {
                 mediaIds: mediaFiles.map(m => m.id),
                 campaignId: selectedCampaign || undefined
             });
-            router.push('/');
+            router.push('/dashboard');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Save failed');
         }
@@ -334,16 +321,6 @@ export default function CreatePostPage() {
 
                 {/* Right: Platform Selector */}
                 <div>
-                    <div className="form-group">
-                        <label className="form-label">Brand</label>
-                        <select className="form-input" value={selectedBrand || ''}
-                            onChange={e => setSelectedBrand(e.target.value)}>
-                            {brands.map(b => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
                     <div className="form-group">
                         <label className="form-label">Campaign (optional)</label>
                         <select className="form-input" value={selectedCampaign || ''}

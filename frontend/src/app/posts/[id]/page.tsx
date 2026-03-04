@@ -37,7 +37,7 @@ export default function PostDetailPage() {
         try {
             const p = await api.getPost(id);
             setPost(p);
-        } catch { router.push('/'); }
+        } catch { router.push('/dashboard'); }
         setLoading(false);
     }, [id, router]);
 
@@ -52,7 +52,7 @@ export default function PostDetailPage() {
     const deletePost = async () => {
         if (!post || !confirm('Delete this post?')) return;
         await api.deletePost(post.id);
-        router.push('/');
+        router.push('/dashboard');
     };
 
     const platformIcon = (p: string) => {

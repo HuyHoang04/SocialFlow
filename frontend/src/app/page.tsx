@@ -1,198 +1,261 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import { api } from '@/lib/api';
-import AppShell from '@/components/AppShell';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getUser } from '@/lib/api';
 
-interface Post {
-  id: string;
-  content: string;
-  status: string;
-  createdAt: string;
-  publishedAt: string | null;
-  scheduledTime: string | null;
-  campaignName?: string;
-  page: { id: string; pageName: string; platform: string; brandName: string };
-}
+export default function LandingPage() {
+    const [loggedIn, setLoggedIn] = useState(false);
 
-interface Brand {
-  id: string;
-  name: string;
-  connectionCount: number;
-}
+    useEffect(() => {
+        setLoggedIn(!!getUser());
+    }, []);
 
-export default function DashboardPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newBrand, setNewBrand] = useState('');
-  const [showBrandForm, setShowBrandForm] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const [p, b] = await Promise.all([api.getPosts(), api.getBrands()]);
-      setPosts(p);
-      setBrands(b);
-    } catch { /* redirect handled by api */ }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const createBrand = async () => {
-    if (!newBrand.trim()) return;
-    await api.createBrand({ name: newBrand.trim() });
-    setNewBrand('');
-    setShowBrandForm(false);
-    load();
-  };
-
-  const deleteBrand = async (id: string) => {
-    if (!confirm('Delete this brand and all its connections?')) return;
-    await api.deleteBrand(id);
-    load();
-  };
-
-  const publishPost = async (id: string) => {
-    await api.publishPost(id);
-    load();
-  };
-
-  const platformIcon = (p: string) => {
-    switch (p) {
-      case 'FACEBOOK': return '📘';
-      case 'TWITTER': return '✖️';
-      case 'LINKEDIN': return '💼';
-      default: return '🌐';
-    }
-  };
-
-  const badgeClass = (s: string) => {
-    switch (s) {
-      case 'DRAFT': return 'badge badge-draft';
-      case 'SCHEDULED': return 'badge badge-scheduled';
-      case 'PUBLISHING': return 'badge badge-publishing';
-      case 'PUBLISHED': return 'badge badge-published';
-      case 'FAILED': return 'badge badge-failed';
-      default: return 'badge';
-    }
-  };
-
-  return (
-    <AppShell>
-      {loading ? (
-        <div className="loading-center"><div className="spinner" /></div>
-      ) : (
-        <>
-          {/* Brands Section */}
-          <div className="page-header">
-            <div>
-              <h1 className="page-title">Your Brands</h1>
-              <p className="page-subtitle">Manage your brands and social connections</p>
+    return (
+        <div className="landing">
+            {/* Animated background */}
+            <div className="landing-bg">
+                <div className="landing-orb landing-orb-1" />
+                <div className="landing-orb landing-orb-2" />
+                <div className="landing-orb landing-orb-3" />
+                <div className="landing-grid-overlay" />
             </div>
-            <button className="btn btn-primary" onClick={() => setShowBrandForm(!showBrandForm)}>
-              + New Brand
-            </button>
-          </div>
 
-          {showBrandForm && (
-            <div className="card" style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center' }}>
-              <input className="form-input" placeholder="Brand name..."
-                value={newBrand} onChange={e => setNewBrand(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && createBrand()}
-                style={{ flex: 1 }} />
-              <button className="btn btn-primary" onClick={createBrand}>Create</button>
-              <button className="btn btn-secondary" onClick={() => setShowBrandForm(false)}>Cancel</button>
-            </div>
-          )}
-
-          {brands.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">🏢</div>
-              <div className="empty-state-title">No brands yet</div>
-              <div className="empty-state-text">Create a brand to start connecting your social accounts</div>
-            </div>
-          ) : (
-            <div className="grid grid-3" style={{ marginBottom: 48 }}>
-              {brands.map(b => (
-                <div key={b.id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                    <div>
-                      <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>{b.name}</h3>
-                      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                        {b.connectionCount} connection{b.connectionCount !== 1 ? 's' : ''}
-                      </p>
+            {/* Navigation */}
+            <header className="landing-nav">
+                <div className="landing-nav-inner">
+                    <div className="landing-logo">⚡ SocialFlow</div>
+                    <div className="landing-nav-links">
+                        <a href="#features" className="landing-link">Features</a>
+                        <a href="#platforms" className="landing-link">Platforms</a>
+                        <a href="#workflow" className="landing-link">Workflow</a>
+                        {loggedIn ? (
+                            <Link href="/brands" className="btn btn-primary">Go to Dashboard →</Link>
+                        ) : (
+                            <>
+                                <Link href="/login" className="btn btn-ghost landing-nav-btn">Login</Link>
+                                <Link href="/register" className="btn btn-primary landing-nav-btn">Register</Link>
+                            </>
+                        )}
                     </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteBrand(b.id)}>✕</button>
-                  </div>
-                  <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                    <Link href={`/accounts?brandId=${b.id}`} className="btn btn-secondary btn-sm">
-                      🔗 Connections
-                    </Link>
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+            </header>
 
-          {/* Posts Section */}
-          <div className="page-header">
-            <div>
-              <h1 className="page-title">Recent Posts</h1>
-              <p className="page-subtitle">{posts.length} post{posts.length !== 1 ? 's' : ''}</p>
-            </div>
-            <Link href="/create" className="btn btn-primary">✏️ Create Post</Link>
-          </div>
-
-          {posts.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">📝</div>
-              <div className="empty-state-title">No posts yet</div>
-              <div className="empty-state-text">Create your first post and publish it across platforms</div>
-              <Link href="/create" className="btn btn-primary">Create Post</Link>
-            </div>
-          ) : (
-            <div className="grid grid-2">
-              {posts.map(p => (
-                <div key={p.id} className="card" style={{ cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>{platformIcon(p.page.platform)}</span>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.page.pageName}</span>
-                      {p.campaignName && (
-                        <span className="badge" style={{ background: 'var(--bg-glass)', color: 'var(--text-secondary)' }}>
-                          📈 {p.campaignName}
-                        </span>
-                      )}
-                    </div>
-                    <span className={badgeClass(p.status)}>{p.status}</span>
-                  </div>
-                  <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16, color: 'var(--text-secondary)' }}>
-                    {p.content.length > 120 ? p.content.substring(0, 120) + '...' : p.content}
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      {p.scheduledTime
-                        ? `📅 ${new Date(p.scheduledTime).toLocaleString('vi-VN')}`
-                        : new Date(p.createdAt).toLocaleDateString('vi-VN')}
-                    </span>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {(p.status === 'DRAFT' || p.status === 'SCHEDULED') && (
-                        <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
-                          🚀 Publish Now
-                        </button>
-                      )}
-                      <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
-                        View
-                      </Link>
-                    </div>
-                  </div>
+            {/* Hero Section */}
+            <section className="landing-hero">
+                <div className="landing-badge">🚀 Social Media Management Platform</div>
+                <h1 className="landing-hero-title">
+                    Manage All Your<br />
+                    <span className="landing-gradient-text">Social Media</span><br />
+                    In One Place
+                </h1>
+                <p className="landing-hero-subtitle">
+                    Write once, publish everywhere. Schedule posts, track analytics, engage with your
+                    audience — all from a single, beautiful dashboard.
+                </p>
+                <div className="landing-hero-actions">
+                    {loggedIn ? (
+                        <Link href="/brands" className="btn btn-primary btn-lg landing-hero-btn">
+                            Open Dashboard →
+                        </Link>
+                    ) : (
+                        <>
+                            <Link href="/register" className="btn btn-primary btn-lg landing-hero-btn">
+                                Start Free Today
+                            </Link>
+                            <Link href="/login" className="btn btn-secondary btn-lg landing-hero-btn">
+                                Sign In
+                            </Link>
+                        </>
+                    )}
                 </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </AppShell>
-  );
+
+                {/* Stats */}
+                <div className="landing-stats">
+                    <div className="landing-stat">
+                        <span className="landing-stat-value">5+</span>
+                        <span className="landing-stat-label">Platforms</span>
+                    </div>
+                    <div className="landing-stat-divider" />
+                    <div className="landing-stat">
+                        <span className="landing-stat-value">∞</span>
+                        <span className="landing-stat-label">Posts</span>
+                    </div>
+                    <div className="landing-stat-divider" />
+                    <div className="landing-stat">
+                        <span className="landing-stat-value">24/7</span>
+                        <span className="landing-stat-label">Scheduling</span>
+                    </div>
+                    <div className="landing-stat-divider" />
+                    <div className="landing-stat">
+                        <span className="landing-stat-value">Free</span>
+                        <span className="landing-stat-label">To Start</span>
+                    </div>
+                </div>
+            </section>
+
+            {/* Platforms Section */}
+            <section className="landing-section" id="platforms">
+                <div className="landing-section-inner">
+                    <div className="landing-section-badge">🔗 Integrations</div>
+                    <h2 className="landing-section-title">Connect Your Favorite Platforms</h2>
+                    <p className="landing-section-subtitle">
+                        Publish to all major social networks with a single click
+                    </p>
+                    <div className="landing-platforms-grid">
+                        {[
+                            { name: 'Facebook', icon: '📘', color: '#1877f2', desc: 'Pages, posts, photos & engagement' },
+                            { name: 'X / Twitter', icon: '✖️', color: '#1d9bf0', desc: 'Tweets, threads & replies' },
+                            { name: 'LinkedIn', icon: '💼', color: '#0a66c2', desc: 'Professional content & company pages' },
+                            { name: 'Bluesky', icon: '🦋', color: '#0085ff', desc: 'Decentralized social posting' },
+                            { name: 'Threads', icon: '🧵', color: '#555', desc: 'Meta Threads text posts' },
+                            { name: 'More Coming', icon: '🚀', color: 'var(--accent)', desc: 'TikTok, YouTube & more soon' },
+                        ].map(p => (
+                            <div key={p.name} className="landing-platform-card">
+                                <div className="landing-platform-icon" style={{ background: p.color }}>
+                                    <span>{p.icon}</span>
+                                </div>
+                                <h3 className="landing-platform-name">{p.name}</h3>
+                                <p className="landing-platform-desc">{p.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Features Section */}
+            <section className="landing-section landing-section-alt" id="features">
+                <div className="landing-section-inner">
+                    <div className="landing-section-badge">✨ Features</div>
+                    <h2 className="landing-section-title">Everything You Need</h2>
+                    <p className="landing-section-subtitle">
+                        Powerful tools to streamline your social media workflow
+                    </p>
+                    <div className="landing-features-grid">
+                        {[
+                            {
+                                icon: '✏️',
+                                title: 'Multi-Platform Publishing',
+                                desc: 'Write one post and publish it to Facebook, Twitter, LinkedIn, Bluesky and Threads simultaneously.',
+                            },
+                            {
+                                icon: '📅',
+                                title: 'Smart Scheduling',
+                                desc: 'Schedule posts for the perfect time. Set it and forget it — SocialFlow handles the rest.',
+                            },
+                            {
+                                icon: '📊',
+                                title: 'Analytics & Insights',
+                                desc: 'Track likes, comments, shares, reach and engagement rates across all your platforms.',
+                            },
+                            {
+                                icon: '📥',
+                                title: 'Unified Inbox',
+                                desc: 'Reply to comments and messages from all platforms in one place. Never miss an engagement.',
+                            },
+                            {
+                                icon: '🏢',
+                                title: 'Multi-Brand Support',
+                                desc: 'Manage multiple brands with separate social accounts, content and analytics for each.',
+                            },
+                            {
+                                icon: '🎯',
+                                title: 'Campaign Management',
+                                desc: 'Group related posts into campaigns. Track performance and stay organized.',
+                            },
+                            {
+                                icon: '🖼️',
+                                title: 'Media Library',
+                                desc: 'Upload and manage images and videos. Attach media to posts with drag and drop.',
+                            },
+                            {
+                                icon: '🔒',
+                                title: 'Secure & Private',
+                                desc: 'OAuth 2.0 authentication with token management. Your data stays yours.',
+                            },
+                        ].map(f => (
+                            <div key={f.title} className="landing-feature-card">
+                                <div className="landing-feature-icon">{f.icon}</div>
+                                <h3 className="landing-feature-title">{f.title}</h3>
+                                <p className="landing-feature-desc">{f.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Workflow Section */}
+            <section className="landing-section" id="workflow">
+                <div className="landing-section-inner">
+                    <div className="landing-section-badge">⚡ Simple Workflow</div>
+                    <h2 className="landing-section-title">How It Works</h2>
+                    <p className="landing-section-subtitle">
+                        Get started in 3 simple steps
+                    </p>
+                    <div className="landing-steps">
+                        {[
+                            { step: '01', title: 'Create Your Brand', desc: 'Set up your brand and connect your social media accounts in seconds.' },
+                            { step: '02', title: 'Write & Schedule', desc: 'Create content once and choose which platforms to publish to. Schedule or post immediately.' },
+                            { step: '03', title: 'Engage & Analyze', desc: 'Monitor engagement from your unified inbox and track performance with real-time analytics.' },
+                        ].map(s => (
+                            <div key={s.step} className="landing-step">
+                                <div className="landing-step-number">{s.step}</div>
+                                <h3 className="landing-step-title">{s.title}</h3>
+                                <p className="landing-step-desc">{s.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA Section */}
+            <section className="landing-cta">
+                <div className="landing-cta-inner">
+                    <h2 className="landing-cta-title">
+                        Ready to Streamline Your<br />
+                        <span className="landing-gradient-text">Social Media?</span>
+                    </h2>
+                    <p className="landing-cta-subtitle">
+                        Join SocialFlow today and take control of your social media presence.
+                    </p>
+                    {loggedIn ? (
+                        <Link href="/brands" className="btn btn-primary btn-lg landing-hero-btn">
+                            Go to Dashboard →
+                        </Link>
+                    ) : (
+                        <Link href="/register" className="btn btn-primary btn-lg landing-hero-btn">
+                            Get Started Free →
+                        </Link>
+                    )}
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="landing-footer">
+                <div className="landing-footer-inner">
+                    <div className="landing-footer-brand">
+                        <span className="landing-logo" style={{ fontSize: 20 }}>⚡ SocialFlow</span>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
+                            Social media management,<br />simplified.
+                        </p>
+                    </div>
+                    <div className="landing-footer-links">
+                        <div>
+                            <h4 className="landing-footer-heading">Product</h4>
+                            <a href="#features" className="landing-footer-link">Features</a>
+                            <a href="#platforms" className="landing-footer-link">Platforms</a>
+                            <a href="#workflow" className="landing-footer-link">How It Works</a>
+                        </div>
+                        <div>
+                            <h4 className="landing-footer-heading">Account</h4>
+                            <Link href="/login" className="landing-footer-link">Sign In</Link>
+                            <Link href="/register" className="landing-footer-link">Register</Link>
+                        </div>
+                    </div>
+                </div>
+                <div className="landing-footer-bottom">
+                    © 2026 SocialFlow. All rights reserved.
+                </div>
+            </footer>
+        </div>
+    );
 }
