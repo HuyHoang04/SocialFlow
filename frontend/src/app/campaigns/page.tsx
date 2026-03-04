@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { IconPlus, IconTrash, IconCalendar, IconTarget } from '@/components/Icons';
 
 interface Campaign {
     id: string;
@@ -88,7 +89,7 @@ export default function CampaignsPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-                        {showForm ? 'Cancel' : '➕ New Campaign'}
+                        {showForm ? 'Cancel' : <><IconPlus size={16} /> New Campaign</>}
                     </button>
                 </div>
             </div>
@@ -134,7 +135,7 @@ export default function CampaignsPage() {
                 <div className="loading-center"><div className="spinner" /></div>
             ) : campaigns.length === 0 ? (
                 <div className="empty-state">
-                    <div className="empty-state-icon">📈</div>
+                    <div className="empty-state-icon"><IconTarget size={40} color="var(--text-muted)" /></div>
                     <div className="empty-state-title">No campaigns found</div>
                     <div className="empty-state-text">Create your first campaign to group your marketing posts.</div>
                 </div>
@@ -155,7 +156,7 @@ export default function CampaignsPage() {
                                     className="hover-bg"
                                     title="Delete Campaign"
                                 >
-                                    🗑️
+                                    <IconTrash size={16} />
                                 </button>
                             </div>
                             {camp.description && (
@@ -164,7 +165,7 @@ export default function CampaignsPage() {
                                 </p>
                             )}
                             <div style={{ display: 'flex', gap: 8, fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-glass)', padding: '8px 12px', borderRadius: 'var(--radius)', width: 'fit-content' }}>
-                                <span>📅</span>
+                                <span><IconCalendar size={14} /></span>
                                 <span>
                                     {camp.startDate ? new Date(camp.startDate).toLocaleDateString() : 'N/A'}
                                     {' '}—{' '}

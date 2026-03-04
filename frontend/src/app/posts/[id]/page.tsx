@@ -3,6 +3,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import AppShell from '@/components/AppShell';
+import {
+    PlatformIcon, IconSend, IconRefreshCw, IconTrash, IconTarget,
+    IconCheckCircle, IconX, IconLink,
+} from '@/components/Icons';
 
 interface PublishResult {
     id: string;
@@ -56,7 +60,7 @@ export default function PostDetailPage() {
     };
 
     const platformIcon = (p: string) => {
-        switch (p) { case 'FACEBOOK': return '📘'; case 'TWITTER': return '✖️'; case 'LINKEDIN': return '💼'; case 'BLUESKY': return '🦋'; case 'THREADS': return '🧵'; default: return '🌐'; }
+        return <PlatformIcon platform={p} size={18} />;
     };
 
     const badgeClass = (s: string) => {
@@ -78,19 +82,19 @@ export default function PostDetailPage() {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Post Detail</h1>
-                    <p className="page-subtitle">
+                    <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {platformIcon(post.page.platform)} {post.page.pageName} · {post.page.brandName}
-                        {post.campaignName && ` · 📈 Campaign: ${post.campaignName}`}
+                        {post.campaignName && <> · <IconTarget size={14} /> Campaign: {post.campaignName}</>}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
-                        <button className="btn btn-primary" onClick={publish}>🚀 Publish Now</button>
+                        <button className="btn btn-primary" onClick={publish}><IconSend size={16} /> Publish Now</button>
                     )}
                     {post.status === 'FAILED' && (
-                        <button className="btn btn-primary" onClick={publish}>🔄 Retry</button>
+                        <button className="btn btn-primary" onClick={publish}><IconRefreshCw size={16} /> Retry</button>
                     )}
-                    <button className="btn btn-danger" onClick={deletePost}>🗑️ Delete</button>
+                    <button className="btn btn-danger" onClick={deletePost}><IconTrash size={16} /> Delete</button>
                 </div>
             </div>
 
@@ -139,15 +143,15 @@ export default function PostDetailPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {post.publishResults.map(r => (
                             <div key={r.id} className={`result-item ${r.success ? 'result-success' : 'result-failed'}`}>
-                                <span style={{ fontSize: 24 }}>{r.success ? '✅' : '❌'}</span>
+                                <span style={{ fontSize: 24 }}>{r.success ? <IconCheckCircle size={24} color="var(--success)" /> : <IconX size={24} color="var(--error)" />}</span>
                                 <div style={{ flex: 1 }}>
                                     {r.success ? (
                                         <>
                                             <div style={{ fontWeight: 600, marginBottom: 4 }}>Published successfully</div>
                                             {r.platformPostUrl && (
                                                 <a href={r.platformPostUrl} target="_blank" rel="noopener noreferrer"
-                                                    style={{ fontSize: 13, color: 'var(--accent-light)' }}>
-                                                    🔗 View on platform →
+                                                    style={{ fontSize: 13, color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <IconLink size={13} /> View on platform →
                                                 </a>
                                             )}
                                         </>

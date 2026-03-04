@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { PlatformIcon, IconRefreshCw, IconInbox, IconSend } from '@/components/Icons';
 
 interface InboxMessage {
     id: string;
@@ -101,7 +102,7 @@ export default function InboxPage() {
     };
 
     const platformIcon = (p: string) => {
-        switch (p) { case 'FACEBOOK': return '📘'; case 'TWITTER': return '✖️'; case 'LINKEDIN': return '💼'; default: return '🌐'; }
+        return <PlatformIcon platform={p} size={16} />;
     };
 
     // Derived states for grouping:
@@ -124,7 +125,7 @@ export default function InboxPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
-                        {syncing ? '🔄 Syncing...' : '🔄 Sync Inbox'}
+                        {syncing ? <><IconRefreshCw size={16} /> Syncing...</> : <><IconRefreshCw size={16} /> Sync Inbox</>}
                     </button>
                 </div>
             </div>
@@ -246,14 +247,14 @@ export default function InboxPage() {
                                         onClick={handleReply}
                                         disabled={!replyContent.trim() || sendingReply}
                                     >
-                                        {sendingReply ? 'Sending...' : '📤 Send Reply'}
+                                        {sendingReply ? 'Sending...' : <><IconSend size={16} /> Send Reply</>}
                                     </button>
                                 </div>
                             </div>
                         </>
                     ) : (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                            <div style={{ fontSize: 48, marginBottom: 16 }}>📥</div>
+                            <div style={{ marginBottom: 16 }}><IconInbox size={48} color="var(--text-muted)" /></div>
                             <div style={{ fontSize: 16 }}>Select a message to view the conversation</div>
                         </div>
                     )}

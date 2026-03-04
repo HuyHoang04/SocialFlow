@@ -2,6 +2,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getUser } from '@/lib/api';
+import {
+    IconZap, IconRocket, IconPenSquare, IconCalendar, IconBarChart,
+    IconInbox, IconLayers, IconTarget, IconImage, IconShield,
+    IconFacebook, IconTwitter, IconLinkedin, IconBluesky, IconThreads,
+    IconSparkles, IconLink,
+} from '@/components/Icons';
 
 export default function LandingPage() {
     const [loggedIn, setLoggedIn] = useState(false);
@@ -23,7 +29,9 @@ export default function LandingPage() {
             {/* Navigation */}
             <header className="landing-nav">
                 <div className="landing-nav-inner">
-                    <div className="landing-logo">⚡ SocialFlow</div>
+                    <div className="landing-logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IconZap size={22} color="var(--accent)" /> SocialFlow
+                    </div>
                     <div className="landing-nav-links">
                         <a href="#features" className="landing-link">Features</a>
                         <a href="#platforms" className="landing-link">Platforms</a>
@@ -42,7 +50,7 @@ export default function LandingPage() {
 
             {/* Hero Section */}
             <section className="landing-hero">
-                <div className="landing-badge">🚀 Social Media Management Platform</div>
+                <div className="landing-badge"><IconRocket size={16} /> Social Media Management Platform</div>
                 <h1 className="landing-hero-title">
                     Manage All Your<br />
                     <span className="landing-gradient-text">Social Media</span><br />
@@ -96,23 +104,23 @@ export default function LandingPage() {
             {/* Platforms Section */}
             <section className="landing-section" id="platforms">
                 <div className="landing-section-inner">
-                    <div className="landing-section-badge">🔗 Integrations</div>
+                    <div className="landing-section-badge"><IconLink size={16} /> Integrations</div>
                     <h2 className="landing-section-title">Connect Your Favorite Platforms</h2>
                     <p className="landing-section-subtitle">
                         Publish to all major social networks with a single click
                     </p>
                     <div className="landing-platforms-grid">
                         {[
-                            { name: 'Facebook', icon: '📘', color: '#1877f2', desc: 'Pages, posts, photos & engagement' },
-                            { name: 'X / Twitter', icon: '✖️', color: '#1d9bf0', desc: 'Tweets, threads & replies' },
-                            { name: 'LinkedIn', icon: '💼', color: '#0a66c2', desc: 'Professional content & company pages' },
-                            { name: 'Bluesky', icon: '🦋', color: '#0085ff', desc: 'Decentralized social posting' },
-                            { name: 'Threads', icon: '🧵', color: '#555', desc: 'Meta Threads text posts' },
-                            { name: 'More Coming', icon: '🚀', color: 'var(--accent)', desc: 'TikTok, YouTube & more soon' },
+                            { name: 'Facebook', icon: <IconFacebook size={24} />, color: '#1877f2', desc: 'Pages, posts, photos & engagement' },
+                            { name: 'X / Twitter', icon: <IconTwitter size={24} />, color: '#1d9bf0', desc: 'Tweets, threads & replies' },
+                            { name: 'LinkedIn', icon: <IconLinkedin size={24} />, color: '#0a66c2', desc: 'Professional content & company pages' },
+                            { name: 'Bluesky', icon: <IconBluesky size={24} />, color: '#0085ff', desc: 'Decentralized social posting' },
+                            { name: 'Threads', icon: <IconThreads size={24} />, color: '#555', desc: 'Meta Threads text posts' },
+                            { name: 'More Coming', icon: <IconRocket size={24} />, color: 'var(--accent)', desc: 'TikTok, YouTube & more soon' },
                         ].map(p => (
                             <div key={p.name} className="landing-platform-card">
                                 <div className="landing-platform-icon" style={{ background: p.color }}>
-                                    <span>{p.icon}</span>
+                                    {p.icon}
                                 </div>
                                 <h3 className="landing-platform-name">{p.name}</h3>
                                 <p className="landing-platform-desc">{p.desc}</p>
@@ -125,7 +133,7 @@ export default function LandingPage() {
             {/* Features Section */}
             <section className="landing-section landing-section-alt" id="features">
                 <div className="landing-section-inner">
-                    <div className="landing-section-badge">✨ Features</div>
+                    <div className="landing-section-badge"><IconSparkles size={16} /> Features</div>
                     <h2 className="landing-section-title">Everything You Need</h2>
                     <p className="landing-section-subtitle">
                         Powerful tools to streamline your social media workflow
@@ -133,42 +141,42 @@ export default function LandingPage() {
                     <div className="landing-features-grid">
                         {[
                             {
-                                icon: '✏️',
+                                icon: <IconPenSquare size={28} />,
                                 title: 'Multi-Platform Publishing',
                                 desc: 'Write one post and publish it to Facebook, Twitter, LinkedIn, Bluesky and Threads simultaneously.',
                             },
                             {
-                                icon: '📅',
+                                icon: <IconCalendar size={28} />,
                                 title: 'Smart Scheduling',
                                 desc: 'Schedule posts for the perfect time. Set it and forget it — SocialFlow handles the rest.',
                             },
                             {
-                                icon: '📊',
+                                icon: <IconBarChart size={28} />,
                                 title: 'Analytics & Insights',
                                 desc: 'Track likes, comments, shares, reach and engagement rates across all your platforms.',
                             },
                             {
-                                icon: '📥',
+                                icon: <IconInbox size={28} />,
                                 title: 'Unified Inbox',
                                 desc: 'Reply to comments and messages from all platforms in one place. Never miss an engagement.',
                             },
                             {
-                                icon: '🏢',
+                                icon: <IconLayers size={28} />,
                                 title: 'Multi-Brand Support',
                                 desc: 'Manage multiple brands with separate social accounts, content and analytics for each.',
                             },
                             {
-                                icon: '🎯',
+                                icon: <IconTarget size={28} />,
                                 title: 'Campaign Management',
                                 desc: 'Group related posts into campaigns. Track performance and stay organized.',
                             },
                             {
-                                icon: '🖼️',
+                                icon: <IconImage size={28} />,
                                 title: 'Media Library',
                                 desc: 'Upload and manage images and videos. Attach media to posts with drag and drop.',
                             },
                             {
-                                icon: '🔒',
+                                icon: <IconShield size={28} />,
                                 title: 'Secure & Private',
                                 desc: 'OAuth 2.0 authentication with token management. Your data stays yours.',
                             },
@@ -186,7 +194,7 @@ export default function LandingPage() {
             {/* Workflow Section */}
             <section className="landing-section" id="workflow">
                 <div className="landing-section-inner">
-                    <div className="landing-section-badge">⚡ Simple Workflow</div>
+                    <div className="landing-section-badge"><IconZap size={16} /> Simple Workflow</div>
                     <h2 className="landing-section-title">How It Works</h2>
                     <p className="landing-section-subtitle">
                         Get started in 3 simple steps
@@ -233,7 +241,9 @@ export default function LandingPage() {
             <footer className="landing-footer">
                 <div className="landing-footer-inner">
                     <div className="landing-footer-brand">
-                        <span className="landing-logo" style={{ fontSize: 20 }}>⚡ SocialFlow</span>
+                        <span className="landing-logo" style={{ fontSize: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <IconZap size={18} color="var(--accent)" /> SocialFlow
+                        </span>
                         <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
                             Social media management,<br />simplified.
                         </p>

@@ -4,6 +4,11 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import Link from 'next/link';
+import {
+  IconFileText, IconCheckCircle, IconClock, IconLink,
+  IconPenSquare, IconCalendar, IconSend,
+  PlatformIcon, SkeletonCard,
+} from '@/components/Icons';
 
 interface Post {
   id: string;
@@ -35,7 +40,6 @@ export default function DashboardPage() {
         api.getPosts(),
         api.getConnections(selectedBrand.id),
       ]);
-      // Filter posts belonging to this brand
       setPosts(p.filter((post: Post) => post.page.brandName === selectedBrand.name));
       setConnections(c);
     } catch { /* */ }
@@ -47,17 +51,6 @@ export default function DashboardPage() {
   const publishPost = async (id: string) => {
     await api.publishPost(id);
     load();
-  };
-
-  const platformIcon = (p: string) => {
-    switch (p) {
-      case 'FACEBOOK': return '📘';
-      case 'TWITTER': return '✖️';
-      case 'LINKEDIN': return '💼';
-      case 'BLUESKY': return '🦋';
-      case 'THREADS': return '🧵';
-      default: return '🌐';
-    }
   };
 
   const badgeClass = (s: string) => {
@@ -77,41 +70,69 @@ export default function DashboardPage() {
   return (
     <AppShell>
       {loading ? (
-        <div className="loading-center"><div className="spinner" /></div>
+        <div className="fade-in" style={{ padding: 24 }}>
+          <div className="skeleton" style={{ width: 200, height: 32, marginBottom: 8, borderRadius: 8 }} />
+          <div className="skeleton" style={{ width: 300, height: 16, marginBottom: 32, borderRadius: 6 }} />
+          <div className="bento-grid">
+            <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+          </div>
+        </div>
       ) : (
-        <>
+        <div className="fade-in">
           {/* Overview Stats */}
           <div className="page-header">
             <div>
               <h1 className="page-title">Dashboard</h1>
               <p className="page-subtitle">Overview for {selectedBrand?.name}</p>
             </div>
-            <Link href="/create" className="btn btn-primary">✏️ Create Post</Link>
+            <Link href="/create" className="btn btn-primary">
+              <IconPenSquare size={16} /> Create Post
+            </Link>
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', marginBottom: 32 }}>
-            <div className="card">
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Posts</div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>{posts.length}</div>
+          <div className="bento-grid stagger-fade" style={{ marginBottom: 32 }}>
+            <div className="card stat-card">
+              <div className="stat-card-icon" style={{ background: 'rgba(108,92,231,0.15)', color: 'var(--accent)' }}>
+                <IconFileText size={22} />
+              </div>
+              <div>
+                <div className="stat-card-value">{posts.length}</div>
+                <div className="stat-card-label">Total Posts</div>
+              </div>
             </div>
-            <div className="card">
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Published</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--success)' }}>{publishedPosts.length}</div>
+            <div className="card stat-card">
+              <div className="stat-card-icon" style={{ background: 'rgba(0,184,148,0.15)', color: 'var(--success)' }}>
+                <IconCheckCircle size={22} />
+              </div>
+              <div>
+                <div className="stat-card-value">{publishedPosts.length}</div>
+                <div className="stat-card-label">Published</div>
+              </div>
             </div>
-            <div className="card">
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Drafts / Scheduled</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--warning)' }}>{draftPosts.length}</div>
+            <div className="card stat-card">
+              <div className="stat-card-icon" style={{ background: 'rgba(253,203,110,0.15)', color: 'var(--warning)' }}>
+                <IconClock size={22} />
+              </div>
+              <div>
+                <div className="stat-card-value">{draftPosts.length}</div>
+                <div className="stat-card-label">Drafts / Scheduled</div>
+              </div>
             </div>
-            <div className="card">
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Connections</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-light)' }}>{connections.length}</div>
+            <div className="card stat-card">
+              <div className="stat-card-icon" style={{ background: 'rgba(116,185,255,0.15)', color: 'var(--accent-light)' }}>
+                <IconLink size={22} />
+              </div>
+              <div>
+                <div className="stat-card-value">{connections.length}</div>
+                <div className="stat-card-label">Connections</div>
+              </div>
             </div>
           </div>
 
           {/* Quick Actions */}
           {connections.length === 0 && (
-            <div className="card" style={{ marginBottom: 24, textAlign: 'center', padding: '40px 24px' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🔗</div>
+            <div className="card card-glow" style={{ marginBottom: 24, textAlign: 'center', padding: '40px 24px' }}>
+              <div style={{ marginBottom: 12 }}><IconLink size={36} color="var(--accent)" /></div>
               <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Connect your accounts</h3>
               <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: 14 }}>
                 Link your social media accounts to start publishing
@@ -130,18 +151,18 @@ export default function DashboardPage() {
 
           {posts.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon">📝</div>
+              <div className="empty-state-icon"><IconFileText size={40} color="var(--text-muted)" /></div>
               <div className="empty-state-title">No posts yet</div>
               <div className="empty-state-text">Create your first post and publish it across platforms</div>
               <Link href="/create" className="btn btn-primary">Create Post</Link>
             </div>
           ) : (
-            <div className="grid grid-2">
+            <div className="bento-grid stagger-fade" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
               {posts.slice(0, 10).map(p => (
                 <div key={p.id} className="card" style={{ cursor: 'pointer' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>{platformIcon(p.page.platform)}</span>
+                      <PlatformIcon platform={p.page.platform} size={18} />
                       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.page.pageName}</span>
                     </div>
                     <span className={badgeClass(p.status)}>{p.status}</span>
@@ -150,15 +171,15 @@ export default function DashboardPage() {
                     {p.content.length > 120 ? p.content.substring(0, 120) + '...' : p.content}
                   </p>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       {p.scheduledTime
-                        ? `📅 ${new Date(p.scheduledTime).toLocaleString('vi-VN')}`
+                        ? <><IconCalendar size={12} /> {new Date(p.scheduledTime).toLocaleString('vi-VN')}</>
                         : new Date(p.createdAt).toLocaleDateString('vi-VN')}
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {(p.status === 'DRAFT' || p.status === 'SCHEDULED') && (
                         <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
-                          🚀 Publish
+                          <IconSend size={14} /> Publish
                         </button>
                       )}
                       <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
@@ -170,7 +191,7 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </AppShell>
   );

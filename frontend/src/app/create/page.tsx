@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import {
+    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave,
+} from '@/components/Icons';
 
 interface PageItem {
     id: string;
@@ -58,14 +61,7 @@ export default function CreatePostPage() {
     };
 
     const platformIcon = (p: string) => {
-        switch (p) {
-            case 'FACEBOOK': return '📘';
-            case 'TWITTER': return '✖️';
-            case 'LINKEDIN': return '💼';
-            case 'BLUESKY': return '🦋';
-            case 'THREADS': return '🧵';
-            default: return '🌐';
-        }
+        return <PlatformIcon platform={p} size={18} />;
     };
 
     // ===== Media Upload =====
@@ -237,7 +233,7 @@ export default function CreatePostPage() {
                                 </div>
                             ) : (
                                 <>
-                                    <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
+                                    <div style={{ marginBottom: 8 }}><IconCamera size={32} color="var(--text-muted)" /></div>
                                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                                         Drop files here or click to browse
                                     </div>
@@ -274,7 +270,7 @@ export default function CreatePostPage() {
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 background: 'var(--bg-glass)',
                                             }}>
-                                                <span style={{ fontSize: 36 }}>🎬</span>
+                                                <span style={{ fontSize: 36 }}><IconFilm size={36} color="var(--text-muted)" /></span>
                                             </div>
                                         )}
                                         <div style={{ padding: '6px 8px' }}>
@@ -310,11 +306,11 @@ export default function CreatePostPage() {
                     <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                         <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={publishing}>
                             {publishing
-                                ? (scheduledTime ? '⏳ Scheduling...' : '🚀 Publishing...')
-                                : (scheduledTime ? '⏳ Schedule Post' : '🚀 Publish Now')}
+                                ? (scheduledTime ? <><IconClock size={16} /> Scheduling...</> : <><IconSend size={16} /> Publishing...</>)
+                                : (scheduledTime ? <><IconClock size={16} /> Schedule Post</> : <><IconSend size={16} /> Publish Now</>)}
                         </button>
                         <button className="btn btn-secondary btn-lg" onClick={handleSaveDraft}>
-                            💾 Save Draft
+                            <IconSave size={16} /> Save Draft
                         </button>
                     </div>
                 </div>

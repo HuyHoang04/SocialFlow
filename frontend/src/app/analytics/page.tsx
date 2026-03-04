@@ -3,6 +3,12 @@ import { useEffect, useState, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
+import {
+    IconBarChart, IconRefreshCw, IconClock, IconTrendingUp, IconFileText,
+    IconHeart, IconMessageCircle, IconShare, IconEye, IconRadio,
+    IconActivity, IconCheckCircle, IconTrophy, IconUsers, IconUserPlus,
+    IconMousePointer, IconGlobe, SkeletonCard,
+} from '@/components/Icons';
 
 interface PageAnalytics {
     id: string;
@@ -121,7 +127,9 @@ export default function AnalyticsPage() {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
                     <div>
-                        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>📊 Analytics</h1>
+                        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <IconBarChart size={28} /> Analytics
+                        </h1>
                         <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                             Facebook page &amp; post performance
                         </p>
@@ -132,7 +140,9 @@ export default function AnalyticsPage() {
                             onClick={handleSync}
                             disabled={syncing || !brand}
                         >
-                            {syncing ? '⏳ Syncing...' : '🔄 Sync Data'}
+                            {syncing
+                                ? <><IconClock size={16} /> Syncing...</>
+                                : <><IconRefreshCw size={16} /> Sync Data</>}
                         </button>
                     </div>
                 </div>
@@ -162,14 +172,18 @@ export default function AnalyticsPage() {
                                 transition: 'all 0.2s',
                             }}
                         >
-                            {tab === 'overview' ? '📈 Overview' : tab === 'posts' ? '📝 Posts' : '📄 Pages'}
+                            {tab === 'overview'
+                                ? <><IconTrendingUp size={15} /> Overview</>
+                                : tab === 'posts'
+                                ? <><IconFileText size={15} /> Posts</>
+                                : <><IconGlobe size={15} /> Pages</>}
                         </button>
                     ))}
                 </div>
 
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
-                        Loading analytics...
+                    <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                        <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
                     </div>
                 ) : activeTab === 'overview' ? (
                     <OverviewTab overview={overview} formatNumber={formatNumber} formatDate={formatDate} />
@@ -192,7 +206,7 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
     if (!overview || (overview.totalPosts === 0 && overview.topPosts.length === 0)) {
         return (
             <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+                <div style={{ marginBottom: 16 }}><IconBarChart size={48} color="var(--text-muted)" /></div>
                 <h3 style={{ margin: '0 0 8px' }}>No analytics data yet</h3>
                 <p style={{ color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto' }}>
                     Click <strong>&quot;Sync Data&quot;</strong> to fetch analytics from your Facebook pages.
@@ -203,14 +217,14 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
     }
 
     const stats = [
-        { label: 'Total Posts', value: overview.totalPosts, icon: '📝', color: '#6c5ce7' },
-        { label: 'Published', value: overview.totalPublished, icon: '✅', color: '#00b894' },
-        { label: 'Total Likes', value: overview.totalLikes, icon: '❤️', color: '#e17055' },
-        { label: 'Comments', value: overview.totalComments, icon: '💬', color: '#0984e3' },
-        { label: 'Shares', value: overview.totalShares, icon: '🔁', color: '#fdcb6e' },
-        { label: 'Impressions', value: overview.totalImpressions, icon: '👁️', color: '#a29bfe' },
-        { label: 'Reach', value: overview.totalReach, icon: '📡', color: '#55efc4' },
-        { label: 'Avg Engagement', value: overview.avgEngagementRate, icon: '📊', color: '#fd79a8', suffix: '%' },
+        { label: 'Total Posts', value: overview.totalPosts, icon: <IconFileText size={22} />, color: '#6c5ce7' },
+        { label: 'Published', value: overview.totalPublished, icon: <IconCheckCircle size={22} />, color: '#00b894' },
+        { label: 'Total Likes', value: overview.totalLikes, icon: <IconHeart size={22} />, color: '#e17055' },
+        { label: 'Comments', value: overview.totalComments, icon: <IconMessageCircle size={22} />, color: '#0984e3' },
+        { label: 'Shares', value: overview.totalShares, icon: <IconShare size={22} />, color: '#fdcb6e' },
+        { label: 'Impressions', value: overview.totalImpressions, icon: <IconEye size={22} />, color: '#a29bfe' },
+        { label: 'Reach', value: overview.totalReach, icon: <IconRadio size={22} />, color: '#55efc4' },
+        { label: 'Avg Engagement', value: overview.avgEngagementRate, icon: <IconActivity size={22} />, color: '#fd79a8', suffix: '%' },
     ];
 
     return (
@@ -223,18 +237,17 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
                 marginBottom: 32,
             }}>
                 {stats.map(s => (
-                    <div key={s.label} className="card" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
-                        <div style={{
-                            position: 'absolute', top: 12, right: 16,
-                            fontSize: 28, opacity: 0.3,
-                        }}>{s.icon}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                            {s.label}
+                    <div key={s.label} className="card stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+                        <div className="stat-card-icon" style={{ background: `${s.color}22`, color: s.color }}>
+                            {s.icon}
                         </div>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>
-                            {typeof s.value === 'number' && !s.suffix
-                                ? formatNumber(s.value)
-                                : s.value + (s.suffix || '')}
+                        <div>
+                            <div className="stat-card-label">{s.label}</div>
+                            <div className="stat-card-value" style={{ color: s.color }}>
+                                {typeof s.value === 'number' && !s.suffix
+                                    ? formatNumber(s.value)
+                                    : s.value + (s.suffix || '')}
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -243,7 +256,9 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
             {/* Engagement Bar Chart */}
             {overview.topPosts.length > 0 && (
                 <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-                    <h3 style={{ margin: '0 0 20px', fontSize: 18 }}>🏆 Top Posts by Engagement</h3>
+                    <h3 style={{ margin: '0 0 20px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IconTrophy size={20} color="#fdcb6e" /> Top Posts by Engagement
+                    </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {overview.topPosts.slice(0, 5).map((post, idx) => {
                             const total = post.likes + post.comments + post.shares;
@@ -282,7 +297,7 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
                                                 height: '100%', display: 'flex', alignItems: 'center',
                                                 fontSize: 11, fontWeight: 600, color: '#fff',
                                             }}>
-                                                {total > 0 && `❤️${post.likes} 💬${post.comments} 🔁${post.shares}`}
+                                                {total > 0 && `♥${post.likes} 💬${post.comments} ↗${post.shares}`}
                                             </div>
                                         </div>
                                     </div>
@@ -299,7 +314,9 @@ function OverviewTab({ overview, formatNumber, formatDate }: {
             {/* Pages Summary */}
             {overview.pages.length > 0 && (
                 <div className="card" style={{ padding: 24 }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>📄 Pages Overview</h3>
+                    <h3 style={{ margin: '0 0 16px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IconGlobe size={20} /> Pages Overview
+                    </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                         {overview.pages.map(pg => (
                             <div key={pg.id} style={{
@@ -357,7 +374,7 @@ function PostsTab({ posts, formatNumber, formatDate }: {
     if (posts.length === 0) {
         return (
             <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
+                <div style={{ marginBottom: 16 }}><IconFileText size={48} color="var(--text-muted)" /></div>
                 <h3 style={{ margin: '0 0 8px' }}>No post analytics</h3>
                 <p style={{ color: 'var(--text-secondary)' }}>
                     Sync your data first to see post performance metrics.
@@ -402,8 +419,8 @@ function PostsTab({ posts, formatNumber, formatDate }: {
                                     {post.postContent}
                                 </div>
                                 <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-                                    <span>📄 {post.pageName}</span>
-                                    <span>📅 {formatDate(post.publishedAt)}</span>
+                                    <span>{post.pageName}</span>
+                                    <span>{formatDate(post.publishedAt)}</span>
                                     {post.platformPostUrl && (
                                         <a
                                             href={post.platformPostUrl}
@@ -411,7 +428,7 @@ function PostsTab({ posts, formatNumber, formatDate }: {
                                             rel="noreferrer"
                                             style={{ color: 'var(--accent-light)' }}
                                         >
-                                            🔗 View on Facebook
+                                            View on Facebook →
                                         </a>
                                     )}
                                 </div>
@@ -424,12 +441,12 @@ function PostsTab({ posts, formatNumber, formatDate }: {
                             padding: '12px 0 0',
                             borderTop: '1px solid var(--border)',
                         }}>
-                            <MetricCard icon="❤️" label="Likes" value={formatNumber(post.likes)} color="#e17055" />
-                            <MetricCard icon="💬" label="Comments" value={formatNumber(post.comments)} color="#0984e3" />
-                            <MetricCard icon="🔁" label="Shares" value={formatNumber(post.shares)} color="#fdcb6e" />
-                            <MetricCard icon="👁️" label="Impressions" value={formatNumber(post.impressions)} color="#a29bfe" />
-                            <MetricCard icon="📡" label="Reach" value={formatNumber(post.reach)} color="#55efc4" />
-                            <MetricCard icon="📊" label="Engagement" value={post.engagementRate + '%'} color="#fd79a8" />
+                            <MetricCard icon={<IconHeart size={18} />} label="Likes" value={formatNumber(post.likes)} color="#e17055" />
+                            <MetricCard icon={<IconMessageCircle size={18} />} label="Comments" value={formatNumber(post.comments)} color="#0984e3" />
+                            <MetricCard icon={<IconShare size={18} />} label="Shares" value={formatNumber(post.shares)} color="#fdcb6e" />
+                            <MetricCard icon={<IconEye size={18} />} label="Impressions" value={formatNumber(post.impressions)} color="#a29bfe" />
+                            <MetricCard icon={<IconRadio size={18} />} label="Reach" value={formatNumber(post.reach)} color="#55efc4" />
+                            <MetricCard icon={<IconActivity size={18} />} label="Engagement" value={post.engagementRate + '%'} color="#fd79a8" />
                         </div>
                     </div>
                 ))}
@@ -438,10 +455,10 @@ function PostsTab({ posts, formatNumber, formatDate }: {
     );
 }
 
-function MetricCard({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
+function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18 }}>{icon}</span>
+            <span style={{ color, display: 'flex' }}>{icon}</span>
             <div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color }}>{value}</div>
@@ -459,7 +476,7 @@ function PagesTab({ pages, formatNumber, formatDate }: {
     if (pages.length === 0) {
         return (
             <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
+                <div style={{ marginBottom: 16 }}><IconGlobe size={48} color="var(--text-muted)" /></div>
                 <h3 style={{ margin: '0 0 8px' }}>No page analytics</h3>
                 <p style={{ color: 'var(--text-secondary)' }}>
                     Sync your data to see page-level metrics.
@@ -492,14 +509,14 @@ function PagesTab({ pages, formatNumber, formatDate }: {
                         gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                         gap: 16,
                     }}>
-                        <PageMetric icon="👥" label="Followers" value={formatNumber(pg.followers)} color="#6c5ce7" />
-                        <PageMetric icon="❤️" label="Page Likes" value={formatNumber(pg.totalPageLikes)} color="#e17055" />
-                        <PageMetric icon="👁️" label="Impressions" value={formatNumber(pg.pageImpressions)} color="#a29bfe" />
-                        <PageMetric icon="🖱️" label="Engaged Users" value={formatNumber(pg.pageEngagedUsers)} color="#00b894" />
-                        <PageMetric icon="📄" label="Page Views" value={formatNumber(pg.pageViews)} color="#0984e3" />
-                        <PageMetric icon="🆕" label="New Followers" value={formatNumber(pg.newFollowers)} color="#55efc4" />
-                        <PageMetric icon="📝" label="Total Posts" value={String(pg.postsCount)} color="#fdcb6e" />
-                        <PageMetric icon="📊" label="Avg Engagement" value={pg.avgEngagementRate + '%'} color="#fd79a8" />
+                        <PageMetric icon={<IconUsers size={16} />} label="Followers" value={formatNumber(pg.followers)} color="#6c5ce7" />
+                        <PageMetric icon={<IconHeart size={16} />} label="Page Likes" value={formatNumber(pg.totalPageLikes)} color="#e17055" />
+                        <PageMetric icon={<IconEye size={16} />} label="Impressions" value={formatNumber(pg.pageImpressions)} color="#a29bfe" />
+                        <PageMetric icon={<IconMousePointer size={16} />} label="Engaged Users" value={formatNumber(pg.pageEngagedUsers)} color="#00b894" />
+                        <PageMetric icon={<IconGlobe size={16} />} label="Page Views" value={formatNumber(pg.pageViews)} color="#0984e3" />
+                        <PageMetric icon={<IconUserPlus size={16} />} label="New Followers" value={formatNumber(pg.newFollowers)} color="#55efc4" />
+                        <PageMetric icon={<IconFileText size={16} />} label="Total Posts" value={String(pg.postsCount)} color="#fdcb6e" />
+                        <PageMetric icon={<IconActivity size={16} />} label="Avg Engagement" value={pg.avgEngagementRate + '%'} color="#fd79a8" />
                     </div>
                 </div>
             ))}
@@ -507,14 +524,14 @@ function PagesTab({ pages, formatNumber, formatDate }: {
     );
 }
 
-function PageMetric({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
+function PageMetric({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
     return (
         <div style={{
             padding: 14, borderRadius: 10,
             background: 'var(--bg-glass)', border: '1px solid var(--border)',
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 16 }}>{icon}</span>
+                <span style={{ color, display: 'flex' }}>{icon}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</span>
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>

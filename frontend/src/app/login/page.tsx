@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, setToken, setUser } from '@/lib/api';
+import { IconZap } from '@/components/Icons';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -30,7 +31,9 @@ export default function LoginPage() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h1 className="auth-title">⚡ SocialFlow</h1>
+                <h1 className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <IconZap size={28} color="var(--accent)" /> SocialFlow
+                </h1>
                 <p className="auth-subtitle">Sign in to manage your social presence</p>
                 {error && <div className="error-msg">{error}</div>}
                 <form onSubmit={handleSubmit}>

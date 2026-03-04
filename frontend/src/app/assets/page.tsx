@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import AppShell from '@/components/AppShell';
+import { IconUpload, IconFilm, IconImage, IconTrash } from '@/components/Icons';
 
 interface MediaAsset {
     id: string;
@@ -133,7 +134,7 @@ export default function AssetsPage() {
                     </div>
                 ) : (
                     <>
-                        <div style={{ fontSize: 48, marginBottom: 12 }}>📤</div>
+                        <div style={{ marginBottom: 12 }}><IconUpload size={48} color="var(--accent)" /></div>
                         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
                             Click to upload or drag and drop files here
                         </div>
@@ -149,7 +150,7 @@ export default function AssetsPage() {
                 <div className="loading-center"><div className="spinner" /></div>
             ) : assets.length === 0 ? (
                 <div className="empty-state">
-                    <div className="empty-state-icon">🖼️</div>
+                    <div className="empty-state-icon"><IconImage size={40} color="var(--text-muted)" /></div>
                     <div className="empty-state-title">No assets found</div>
                     <div className="empty-state-text">Your media library is empty. Upload some files to get started!</div>
                 </div>
@@ -166,7 +167,7 @@ export default function AssetsPage() {
                                     />
                                 ) : (
                                     <div style={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <span style={{ fontSize: 48 }}>🎬</span>
+                                        <span><IconFilm size={48} color="var(--text-muted)" /></span>
                                     </div>
                                 )}
                             </div>
@@ -201,7 +202,7 @@ export default function AssetsPage() {
                                 }}
                                 title="Delete media"
                             >
-                                🗑️
+                                <IconTrash size={16} />
                             </button>
                         </div>
                     ))}
