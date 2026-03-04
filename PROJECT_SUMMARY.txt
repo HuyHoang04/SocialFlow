@@ -1,7 +1,7 @@
 ================================================================================
   SocialFlow MVP - Project Summary (for AI Agents & Developers)
-  Last updated: 2026-03-02
-  Status: MVP Complete, 5 platforms integrated, Media Uploads Supported
+  Last updated: 2026-03-04
+  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics
 ================================================================================
 
 1. WHAT IS THIS PROJECT?
@@ -9,7 +9,7 @@
 SocialFlow is a multi-platform social media post publisher.
 Users create posts and publish them to Facebook, X/Twitter, LinkedIn, Bluesky, and Threads via real platform APIs.
 
-Core Flow: Register → Create Brand → Connect Social Accounts → Create Post → Publish
+Core Flow: Register → Create Brand → Connect Social Accounts → Create Post → Publish → View Analytics
 
 
 2. TECH STACK
@@ -41,7 +41,9 @@ User (UUID id)
          └── SocialPage (UUID id) — unique by (connection_id + platform_page_id)
               ├── Post (UUID id) — includes scheduledTime, status, optionally belongs to a Campaign
               │    ├── PostMedia (UUID id)
-              │    └── PublishResult (UUID id)
+              │    ├── PublishResult (UUID id)
+              │    └── PostAnalytics (UUID id) — snapshots: likes, comments, shares, impressions, reach, engagedUsers, clicks, engagementRate, fetchedAt
+              ├── PageAnalytics (UUID id) — page-level: followers, totalPageLikes, pageViews, newFollowers, pageImpressions, pageEngagedUsers, postsCount, avgEngagementRate
               └── InboxMessage (UUID id) — comments and replies (platformMessageId, content, authorName, parentMessageId, isRead, isFromMe)
 
 IMPORTANT: All entity IDs use java.util.UUID with GenerationType.UUID.
@@ -98,6 +100,8 @@ src/main/java/com/socialflow/
 │   ├── PostMedia.java           — UUID id, filename, originalFilename, contentType, url, post, uploader, createdAt
 │   ├── PublishResult.java       — UUID id, platformPostId, platformPostUrl, success, errorMessage
 │   ├── InboxMessage.java        — UUID id, platformMessageId, content, authorName, isRead, isFromMe, page, parentMessageId
+│   ├── PostAnalytics.java       — UUID id, post(FK), platformPostId, likes, comments, shares, impressions, reach, engagedUsers, clicks, bookmarks, quotes, replies, views, engagementRate, fetchedAt
+│   ├── PageAnalytics.java       — UUID id, page(FK), platform, followers, totalPageLikes, pageViews, newFollowers, pageImpressions, pageEngagedUsers, postsCount, avgEngagementRate, fetchedAt
 │   └── enums/
 │       ├── PlatformType.java    — FACEBOOK, TWITTER, LINKEDIN, BLUESKY, THREADS
 │       └── PostStatus.java      — DRAFT, SCHEDULED, PUBLISHING, PUBLISHED, FAILED
@@ -109,14 +113,19 @@ src/main/java/com/socialflow/
 │   ├── PostRepository.java              — findByPageId, findByUserId, findByStatusAndScheduledTimeLessThanEqual
 │   ├── PostMediaRepository.java         — findByUploaderIdOrderByCreatedAtDesc
 │   ├── PublishResultRepository.java
-│   └── InboxMessageRepository.java      — findByPageConnectionBrandIdOrderByCreatedAtDesc, findByPlatformMessageIdAndPageId
+│   ├── InboxMessageRepository.java      — findByPageConnectionBrandIdOrderByCreatedAtDesc, findByPlatformMessageIdAndPageId
+│   ├── PostAnalyticsRepository.java     — findByPostId, findByPostPageId, findByPostPageConnectionBrandId (all ordered by fetchedAt desc)
+│   └── PageAnalyticsRepository.java     — findByPageId, findByPageConnectionBrandId, findByPlatform (all ordered by fetchedAt desc)
 ├── dto/
 │   ├── RegisterRequest.java     — name, email, password
 │   ├── LoginRequest.java        — email, password
 │   ├── LoginResponse.java       — token, email, name, userId (UUID)
 │   ├── CreateBrandRequest.java  — name, description, logoUrl
 │   ├── CreatePostRequest.java   — content, pageIds (List<UUID>)
-│   └── PostResponse.java        — id, content, status, page info, publishResults
+│   ├── PostResponse.java        — id, content, status, page info, publishResults
+│   ├── PostAnalyticsResponse.java  — post metrics DTO: likes, comments, shares, impressions, reach, engagementRate, pageName, platform
+│   ├── PageAnalyticsResponse.java  — page metrics DTO: followers, pageImpressions, pageViews, postsCount, avgEngagementRate
+│   └── AnalyticsOverviewResponse.java — aggregated: totalLikes, totalComments, totalShares, totalImpressions, totalReach, avgEngagementRate, topPosts[], pages[]
 ├── service/
 │   ├── AuthService.java         — register, login (returns JWT + user info)
 │   ├── BrandService.java        — CRUD for brands
@@ -124,6 +133,7 @@ src/main/java/com/socialflow/
 │   ├── PostScheduler.java       — @Scheduled background job to publish due posts automatically
 │   ├── OAuthService.java        — OAuth flows + Facebook SDK + Bluesky connect + upsert logic
 │   ├── InboxService.java        — Syncs messages from Graph API, handles replies, and mark-as-read
+│   ├── FacebookAnalyticsService.java — Syncs post & page analytics from Facebook Graph API (separate from FacebookPublisher)
 │   └── publisher/
 │       ├── PublisherService.java    — Routes to platform-specific publisher by PlatformType
 │       ├── FacebookPublisher.java   — POST /{pageId}/feed via Graph API + fetchComments + replyToComment
@@ -139,7 +149,8 @@ src/main/java/com/socialflow/
     ├── PostController.java       — GET/POST/DELETE /api/posts, POST /api/posts/{id}/publish
     ├── MediaController.java      — POST /api/media/upload, GET/DELETE /api/media, GET /api/media/{filename}
     ├── WebhookController.java    — Facebook + LinkedIn webhook verification & event handlers
-    └── InboxController.java      — GET /api/brands/{id}/inbox, POST sync, POST reply, PUT read
+    ├── InboxController.java      — GET /api/brands/{id}/inbox, POST sync, POST reply, PUT read
+    └── AnalyticsController.java  — POST sync, GET overview, GET post/page analytics & history
 
 
 8. API ENDPOINTS
@@ -177,6 +188,13 @@ PROTECTED (Bearer JWT):
   GET    /api/brands/{brandId}/inbox             — Get all unified inbox messages for brand
   POST   /api/inbox/{id}/reply                   — Reply to a specific comment
   PUT    /api/inbox/{id}/read                    — Mark a message as read
+  POST   /api/analytics/{brandId}/sync           — Sync post & page analytics from Facebook
+  GET    /api/analytics/{brandId}/overview       — Aggregated analytics overview (totals + top posts + pages)
+  GET    /api/analytics/{brandId}/posts          — List latest analytics per post for brand
+  GET    /api/analytics/posts/{postId}           — Get latest analytics for a single post
+  GET    /api/analytics/posts/{postId}/history   — Get analytics history (all snapshots) for a post
+  GET    /api/analytics/pages/{pageId}           — Get latest analytics for a page
+  GET    /api/analytics/pages/{pageId}/history   — Get analytics history for a page
 
 
 9. FRONTEND STRUCTURE (f:\SocialFlow\frontend\)
@@ -197,6 +215,7 @@ src/
     ├── create/page.tsx          — Create post: select brand → select pages → write content → pick Schedule Time → publish
     ├── assets/page.tsx          — Media Asset Library: upload, view, and delete images/videos
     ├── inbox/page.tsx           — Unified Inbox: view comments by thread and reply directly
+    ├── analytics/page.tsx       — Analytics dashboard: 3 tabs (Overview, Posts, Pages) with sync button
     └── posts/[id]/page.tsx      — Post detail: status, content, publish results, media, scheduled time
 
 Connect flows by platform:
@@ -212,7 +231,7 @@ Connect flows by platform:
 Facebook:
   - App ID: 1867627970477000 (hardcoded in accounts/page.tsx)
   - Products: "Facebook Login" (standard)
-  - Permissions: pages_manage_posts, pages_read_engagement, pages_show_list
+  - Permissions: pages_manage_posts, pages_read_engagement, pages_show_list, read_insights
   - Webhook verify token: socialflow_webhook_verify_2026
 
 Twitter/X:
@@ -267,3 +286,6 @@ Threads:
 =====================================
 - Spring Boot 3 & Security 6 Error Handling: By default, Spring Boot forwards 500 Internal Server Errors to the `/error` dispatcher. If this dispatcher is not permitted in `SecurityConfig`, the app masks the 500 error and returns a misleading `403 Forbidden`. Solution: Add `.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()` to the security filter chain.
 - Hibernate Schema Updates: When adding a `NOT NULL` column (like `@ManyToOne` for a User relationship) to an existing table that already contains data, Hibernate will fail to alter the table and throw a 500 error. A practical workaround during MVP development is to rename the `@Table(name = "new_table_name")` to force a clean schema creation.
+- Spring UriBuilder vs Facebook API: Facebook Graph API fields use curly braces `{id,message}` and parentheses `likes.summary(true)`. Spring's UriBuilder treats `{...}` as URI template variables and may encode `()` incorrectly, causing 400 errors. Solution: Build the full URL as a string and use `URI.create(url)` instead of `uriBuilder.queryParam()`.
+- Facebook reactions vs likes: For Page posts, use `reactions.summary(true)` instead of `likes.summary(true)` to get the total reaction count (Graph API v18.0+).
+- Analytics uses URI.create() for all Facebook API calls to avoid encoding issues with commas, parentheses, and curly braces in query parameters.
