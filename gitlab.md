@@ -1,1 +1,1 @@
-sync gitlab
+sync gitlab 1
