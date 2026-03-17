@@ -7,8 +7,7 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
-COPY --from=builder /app/.next/standalone/package.json ./
-COPY --from=builder /app/.next/standalone/server.js ./
+COPY --from=builder /app/.next/standalone ./    
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 EXPOSE 3000
