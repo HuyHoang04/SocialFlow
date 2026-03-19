@@ -265,13 +265,62 @@ Threads:
 
 12. HOW TO RUN
 ==============
-1. Configure application.properties with DB + OAuth credentials
-2. Start Backend:  cd backend  && mvn spring-boot:run    (port 8080)
-3. Start Frontend: cd frontend && npm run dev             (port 3000)
-4. Access: http://localhost:3000
+LOCAL DEVELOPMENT (Without Docker):
+  1. Configure application.properties with DB + OAuth credentials
+  2. Start Backend:  cd backend  && mvn spring-boot:run    (port 8080)
+  3. Start Frontend: cd frontend && npm run dev             (port 3000)
+  4. Access: http://localhost:3000
+
+WITH DOCKER (Recommended):
+  1. Ensure Docker Desktop is running
+  2. Configure application.properties with DB + OAuth credentials
+  3. Run: docker-compose up --build
+     - PostgreSQL starts on localhost:5432
+     - Backend starts on localhost:8080
+     - Frontend starts on localhost:3000
+     - Frontend auto-proxies /api/* → backend via next.config.ts rewrites
+  4. To rebuild: docker-compose down && docker-compose up --build
+  5. To stop: docker-compose down
 
 
-13. KNOWN LIMITATIONS / NEXT STEPS
+13. DOCKER SETUP
+================
+Files:
+  - docker-compose.yml       — Service orchestration (postgres, backend, frontend)
+  - backend/Dockerfile       — Java Spring Boot image (alpine-based for small size)
+  - frontend/Dockerfile      — Next.js standalone image (multi-stage build)
+
+Architecture:
+  postgres (5432)     — Always-on database
+  backend (8080)      — Java Spring Boot
+  frontend (3000)     — Next.js web server
+
+Network:
+  - All services communicate via internal Docker network
+  - Frontend environment: API_URL=http://backend:8080, NEXT_PUBLIC_API_URL=http://backend:8080
+  - No service is exposed internally; only external ports (5432, 8080, 3000) are mapped
+  - Frontend next.config.ts rewrites /api/:path* → backend:8080/api/:path*
+
+Database Persistence:
+  - PostgreSQL data stored in named volume: socialflow-postgres-data
+  - Data persists across docker-compose down/up cycles
+  - To reset database: docker-compose down -v (removes all volumes)
+
+Healthchecks:
+  - postgres: pg_isready check every 10s
+  - backend: curl healthcheck every 30s (requires curl installed in image)
+  - frontend: wget healthcheck every 30s
+  - backend depends_on postgres (waits for postgres to be healthy)
+  - frontend depends_on backend (but starts immediately, no health condition)
+
+Tips:
+  - Use `docker-compose logs -f` to stream logs
+  - Use `docker-compose logs backend` to view only backend logs
+  - Frontend logs show Next.js starting, compilation, and API proxy requests
+  - Backend logs show Spring Boot startup, database initialization, and request handling
+
+
+14. KNOWN LIMITATIONS / NEXT STEPS
 ===================================
 - Twitter API requires paid plan ($200/mo) — free tier discontinued
 - LinkedIn webhook requires real HTTPS domain (ngrok explicitly blocked)
@@ -280,7 +329,7 @@ Threads:
 - No pagination for lists
 - LinkedIn publisher may need org vs personal URN adjustments
 - No unit tests
-- No Docker / deployment scripts
+- No production Kubernetes deployment (next phase)
 
 14. TROUBLESHOOTING & LESSONS LEARNED
 =====================================

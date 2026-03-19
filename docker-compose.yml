@@ -1,0 +1,57 @@
+
+services: 
+  postgres:
+    image: postgres:16-alpine
+    container_name: socialflow-postgres
+    environment:
+      POSTGRES_USER: socialflow
+      POSTGRES_PASSWORD: socialflow
+      POSTGRES_DB: socialflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - socialflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U socialflow -d socialflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socialflow-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/socialflow
+      SPRING_DATASOURCE_USERNAME: socialflow
+      SPRING_DATASOURCE_PASSWORD: socialflow
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: socialflow-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      API_URL: http://backend:8080
+      NEXT_PUBLIC_API_URL: http://backend:8080
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+volumes:
+  socialflow-postgres-data:

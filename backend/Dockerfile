@@ -5,8 +5,9 @@ RUN mvn dependency:resolve
 COPY src ./src
 RUN mvn clean package -DskipTests && rm -rf /root/.m2/repository
 
-FROM gcr.io/distroless/java17-debian11
+FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
+RUN apk add --no-cache curl
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT [ "java", "-jar", "app.jar" ]
