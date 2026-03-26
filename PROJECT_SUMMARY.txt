@@ -1,7 +1,7 @@
 ================================================================================
   SocialFlow MVP - Project Summary (for AI Agents & Developers)
-  Last updated: 2026-03-04
-  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics
+  Last updated: 2026-03-26
+  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics, K8s Deployed
 ================================================================================
 
 1. WHAT IS THIS PROJECT?
@@ -329,12 +329,124 @@ Tips:
 - No pagination for lists
 - LinkedIn publisher may need org vs personal URN adjustments
 - No unit tests
-- No production Kubernetes deployment (next phase)
 
-14. TROUBLESHOOTING & LESSONS LEARNED
+15. TROUBLESHOOTING & LESSONS LEARNED
 =====================================
 - Spring Boot 3 & Security 6 Error Handling: By default, Spring Boot forwards 500 Internal Server Errors to the `/error` dispatcher. If this dispatcher is not permitted in `SecurityConfig`, the app masks the 500 error and returns a misleading `403 Forbidden`. Solution: Add `.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()` to the security filter chain.
 - Hibernate Schema Updates: When adding a `NOT NULL` column (like `@ManyToOne` for a User relationship) to an existing table that already contains data, Hibernate will fail to alter the table and throw a 500 error. A practical workaround during MVP development is to rename the `@Table(name = "new_table_name")` to force a clean schema creation.
 - Spring UriBuilder vs Facebook API: Facebook Graph API fields use curly braces `{id,message}` and parentheses `likes.summary(true)`. Spring's UriBuilder treats `{...}` as URI template variables and may encode `()` incorrectly, causing 400 errors. Solution: Build the full URL as a string and use `URI.create(url)` instead of `uriBuilder.queryParam()`.
 - Facebook reactions vs likes: For Page posts, use `reactions.summary(true)` instead of `likes.summary(true)` to get the total reaction count (Graph API v18.0+).
 - Analytics uses URI.create() for all Facebook API calls to avoid encoding issues with commas, parentheses, and curly braces in query parameters.
+
+================================================================================
+16. KUBERNETES DEPLOYMENT (Docker Desktop K8s)
+===============================================
+
+STATUS: ✅ COMPLETE - Full K8s stack running (2026-03-26)
+  - PostgreSQL 1/1 Ready, Backend 2/2 Ready, Frontend 2/2 Ready
+  - All services: backend (ClusterIP), frontend (NodePort 30000), postgres (Headless)
+  - Persistent storage: 1Gi PVC bound, data survives pod restarts
+
+K8s Manifests (Location: f:\SocialFlow\k8s\):
+  01-namespace.yaml              — socialflow namespace
+  02-storageclass.yaml           — docker.io/hostpath provisioner
+  03-postgres-pvc.yaml           — 1Gi persistent volume claim
+  03-postgres-configmap.yaml     — PostgreSQL environment: POSTGRES_DB, POSTGRES_USER
+  04-postgres-secret.yaml        — POSTGRES_PASSWORD (base64 encoded)
+  05-postgres-statefulset.yaml   — PostgreSQL pod with volumes, probes
+  07-postgres-service.yaml       — Headless service (DNS: postgres:5432)
+  08-backend-configmap.yaml      — Backend config: datasource URL, server port
+  09-backend-deployment.yaml     — 2 replicas, health probes, resource limits
+  10-backend-service.yaml        — ClusterIP service (DNS: backend:8080)
+  11-frontend-deployment.yaml    — 2 replicas, API_URL env, health probes
+  12-frontend-service.yaml       — NodePort service (localhost:30000)
+  13-ingress.yaml                — Optional Ingress manifest
+
+Quick Start:
+  Deploy all: kubectl apply -f k8s/
+  Verify: kubectl get pods -n socialflow
+  Access: http://localhost:30000
+
+Networking:
+  Internal (pod-to-pod):
+    Frontend → backend.socialflow.svc.cluster.local:8080
+    Backend → postgres.socialflow.svc.cluster.local:5432
+  
+  External (localhost):
+    http://localhost:30000 → frontend (NodePort)
+    Backend has no external route (internal only, secure)
+  
+  Frontend uses: API_URL=http://backend:8080 env var → next.config.ts rewrites /api/* to backend
+
+Security:
+  SecurityConfig.java:
+    - /actuator/health permitAll() for K8s health probes (no JWT)
+    - All other endpoints require JWT token
+  
+  CorsConfig.java:
+    - Allows: http://localhost:3000, http://localhost:30000, app.base-url, app.frontend-url
+    - Prevents CORS errors from frontend
+  
+  Secrets:
+    - POSTGRES_PASSWORD stored in K8s Secret (base64)
+    - Backend references via valueFrom.secretKeyRef
+
+Environment Variables:
+  Backend ConfigMap:
+    SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/socialflow
+    SPRING_DATASOURCE_USERNAME=socialflow
+    SPRING_DATASOURCE_PASSWORD=<from secret>
+    SERVER_PORT=8080
+    SPRING_JPA_HIBERNATE_DDL_AUTO=update
+  
+  Frontend Deployment:
+    API_URL=http://backend:8080
+    NEXT_PUBLIC_API_URL=http://backend:8080
+
+Database:
+  PostgreSQL 16-alpine StatefulSet:
+    - Persistent: /var/lib/postgresql/data → PVC (1Gi)
+    - Schema auto-created by Hibernate (DDL_AUTO=update)
+    - Access externally: kubectl port-forward -n socialflow svc/postgres 5432:5432
+
+Resource Limits:
+  Backend: 512Mi/1Gi RAM, 500m/1000m CPU (2 replicas)
+  Frontend: 256Mi/512Mi RAM, 250m/500m CPU (2 replicas)
+  PostgreSQL: 256Mi/512Mi RAM, 250m/500m CPU
+
+Health Checks:
+  Backend: HTTP GET /actuator/health (liveness + readiness)
+  Frontend: HTTP GET / (liveness + readiness)
+  PostgreSQL: Command pg_isready (liveness + readiness)
+
+Debugging:
+  Logs: kubectl logs -f -n socialflow <pod-name>
+  Details: kubectl describe pod -n socialflow <pod-name>
+  Status: kubectl get all -n socialflow
+  Port-forward: kubectl port-forward -n socialflow svc/frontend 3000:3000
+  
+  Common fixes:
+  - Pods not Ready: kubectl describe pod (check events)
+  - CORS errors: Add localhost:30000 to CorsConfig.java
+  - Health probe fail: Ensure /actuator/health returns 200 (no auth required)
+  - PVC stuck Pending: StorageClass needs volumeBindingMode: Immediate
+
+Production Considerations:
+  - Replace StatefulSet PostgreSQL with managed database (RDS, Cloud SQL)
+  - Use LoadBalancer instead of NodePort
+  - Add Ingress with TLS/HTTPS
+  - Use cloud StorageClass (gp3, standard-rwo)
+  - Configure HPA (Horizontal Pod Autoscaler)
+  - Add monitoring: Prometheus, Datadog, or cloud solutions
+  - Use cloud Secrets Manager (do not hardcode)
+  - Enable Network Policies
+  - Set deployment strategy: RollingUpdate or Blue-Green
+
+Local Development with Port-Forward:
+  kubectl port-forward -n socialflow svc/frontend 3000:3000 &
+  kubectl port-forward -n socialflow svc/backend 8080:8080 &
+  
+  Then access: http://localhost:3000 and http://localhost:8080
+  
+  Stop: pkill -f "port-forward"
+
