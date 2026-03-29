@@ -4,7 +4,6 @@ stages:
 
 variables:
   REGISTRY: ${CI_REGISTRY}
-  IMAGE_TAG: ${CI_COMMIT_SHA:0:8}
   BACKEND_IMAGE: ${CI_REGISTRY_IMAGE}/backend
   FRONTEND_IMAGE: ${CI_REGISTRY_IMAGE}/frontend
 
@@ -17,10 +16,9 @@ build_backend:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
     - cd backend
-    - docker build -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:$IMAGE_TAG .
+    - docker build -t $BACKEND_IMAGE:latest .
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker push $BACKEND_IMAGE:latest
-    - docker push $BACKEND_IMAGE:$IMAGE_TAG
 
 build_frontend:
   stage: build
@@ -31,10 +29,9 @@ build_frontend:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
     - cd frontend
-    - docker build -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:$IMAGE_TAG .
+    - docker build -t $FRONTEND_IMAGE:latest .
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker push $FRONTEND_IMAGE:latest
-    - docker push $FRONTEND_IMAGE:$IMAGE_TAG
 
 deploy_production:
   stage: deploy
