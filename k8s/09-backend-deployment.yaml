@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
       - name: backend
-        image: registry.gitlab.com/kltn2355011/social-flow/backend:latest
-        imagePullPolicy: Always
+        image: socialflow-backend:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
           name: http

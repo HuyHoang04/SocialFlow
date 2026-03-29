@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: registry.gitlab.com/kltn2355011/social-flow/frontend:latest
-        imagePullPolicy: Always
+        image: socialflow-frontend:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3000
           name: http
