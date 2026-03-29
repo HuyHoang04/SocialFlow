@@ -54,9 +54,9 @@ variable "rds_password" {
 }
 
 variable "ec2_instance_type" {
-  description = "EC2 instance type (free tier: t3.micro)"
+  description = "EC2 instance type (free tier: t3.small for K3s, 2GB RAM)"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 variable "ec2_key_name" {

@@ -28,13 +28,35 @@ resource "aws_instance" "main" {
 		apt-get update -y
 		apt-get install -y curl ca-certificates
 
-		# Install K3s (lightweight Kubernetes)
-		curl -sfL https://get.k3s.io | sh -
+		# Install K3s in background with resource constraints to prevent system hang
+		# Run as nohup to detach from SSH session
+		nohup sh -c '
+			export K3S_KUBECONFIG_MODE="644"
+			export INSTALL_K3S_SKIP_ENABLE="true"
+			curl -sfL https://get.k3s.io | sh -
+			# Enable K3s service
+			systemctl start k3s
+		' > /var/log/k3s-install.log 2>&1 &
 
-		# Make kubectl available for ubuntu user
+		# Make kubectl available for ubuntu user (will work once K3s comes up)
 		mkdir -p /home/ubuntu/.kube
-		cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
-		chown -R ubuntu:ubuntu /home/ubuntu/.kube
+		cat > /etc/systemd/system/k3s-copy-config.service <<SYSTEMD
+		[Unit]
+		Description=Copy K3s config to ubuntu user
+		After=k3s.service
+		Requires=k3s.service
+
+		[Service]
+		Type=oneshot
+		ExecStart=/bin/bash -c 'sleep 5 && cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config 2>/dev/null || true && chown -R ubuntu:ubuntu /home/ubuntu/.kube 2>/dev/null || true'
+		RemainAfterExit=true
+
+		[Install]
+		WantedBy=multi-user.target
+		SYSTEMD
+
+		systemctl daemon-reload
+		systemctl enable k3s-copy-config.service
 	EOF
 
 	root_block_device {
