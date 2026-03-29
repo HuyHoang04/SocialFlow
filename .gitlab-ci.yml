@@ -4,11 +4,14 @@ stages:
 default:
   image: alpine:3.20
   before_script:
-    - apk add --no-cache openssh-client bash git
+    - apk add --no-cache openssh-client bash
+    - test -n "$EC2_HOST"
+    - test -n "$EC2_USER"
+    - test -n "$SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+    - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20"
 
 deploy_production:
   stage: deploy
@@ -16,18 +19,13 @@ deploy_production:
     - if: '$CI_COMMIT_BRANCH == "main"'
   script:
     - |
-      ssh "$EC2_USER@$EC2_HOST" '
+      scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"
+      ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" '
         set -e
-
-        if [ ! -d /home/ubuntu/SocialFlow/.git ]; then
-          git clone "$REPO_SSH_URL" /home/ubuntu/SocialFlow
-        fi
-
-        cd /home/ubuntu/SocialFlow
-        git fetch --all
-        git reset --hard origin/main
-
-        sudo k3s kubectl apply -f k8s/
+        sudo rm -rf /opt/socialflow/k8s
+        sudo mkdir -p /opt/socialflow
+        sudo mv /tmp/socialflow-k8s /opt/socialflow/k8s
+        sudo k3s kubectl apply -f /opt/socialflow/k8s/
         sudo k3s kubectl get pods -n socialflow -o wide
         sudo k3s kubectl get svc -n socialflow
       '
