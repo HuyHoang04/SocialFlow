@@ -28,6 +28,12 @@ resource "aws_instance" "main" {
 		apt-get update -y
 		apt-get install -y curl ca-certificates
 
+		# Install Docker
+		apt-get install -y docker.io
+		systemctl start docker
+		systemctl enable docker
+		usermod -aG docker ubuntu
+
 		# Install K3s in background with resource constraints to prevent system hang
 		# Run as nohup to detach from SSH session
 		nohup sh -c '
