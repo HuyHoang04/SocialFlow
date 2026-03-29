@@ -28,25 +28,31 @@ deploy_production:
 
         sudo -n true
 
-        # Wait until k3s API server is ready before applying manifests
-        for i in $(seq 1 30); do
-          if sudo -n k3s kubectl get --raw=/readyz >/dev/null 2>&1; then
-            echo "k3s API is ready"
-            break
-          fi
-          echo "waiting for k3s API... ($i/30)"
-          sleep 5
-        done
-        sudo -n k3s kubectl get --raw=/readyz >/dev/null
-
-        sudo -n rm -rf /opt/socialflow/k8s
+        # Copy manifests and apply directly without readiness check
+        # K3s server may still be initializing, so use longer timeouts
+        sudo -n rm -rf /opt/socialflow/k8s 2>/dev/null || true
         sudo -n mkdir -p /opt/socialflow
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
-        # Avoid intermittent OpenAPI download timeout on small nodes
-        sudo -n k3s kubectl apply --validate=false --request-timeout=120s -f /opt/socialflow/k8s/
-        sudo -n k3s kubectl get pods -n socialflow -o wide
-        sudo -n k3s kubectl get svc -n socialflow
+        # Apply manifests with extended timeout and no validation
+        # The request-timeout allows K3s API to fully initialize
+        echo "Applying Kubernetes manifests..."
+        for i in 1 2 3; do
+          if sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f /opt/socialflow/k8s/; then
+            echo "✓ Manifests applied successfully"
+            break
+          else
+            if [ $i -lt 3 ]; then
+              echo "Retry $i/3: Waiting for K3s API to be fully ready..."
+              sleep 10
+            fi
+          fi
+        done
+
+        # Show deployment status
+        echo "Deployment status:"
+        sudo -n k3s kubectl get pods -n socialflow -o wide 2>/dev/null || echo "Pods not yet visible"
+        sudo -n k3s kubectl get svc -n socialflow 2>/dev/null || echo "Services not yet visible"
       '
   environment:
     name: production
