@@ -1,8 +1,47 @@
 stages:
+  - build
   - deploy
 
-default:
+variables:
+  REGISTRY: ${CI_REGISTRY}
+  IMAGE_TAG: ${CI_COMMIT_SHA:0:8}
+  BACKEND_IMAGE: ${CI_REGISTRY_IMAGE}/backend
+  FRONTEND_IMAGE: ${CI_REGISTRY_IMAGE}/frontend
+
+build_backend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - cd backend
+    - docker build -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:$IMAGE_TAG .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $BACKEND_IMAGE:latest
+    - docker push $BACKEND_IMAGE:$IMAGE_TAG
+
+build_frontend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - cd frontend
+    - docker build -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:$IMAGE_TAG .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $FRONTEND_IMAGE:latest
+    - docker push $FRONTEND_IMAGE:$IMAGE_TAG
+
+deploy_production:
+  stage: deploy
   image: alpine:3.20
+  needs: ["build_backend", "build_frontend"]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
     - apk add --no-cache openssh-client bash coreutils
     - test -n "$EC2_HOST"
@@ -12,11 +51,6 @@ default:
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
-
-deploy_production:
-  stage: deploy
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
   script:
     - |
       echo "[CI] Copying manifests to EC2..."
@@ -28,16 +62,15 @@ deploy_production:
 
         sudo -n true
 
-        # Copy manifests and apply directly without readiness check
-        # K3s server may still be initializing, so use longer timeouts
+        # Copy manifests and apply directly
         sudo -n rm -rf /opt/socialflow/k8s 2>/dev/null || true
         sudo -n mkdir -p /opt/socialflow
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
-        # Apply manifests in phases to avoid overwhelming K3s API on small instance
+        # Apply manifests in phases
         echo "Phase 1: Creating namespace..."
         for i in 1 2 3 4 5; do
-          if sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f /opt/socialflow/k8s/01-namespace.yaml; then
+          if sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f /opt/socialflow/k8s/01-namespace.yaml 2>/dev/null; then
             echo "✓ Namespace created"
             break
           fi
@@ -47,38 +80,21 @@ deploy_production:
           fi
         done
 
-        echo "Waiting for namespace to be ready..."
         sleep 5
 
-        echo "Phase 2: Applying storage and config..."
-        for manifest in /opt/socialflow/k8s/02-*.yaml /opt/socialflow/k8s/03-*.yaml /opt/socialflow/k8s/04-*.yaml /opt/socialflow/k8s/05-*.yaml; do
-          sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f "$manifest" || echo "Warning: $manifest failed, continuing..."
-          sleep 2
-        done
-
-        echo "Waiting for storage to initialize..."
-        sleep 5
-
-        echo "Phase 3: Applying database and services..."
-        for manifest in /opt/socialflow/k8s/06-*.yaml /opt/socialflow/k8s/07-*.yaml /opt/socialflow/k8s/08-*.yaml /opt/socialflow/k8s/09-*.yaml /opt/socialflow/k8s/10-*.yaml; do
-          sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f "$manifest" || echo "Warning: $manifest failed, continuing..."
-          sleep 2
-        done
-
-        echo "Waiting for database to start..."
-        sleep 10
-
-        echo "Phase 4: Applying frontend and ingress..."
-        for manifest in /opt/socialflow/k8s/11-*.yaml /opt/socialflow/k8s/12-*.yaml /opt/socialflow/k8s/13-*.yaml; do
-          sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f "$manifest" || echo "Warning: $manifest failed, continuing..."
-          sleep 2
+        echo "Phase 2-4: Applying all remaining manifests..."
+        for manifest in /opt/socialflow/k8s/*.yaml; do
+          [ "$manifest" = "/opt/socialflow/k8s/01-namespace.yaml" ] && continue
+          sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f "$manifest" 2>/dev/null || true
+          sleep 1
         done
 
         echo ""
         echo "Deployment status:"
-        sudo -n k3s kubectl get pods -n socialflow -o wide 2>/dev/null || echo "Pods not yet visible"
+        sleep 3
+        sudo -n k3s kubectl get pods -n socialflow -o wide
         echo ""
-        sudo -n k3s kubectl get svc -n socialflow 2>/dev/null || echo "Services not yet visible"
+        sudo -n k3s kubectl get svc -n socialflow
       '
   environment:
     name: production
