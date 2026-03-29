@@ -37,6 +37,15 @@ deploy_production:
         echo "Docker images built:"
         docker images | grep socialflow
 
+        # Import images into K3s containerd
+        echo ""
+        echo "Importing Docker images into K3s containerd..."
+        docker save socialflow-backend:latest | sudo -n k3s ctr images import -
+        docker save socialflow-frontend:latest | sudo -n k3s ctr images import -
+        
+        echo "Verifying images in K3s:"
+        sudo -n k3s ctr images list | grep socialflow
+
         # Deploy to K3s
         sudo -n true
 
@@ -44,7 +53,12 @@ deploy_production:
         sudo -n mkdir -p /opt/socialflow
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
-        # Apply manifests in phases
+        # Clean up old pods before redeploying - this ensures fresh initialization
+        echo "Cleaning up old pods from previous deployments..."
+        sudo -n k3s kubectl delete pods -n socialflow -l app=backend 2>/dev/null || true
+        sudo -n k3s kubectl delete pods -n socialflow -l app=frontend 2>/dev/null || true
+        sudo -n k3s kubectl delete pods -n socialflow -l app=postgres 2>/dev/null || true
+        sleep 3
         echo "Phase 1: Creating namespace..."
         for i in 1 2 3 4 5; do
           if sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f /opt/socialflow/k8s/01-namespace.yaml 2>/dev/null; then
