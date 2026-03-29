@@ -44,6 +44,14 @@ data "aws_availability_zones" "available" {
     state = "available"
 }
 
+data "http" "my_ip" {
+    url = "https://checkip.amazonaws.com"
+}
+
+locals {
+    my_ip = "${trimspace(data.http.my_ip.response_body)}/32"
+}
+
 # Route table
 resource "aws_route_table" "public" {
     vpc_id = aws_vpc.main.id
@@ -125,7 +133,7 @@ resource "aws_security_group" "ec2" {
     # K3s NodePort (30000-32767)
     ingress {
         from_port   = 30000
-        to_port     = 32767
+        to_port     = 30000
         protocol    = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }

@@ -10,12 +10,12 @@ output "ec2_public_dns" {
 
 output "rds_endpoint" {
   description = "RDS PostgreSQL endpoint"
-  value       = aws_db_instance.main.endpoint
+  value       = try(aws_db_instance.main[0].endpoint, null)
 }
 
 output "rds_port" {
   description = "RDS PostgreSQL port"
-  value       = aws_db_instance.main.port
+  value       = try(aws_db_instance.main[0].port, null)
 }
 
 output "ssh_command" {

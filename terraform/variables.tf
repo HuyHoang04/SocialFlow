@@ -50,19 +50,25 @@ variable "rds_password" {
   description = "RDS master password"
   type        = string
   sensitive   = true
-  default     = "ChangeMe123!@#"
+  default     = "socialflow"
 }
 
 variable "ec2_instance_type" {
-  description = "EC2 instance type (free tier: t2.micro)"
+  description = "EC2 instance type (free tier: t3.micro)"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 variable "ec2_key_name" {
   description = "EC2 key pair name"
   type        = string
   default     = "socialflow-key"
+}
+
+variable "enable_rds" {
+  description = "Whether to create AWS RDS resources"
+  type        = bool
+  default     = false
 }
 
 variable "allowed_ssh_cidr" {
