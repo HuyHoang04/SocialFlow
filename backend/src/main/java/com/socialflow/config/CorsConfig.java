@@ -24,6 +24,8 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:30000",
+                "https://socialflow.io.vn",
+                "https://www.socialflow.io.vn",
                 baseUrl,
                 frontendUrl
         ));
