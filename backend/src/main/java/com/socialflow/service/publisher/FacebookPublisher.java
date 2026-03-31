@@ -1,6 +1,7 @@
 package com.socialflow.service.publisher;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.model.Post;
 import com.socialflow.model.PostMedia;
 import com.socialflow.model.PublishResult;
@@ -240,7 +241,7 @@ public class FacebookPublisher {
                     .block();
         } catch (Exception e) {
             log.error("Failed to post Facebook reply: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to reply on Facebook: " + e.getMessage());
+            throw new RuntimeException(ErrorMessages.FB_REPLY_FAILED + e.getMessage());
         }
     }
 }

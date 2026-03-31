@@ -1,5 +1,6 @@
 package com.socialflow.controller;
 
+import com.socialflow.constants.ErrorMessages;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -45,7 +46,7 @@ public class WebhookController {
         }
 
         log.warn("Facebook webhook verification failed! Expected: {}, got: {}", verifyToken, token);
-        return ResponseEntity.status(403).body("Verification failed");
+        return ResponseEntity.status(403).body(ErrorMessages.WEBHOOK_VERIFICATION_FAILED);
     }
 
     /**
@@ -86,7 +87,7 @@ public class WebhookController {
             ));
         } catch (Exception e) {
             log.error("LinkedIn webhook verification failed", e);
-            return ResponseEntity.status(500).body(Map.of("error", "Verification failed"));
+            return ResponseEntity.status(500).body(Map.of("error", ErrorMessages.WEBHOOK_VERIFICATION_FAILED));
         }
     }
 
@@ -109,7 +110,7 @@ public class WebhookController {
                 String expectedSig = "hmac-sha256=" + hmacSha256(payload, linkedinClientSecret);
                 if (!expectedSig.equals(signature)) {
                     log.warn("LinkedIn webhook signature mismatch! Expected: {}, Got: {}", expectedSig, signature);
-                    return ResponseEntity.status(403).body("Invalid signature");
+                    return ResponseEntity.status(403).body(ErrorMessages.WEBHOOK_INVALID_SIGNATURE);
                 }
                 log.info("LinkedIn webhook signature verified");
             } catch (Exception e) {
