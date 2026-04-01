@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.InboxMessageResponse;
 import com.socialflow.dto.PlatformCommentDto;
 import com.socialflow.model.Brand;
@@ -32,10 +33,10 @@ public class InboxService {
     @Transactional
     public void syncMessages(UUID brandId, UUID userId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         // Fetch all connected pages for this brand
@@ -75,10 +76,10 @@ public class InboxService {
 
     public List<InboxMessageResponse> getMessages(UUID brandId, UUID userId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         return inboxRepository.findByPageConnectionBrandIdOrderByCreatedAtDesc(brandId).stream()
@@ -89,10 +90,10 @@ public class InboxService {
     @Transactional
     public InboxMessageResponse replyToMessage(UUID messageId, String replyContent, UUID userId) {
         InboxMessage message = inboxRepository.findById(messageId)
-                .orElseThrow(() -> new RuntimeException("Message not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
         if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 
         SocialPage page = message.getPage();
@@ -100,7 +101,7 @@ public class InboxService {
         if (page.getPlatform() == PlatformType.FACEBOOK) {
             facebookPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
         } else {
-            throw new RuntimeException("Replies not supported for platform: " + page.getPlatform());
+            throw new RuntimeException(ErrorMessages.REPLIES_NOT_SUPPORTED + page.getPlatform());
         }
 
         // After successfully replying via API, mark the original message as read
@@ -117,10 +118,10 @@ public class InboxService {
     @Transactional
     public InboxMessageResponse markAsRead(UUID messageId, UUID userId) {
         InboxMessage message = inboxRepository.findById(messageId)
-                .orElseThrow(() -> new RuntimeException("Message not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
         if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 
         message.setIsRead(true);

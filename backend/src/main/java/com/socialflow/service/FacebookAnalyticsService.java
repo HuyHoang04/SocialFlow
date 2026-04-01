@@ -1,6 +1,7 @@
 package com.socialflow.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.AnalyticsOverviewResponse;
 import com.socialflow.dto.PageAnalyticsResponse;
 import com.socialflow.dto.PostAnalyticsResponse;
@@ -369,7 +370,7 @@ public class FacebookAnalyticsService {
 
     public PostAnalyticsResponse getPostAnalytics(UUID postId) {
         PostAnalytics latest = postAnalyticsRepository.findFirstByPostIdOrderByFetchedAtDesc(postId)
-                .orElseThrow(() -> new RuntimeException("No analytics found for post " + postId));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_ANALYTICS_NOT_FOUND + postId));
         return toPostAnalyticsResponse(latest);
     }
 
@@ -381,7 +382,7 @@ public class FacebookAnalyticsService {
 
     public PageAnalyticsResponse getPageAnalytics(UUID pageId) {
         PageAnalytics latest = pageAnalyticsRepository.findFirstByPageIdOrderByFetchedAtDesc(pageId)
-                .orElseThrow(() -> new RuntimeException("No analytics found for page " + pageId));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.PAGE_ANALYTICS_NOT_FOUND + pageId));
         return toPageAnalyticsResponse(latest);
     }
 

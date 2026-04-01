@@ -1,6 +1,7 @@
 package com.socialflow.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.model.*;
 import com.socialflow.model.enums.PlatformType;
 import com.socialflow.repository.*;
@@ -100,7 +101,7 @@ public class OAuthService {
     public String handleFacebookCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
@@ -125,7 +126,7 @@ public class OAuthService {
     public String handleTwitterCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient tw = webClientBuilder.baseUrl("https://api.twitter.com").build();
 
@@ -187,7 +188,7 @@ public class OAuthService {
     public String handleLinkedInCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient li = webClientBuilder.baseUrl("https://www.linkedin.com").build();
 
@@ -249,7 +250,7 @@ public class OAuthService {
     public String handleThreadsCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient threads = webClientBuilder.baseUrl("https://graph.threads.net").build();
 
@@ -326,13 +327,13 @@ public class OAuthService {
 
     public Map<String, Object> handleFacebookToken(String accessToken, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
         return upsertFacebookConnection(brand, accessToken, 0);
     }
 
     public Map<String, Object> handleBlueskyConnect(String handle, String appPassword, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient bsky = webClientBuilder.baseUrl("https://bsky.social/xrpc").build();
 
@@ -429,7 +430,7 @@ public class OAuthService {
                         .exchangeToMono(resp -> {
                             if (resp.statusCode().isError()) {
                                 return resp.bodyToMono(String.class).handle((body, sink) -> 
-                                    sink.error(new RuntimeException("FB debug_token error: " + body)));
+                                    sink.error(new RuntimeException(ErrorMessages.FB_DEBUG_TOKEN_ERROR + body)));
                             }
                             return resp.bodyToMono(JsonNode.class);
                         }).block();
@@ -455,7 +456,7 @@ public class OAuthService {
                 .exchangeToMono(resp -> {
                     if (resp.statusCode().isError()) {
                         return resp.bodyToMono(String.class).handle((body, sink) -> 
-                            sink.error(new RuntimeException("FB /me/accounts error: " + body)));
+                            sink.error(new RuntimeException(ErrorMessages.FB_ACCOUNTS_ERROR + body)));
                     }
                     return resp.bodyToMono(JsonNode.class);
                 }).block();

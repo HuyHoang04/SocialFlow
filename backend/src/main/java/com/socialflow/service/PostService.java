@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.CreatePostRequest;
 import com.socialflow.dto.PostResponse;
 import com.socialflow.model.*;
@@ -38,7 +39,7 @@ public class PostService {
 
     public PostResponse getPostById(UUID id) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
         return toResponse(post);
     }
 
@@ -50,7 +51,7 @@ public class PostService {
             for (int i = 0; i < request.getMediaIds().size(); i++) {
                 UUID mediaId = request.getMediaIds().get(i);
                 PostMedia media = mediaRepository.findById(mediaId)
-                        .orElseThrow(() -> new RuntimeException("Media not found: " + mediaId));
+                        .orElseThrow(() -> new RuntimeException(ErrorMessages.MEDIA_NOT_FOUND + mediaId));
                 media.setSortOrder(i);
                 mediaFiles.add(media);
             }
@@ -60,7 +61,7 @@ public class PostService {
 
         for (UUID pageId : request.getPageIds()) {
             SocialPage page = pageRepository.findById(pageId)
-                    .orElseThrow(() -> new RuntimeException("Page not found: " + pageId));
+                    .orElseThrow(() -> new RuntimeException(ErrorMessages.PAGE_NOT_FOUND + pageId));
 
             LocalDateTime scheduledTime = null;
             PostStatus initialStatus = PostStatus.DRAFT;
@@ -74,7 +75,7 @@ public class PostService {
             Campaign campaign = null;
             if (request.getCampaignId() != null) {
                 campaign = campaignRepository.findById(request.getCampaignId())
-                        .orElseThrow(() -> new RuntimeException("Campaign not found: " + request.getCampaignId()));
+                        .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND_WITH_ID + request.getCampaignId()));
             }
 
             Post post = Post.builder()
@@ -119,7 +120,7 @@ public class PostService {
     @Transactional
     public PostResponse publishPost(UUID postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
 
         post.setStatus(PostStatus.PUBLISHING);
         postRepository.save(post);

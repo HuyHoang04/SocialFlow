@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.CampaignRequest;
 import com.socialflow.dto.CampaignResponse;
 import com.socialflow.model.Brand;
@@ -22,10 +23,10 @@ public class CampaignService {
 
     public CampaignResponse createCampaign(UUID brandId, UUID userId, CampaignRequest request) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         Campaign campaign = Campaign.builder()
@@ -42,10 +43,10 @@ public class CampaignService {
 
     public List<CampaignResponse> getCampaignsByBrand(UUID brandId, UUID userId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         return campaignRepository.findByBrandIdOrderByStartDateDesc(brandId).stream()
@@ -55,10 +56,10 @@ public class CampaignService {
 
     public void deleteCampaign(UUID id, UUID userId) {
         Campaign campaign = campaignRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND));
 
         if (!campaign.getBrand().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Campaign does not belong to user");
+            throw new RuntimeException(ErrorMessages.CAMPAIGN_UNAUTHORIZED);
         }
 
         campaignRepository.delete(campaign);

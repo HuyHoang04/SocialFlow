@@ -1,5 +1,6 @@
 package com.socialflow.controller;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.model.PostMedia;
 import com.socialflow.repository.PostMediaRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ public class MediaController {
             Files.createDirectories(uploadPath);
             log.info("Upload directory: {}", uploadPath);
         } catch (IOException e) {
-            throw new RuntimeException("Cannot create upload directory", e);
+            throw new RuntimeException(ErrorMessages.UPLOAD_DIR_CREATE_FAILED, e);
         }
     }
 
@@ -51,12 +52,12 @@ public class MediaController {
     @PostMapping("/upload")
     public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal User user) throws IOException {
         if (file.isEmpty()) {
-            throw new RuntimeException("File is empty");
+            throw new RuntimeException(ErrorMessages.FILE_EMPTY);
         }
 
         String contentType = file.getContentType();
         if (contentType == null || (!contentType.startsWith("image/") && !contentType.startsWith("video/"))) {
-            throw new RuntimeException("Only image and video files are allowed");
+            throw new RuntimeException(ErrorMessages.INVALID_FILE_TYPE);
         }
 
         // Generate unique filename
@@ -149,14 +150,14 @@ public class MediaController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMedia(@PathVariable UUID id, @AuthenticationPrincipal User user) {
         PostMedia media = mediaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Media not found: " + id));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MEDIA_NOT_FOUND + id));
 
         if (!media.getUploader().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this media");
+            throw new RuntimeException(ErrorMessages.MEDIA_UNAUTHORIZED);
         }
 
         if (media.getPost() != null) {
-            throw new RuntimeException("Cannot delete media that is attached to a post");
+            throw new RuntimeException(ErrorMessages.MEDIA_ATTACHED_TO_POST);
         }
 
         // Delete from filesystem
