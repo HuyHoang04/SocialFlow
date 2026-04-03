@@ -47,7 +47,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         } else {
             if (!path.contains("/auth/") && !path.contains("/callback") 
-                    && !path.contains("/webhook") && !path.contains("/media/")) {
+                    && !path.contains("/webhook") && !path.contains("/media/")
+                    && !path.contains("/actuator")) {
                 log.warn("No Authorization header for protected endpoint: {} {}", request.getMethod(), path);
             }
         }

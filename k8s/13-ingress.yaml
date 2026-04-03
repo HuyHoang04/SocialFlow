@@ -14,6 +14,8 @@ spec:
   - hosts:
     - socialflow.io.vn
     - www.socialflow.io.vn
+    - prometheus.socialflow.io.vn
+    - grafana.socialflow.io.vn
     secretName: socialflow-tls
   rules:
   - host: socialflow.io.vn
@@ -57,6 +59,26 @@ spec:
             name: backend
             port:
               number: 8080
+  - host: prometheus.socialflow.io.vn
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus
+            port:
+              number: 9090
+  - host: grafana.socialflow.io.vn
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
 ---
 # Traefik TLS Options untuk Cloudflare
 apiVersion: traefik.containo.us/v1alpha1
