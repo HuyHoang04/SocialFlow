@@ -1,7 +1,7 @@
 ================================================================================
   SocialFlow MVP - Project Summary (for AI Agents & Developers)
-  Last updated: 2026-03-26
-  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics, K8s Deployed
+  Last updated: 2026-04-03
+  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics, K8s Deployed, Monitoring (Prometheus+Grafana)
 ================================================================================
 
 1. WHAT IS THIS PROJECT?
@@ -15,10 +15,12 @@ Core Flow: Register → Create Brand → Connect Social Accounts → Create Post
 2. TECH STACK
 =============
 - Frontend: Next.js 16 (App Router, TypeScript, CSS, port 3000)
-- Backend:  Java Spring Boot 3.2.3 (REST API, port 8080)
+- Backend:  Java Spring Boot 3.2.3 (REST API, port 8080) + Actuator/Micrometer metrics
 - Database: PostgreSQL on Neon serverless
 - Auth:     JWT (jjwt library, BCrypt passwords)
 - HTTP:     Spring WebFlux WebClient (for platform API calls)
+- Monitoring: Prometheus (metrics scraper) + Grafana (visualization)
+- Container: Docker + Docker Compose (local) + K8s (Docker Desktop or EC2)
 
 
 3. ARCHITECTURE
@@ -339,33 +341,56 @@ Tips:
 - Analytics uses URI.create() for all Facebook API calls to avoid encoding issues with commas, parentheses, and curly braces in query parameters.
 
 ================================================================================
-16. KUBERNETES DEPLOYMENT (Docker Desktop K8s)
-===============================================
+16. KUBERNETES DEPLOYMENT (Docker Desktop K8s + EC2)
+====================================================
 
-STATUS: ✅ COMPLETE - Full K8s stack running (2026-03-26)
-  - PostgreSQL 1/1 Ready, Backend 2/2 Ready, Frontend 2/2 Ready
-  - All services: backend (ClusterIP), frontend (NodePort 30000), postgres (Headless)
+STATUS: ✅ COMPLETE - Full K8s stack with monitoring (2026-04-03)
+  - PostgreSQL 1/1 Ready, Backend 1/1 Ready, Frontend 1/1 Ready
+  - Prometheus 1/1 Ready, Grafana 1/1 Ready (monitoring stack)
+  - All services: backend (ClusterIP:8080), frontend (NodePort:30000), postgres (Headless:5432)
+  - Prometheus (ClusterIP:9090), Grafana (NodePort:30001)
   - Persistent storage: 1Gi PVC bound, data survives pod restarts
+  - SSL/TLS: Cert-Manager + Let's Encrypt + Traefik Ingress (production EC2)
 
 K8s Manifests (Location: f:\SocialFlow\k8s\):
   01-namespace.yaml              — socialflow namespace
-  02-storageclass.yaml           — docker.io/hostpath provisioner
+  02-storageclass.yaml           — rancher.io/local-path provisioner (was docker.io/hostpath)
   03-postgres-pvc.yaml           — 1Gi persistent volume claim
   03-postgres-configmap.yaml     — PostgreSQL environment: POSTGRES_DB, POSTGRES_USER
   04-postgres-secret.yaml        — POSTGRES_PASSWORD (base64 encoded)
   05-postgres-statefulset.yaml   — PostgreSQL pod with volumes, probes
   07-postgres-service.yaml       — Headless service (DNS: postgres:5432)
-  08-backend-configmap.yaml      — Backend config: datasource URL, server port
-  09-backend-deployment.yaml     — 2 replicas, health probes, resource limits
+  08-backend-configmap.yaml      — Backend config: datasource URL, server port, actuator metrics
+  09-backend-deployment.yaml     — 1 replica, health probes (90s/120s delay), resource limits (256Mi/512Mi)
   10-backend-service.yaml        — ClusterIP service (DNS: backend:8080)
-  11-frontend-deployment.yaml    — 2 replicas, API_URL env, health probes
+  11-frontend-deployment.yaml    — 1 replica, API_URL env, health probes
   12-frontend-service.yaml       — NodePort service (localhost:30000)
-  13-ingress.yaml                — Optional Ingress manifest
+  13-ingress.yaml                — Traefik Ingress: socialflow.io.vn + prometheus.socialflow.io.vn + grafana.socialflow.io.vn (EC2 only)
+  14-prometheus-configmap.yaml   — Prometheus config with K8s service discovery + backend metrics scrape job
+  15-prometheus-service.yaml     — ClusterIP service (DNS: prometheus:9090)
+  16-prometheus-deployment.yaml  — Prometheus pod with 15s scrape interval
+  17-prometheus-service-account.yaml — RBAC ClusterRole for service discovery
+  18-prometheus-cluster-role.yaml    — RBAC permissions for nodes, pods, services, endpoints
+  19-grafana-configmap.yaml     — Grafana datasource provisioning + Prometheus datasource pre-configured
+  20-grafana-service.yaml        — NodePort service (localhost:30001)
+  21-grafana-deployment.yaml     — Grafana pod + auto-datasource provisioning
 
-Quick Start:
+Quick Start (LOCAL DOCKER DESKTOP):
   Deploy all: kubectl apply -f k8s/
   Verify: kubectl get pods -n socialflow
-  Access: http://localhost:30000
+  Access: 
+    - Frontend:  http://localhost:30000
+    - Prometheus: http://localhost:9090
+    - Grafana: http://localhost:30001 (admin/admin123)
+
+OR use docker-compose (RECOMMENDED for development):
+  docker-compose up
+  Access:
+    - Frontend: http://localhost:3000
+    - Backend: http://localhost:8080
+    - Prometheus: http://localhost:9090
+    - Grafana: http://localhost:3001 (admin/admin123)
+    - Postgres: localhost:5432
 
 Networking:
   Internal (pod-to-pod):
@@ -409,15 +434,22 @@ Database:
     - Schema auto-created by Hibernate (DDL_AUTO=update)
     - Access externally: kubectl port-forward -n socialflow svc/postgres 5432:5432
 
-Resource Limits:
-  Backend: 512Mi/1Gi RAM, 500m/1000m CPU (2 replicas)
-  Frontend: 256Mi/512Mi RAM, 250m/500m CPU (2 replicas)
-  PostgreSQL: 256Mi/512Mi RAM, 250m/500m CPU
+Resource Limits (Optimized for t3.small EC2 - 2GB RAM):
+  Backend: 256Mi/512Mi RAM, 200m/500m CPU (1 replica)
+  Frontend: 128Mi/256Mi RAM, 100m/250m CPU (1 replica)
+  PostgreSQL: 128Mi/256Mi RAM, 100m/250m CPU
+  Prometheus: 100Mi/256Mi RAM, 100m/200m CPU
+  Grafana: 100Mi/128Mi RAM, 100m/200m CPU
+  Total: ~832Mi memory (40% of 2GB available on t3.small)
 
 Health Checks:
-  Backend: HTTP GET /actuator/health (liveness + readiness)
-  Frontend: HTTP GET / (liveness + readiness)
-  PostgreSQL: Command pg_isready (liveness + readiness)
+  Backend: HTTP GET /actuator/health (liveness: 120s delay, readiness: 90s delay)
+    - JwtAuthFilter bypasses /actuator paths to allow unauthenticated health checks
+    - Spring Boot startup time: 128-140 seconds (Hibernate initialization)
+  Frontend: HTTP GET / (liveness: 10s, readiness: 10s)
+  PostgreSQL: Command pg_isready (liveness: 5s, readiness: 5s)
+  Prometheus: HTTP GET /-/healthy (liveness: 30s, readiness: 30s)
+  Grafana: HTTP GET /api/health (liveness: 10s, readiness: 10s)
 
 Debugging:
   Logs: kubectl logs -f -n socialflow <pod-name>
@@ -431,22 +463,45 @@ Debugging:
   - Health probe fail: Ensure /actuator/health returns 200 (no auth required)
   - PVC stuck Pending: StorageClass needs volumeBindingMode: Immediate
 
-Production Considerations:
-  - Replace StatefulSet PostgreSQL with managed database (RDS, Cloud SQL)
-  - Use LoadBalancer instead of NodePort
-  - Add Ingress with TLS/HTTPS
-  - Use cloud StorageClass (gp3, standard-rwo)
-  - Configure HPA (Horizontal Pod Autoscaler)
-  - Add monitoring: Prometheus, Datadog, or cloud solutions
-  - Use cloud Secrets Manager (do not hardcode)
-  - Enable Network Policies
-  - Set deployment strategy: RollingUpdate or Blue-Green
+Production Configuration (EC2 - socialflow.io.vn):
+  ✅ COMPLETED:
+    - SSL/TLS: Cert-Manager + Let's Encrypt + Traefik Ingress
+    - Domain: socialflow.io.vn with Cloudflare DNS
+    - Subdomains: prometheus.socialflow.io.vn, grafana.socialflow.io.vn
+    - Monitoring: Prometheus + Grafana deployed on K3s EC2
+    - ImageRegistry: Docker on EC2 with containerd image import (docker save | k3s ctr images import)
+    - StorageClass: rancher.io/local-path with WaitForFirstConsumer
+    - Backend health probes: 90s/120s delay for slow Spring Boot startup
+  
+  NEXT CONSIDERATIONS:
+    - Replace StatefulSet PostgreSQL with managed database (AWS RDS)
+    - Use LoadBalancer instead of NodePort for public access
+    - Configure HPA (Horizontal Pod Autoscaler) when resource constraints allow
+    - Use AWS Secrets Manager for credentials
+    - Enable Network Policies for pod-to-pod security
+    - Setup log aggregation (CloudWatch, Datadog)
+    - Add alerting rules to Prometheus (CPU, memory, request latency)
+    - Configure automated backups for PostgreSQL
+
+Local Development Convenience:
+  - Script: port-forward.ps1 (PowerShell) — auto port-forward Prometheus + Grafana
+  - Shortcut: port-forward.cmd (batch) — double-click to run both port-forwards in new windows
+  - Usage: Runs kubectl port-forward in background terminals
 
 Local Development with Port-Forward:
-  kubectl port-forward -n socialflow svc/frontend 3000:3000 &
-  kubectl port-forward -n socialflow svc/backend 8080:8080 &
+  Manual (one-by-one):
+    kubectl port-forward -n socialflow svc/frontend 3000:3000 &
+    kubectl port-forward -n socialflow svc/prometheus 9090:9090 &
+    kubectl port-forward -n socialflow svc/grafana 3001:3000 &
   
-  Then access: http://localhost:3000 and http://localhost:8080
+  Auto (Windows):
+    Run: port-forward.cmd (or pwsh port-forward.ps1)
+    Opens 2 new PowerShell windows with Prometheus + Grafana port-forwards
   
-  Stop: pkill -f "port-forward"
+  Then access: 
+    - http://localhost:3000 (frontend)
+    - http://localhost:9090 (prometheus)
+    - http://localhost:3001 (grafana - admin/admin123)
+  
+  Stop: pkill -f "port-forward" (in PowerShell/WSL)
 
