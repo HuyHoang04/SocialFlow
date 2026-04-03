@@ -1,7 +1,7 @@
 ================================================================================
   SocialFlow MVP - Project Summary (for AI Agents & Developers)
   Last updated: 2026-04-03
-  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics, K8s Deployed, Monitoring (Prometheus+Grafana)
+  Status: MVP Complete, 5 platforms integrated, Media Uploads, Analytics, K8s Deployed, Monitoring, AI Service Phase 1 ✅
 ================================================================================
 
 1. WHAT IS THIS PROJECT?
@@ -341,7 +341,316 @@ Tips:
 - Analytics uses URI.create() for all Facebook API calls to avoid encoding issues with commas, parentheses, and curly braces in query parameters.
 
 ================================================================================
-16. KUBERNETES DEPLOYMENT (Docker Desktop K8s + EC2)
+16. AI SERVICE - PHASE 1 (Patch 2.0 Feature) ✅ COMPLETE
+=====================================================
+
+STATUS: ✅ COMPLETE - Python FastAPI service with dual-provider AI architecture (2026-04-03)
+  - Service: Running on http://localhost:5000
+  - Providers: Groq (primary, fast/cheap) + OpenRouter (quality, 350+ models)
+  - Fallback: Automatic Groq → free OpenRouter Qwen (guaranteed $0 cost)
+  - Architecture: Clean MVC pattern (15+ files, professionally organized)
+  - Dynamic Models: Live fetching from both provider APIs with graceful fallback
+
+PURPOSE: Generate social media post content using AI with dual-provider architecture
+  - Primary: Groq (LLaMA, Mixtral, Gemma models) — $0.05-0.59 per 1M input tokens
+  - Fallback: OpenRouter with 350+ models (Claude, GPT, Qwen, etc.)
+  - Free Tier: Qwen 3.6 Plus ($0/$0) — always available as guaranteed fallback
+  - Cost Tracking: Calculates costs per request, displays in responses
+
+PROJECT STRUCTURE (f:\SocialFlow\ai-service\):
+  ├── main.py                              — Thin entry point (Uvicorn runner)
+  ├── requirements.txt                     — FastAPI, Uvicorn, Pydantic, Groq, OpenAI, httpx
+  ├── .env.example                         — Configuration template (API keys)
+  ├── Dockerfile                           — Python 3.11 slim, non-root user, health check
+  ├── app/
+  │   ├── __init__.py
+  │   ├── main.py                          — FastAPI app definition + route registration
+  │   ├── config.py                        — Centralized config: API keys, models, pricing
+  │   ├── models/
+  │   │   └── __init__.py                  — Pydantic DTOs: ContentRequest, ContentResponse, etc.
+  │   ├── providers/
+  │   │   ├── __init__.py
+  │   │   ├── base.py                      — Abstract interface (fetch_models, generate, calculate_cost)
+  │   │   ├── groq_provider.py             — Groq SDK implementation
+  │   │   └── openrouter_provider.py       — OpenAI SDK (OpenRouter-compatible) implementation
+  │   ├── services/
+  │   │   ├── __init__.py
+  │   │   └── ai_service.py                — Business logic orchestrator (dual-provider strategy)
+  │   ├── routes/
+  │   │   ├── __init__.py
+  │   │   ├── health.py                    — GET /health
+  │   │   ├── models.py                    — GET /models, POST /refresh-models
+  │   │   └── generation.py                — POST /generate-content, POST /test
+  │   └── utils/
+  │       ├── __init__.py
+  │       ├── logger.py                    — Centralized logging configuration
+  │       └── formatting.py                — Price formatting (5.9e-07 → $0.59/1M tokens)
+
+ARCHITECTURE PATTERN: MVC Microservice
+  ┌─────────────────────────────────────────────────────────────┐
+  │ HTTP Requests (Frontend/Java Backend)                       │
+  └─────────┬───────────────────────────────────────────────────┘
+            │
+  ┌─────────▼───────────────────────────────────────────────────┐
+  │ ROUTES LAYER (app/routes/)                                  │
+  │ - health.py: GET /health                                    │
+  │ - models.py: GET /models, POST /refresh-models              │
+  │ - generation.py: POST /generate-content, POST /test         │
+  │ Responsibilities: HTTP validation, request parsing          │
+  └─────────┬───────────────────────────────────────────────────┘
+            │
+  ┌─────────▼───────────────────────────────────────────────────┐
+  │ SERVICE LAYER (app/services/ai_service.py)                  │
+  │ Responsibilities:                                            │
+  │ - Dual-provider orchestration                                │
+  │ - Fallback logic (Groq → OpenRouter free)                    │
+  │ - Model list refresh (parallel API calls)                    │
+  │ - Error handling & recovery                                  │
+  └─────────┬───────────────────────────────────────────────────┘
+            │
+  ┌─────────▴───────────────────────────────────────────────────┐
+  │ PROVIDER LAYER (app/providers/)                              │
+  │ ├─ base.py: Abstract interface                               │
+  │ ├─ groq_provider.py: Groq API client                          │
+  │ └─ openrouter_provider.py: OpenRouter client                  │
+  │ Responsibilities: API calls, pricing lookup, error handling   │
+  └─────────┬───────────────────────────────────────────────────┘
+            │
+  ┌─────────▼───────────────────────────────────────────────────┐
+  │ EXTERNAL APIs                                                │
+  │ ├─ Groq: https://api.groq.com/openai/v1/*                    │
+  │ └─ OpenRouter: https://openrouter.ai/api/v1/*                │
+  └──────────────────────────────────────────────────────────────┘
+
+ENDPOINTS & RESPONSES:
+
+1. GET /health
+  Response: HealthResponse
+  {
+    "status": "ok",
+    "service": "ai-service",
+    "version": "2.0.0"
+  }
+
+2. GET /models
+  Response: ModelsResponse (all available models with pricing)
+  {
+    "groq": {
+      "mixtral-8x7b-32768": {
+        "name": "Mixtral 8x7B 32k",
+        "input_cost_display": "$0.27/1M tokens",
+        "output_cost_display": "$0.81/1M tokens"
+      },
+      "llama-3-70b-8192": { ... }
+    },
+    "openrouter": {
+      "qwen/qwen3.6-plus:free": {
+        "name": "Qwen 3.6 Plus (FREE)",
+        "input_cost_display": "$0.00/1M tokens",
+        "output_cost_display": "$0.00/1M tokens"
+      },
+      "anthropic/claude-3.5-sonnet": { ... }
+    }
+  }
+
+3. POST /refresh-models
+  Response: RefreshModelsResponse
+  {
+    "status": "success",
+    "groq_models": 5,
+    "openrouter_models": 350,
+    "last_updated": "2026-04-03T16:45:00Z"
+  }
+
+4. POST /generate-content
+  Request: ContentRequest
+  {
+    "prompt": "Write a funny post about...",
+    "tone": "humorous",
+    "platform": "twitter",
+    "provider": "groq" | "openrouter" (optional)
+    "model": "mixtral-8x7b-32768" (optional)
+  }
+  
+  Response: ContentResponse
+  {
+    "content": "Generated post text...",
+    "provider": "groq",
+    "model": "mixtral-8x7b-32768",
+    "cost": 0.00023,
+    "tokens": {
+      "input": 25,
+      "output": 145
+    },
+    "success": true,
+    "error": null
+  }
+
+5. POST /test
+  Response: Simple test endpoint
+  {
+    "message": "hello"
+  }
+
+DUAL-PROVIDER STRATEGY:
+  Strategy 1 (Current - Groq Primary):
+    1. Request arrives with prompt
+    2. Try Groq first (fast, cheap)
+    3. If Groq fails → fallback to OpenRouter free Qwen (guaranteed $0)
+    4. Return result from whichever succeeded
+    5. If both fail → return error dict with failure reason
+  
+  Cost Control:
+    - Groq: ~$0.0002 per typical request ($0.27-0.81 per 1M tokens)
+    - OpenRouter fallback: $0.00 (free Qwen model)
+    - Guaranteed: No failed request costs money (always has free fallback)
+
+MODEL FETCHING (Dynamic):
+  Groq Models (5-8 models):
+    - API: https://api.groq.com/openai/v1/models
+    - Fallback: Hardcoded list if API timeout
+    - Models: LLaMA 3 70B, LLaMA 3 8B, Mixtral 8x7B, Gemma 7B, Gemma 2 9B
+  
+  OpenRouter Models (350+ models):
+    - API: https://openrouter.ai/api/v1/models
+    - Fallback: Hardcoded free + Claude 3.5 Sonnet if API timeout
+    - Models: All major providers (Anthropic, OpenAI, Meta, Qwen, Mistral, etc.)
+    - Free Options: Qwen 3.6 Plus ($0/$0)
+  
+  Graceful Degradation:
+    - Service starts even if APIs unreachable (uses hardcoded fallback)
+    - Manual refresh: POST /refresh-models
+    - Auto-refresh every 24h (configurable)
+
+CONFIGURATION (app/config.py):
+  Environment Variables:
+    GROQ_API_KEY=gsk_...              (from .env)
+    OPENROUTER_API_KEY=sk-or-v1-...   (from .env)
+  
+  Hardcoded Models (used as fallback):
+    GROQ_MODELS = {
+      "mixtral-8x7b-32768": {"name": "...", "input": 0.27, "output": 0.81},
+      "llama-3-70b-8192": {...},
+      ...
+    }
+    
+    OPENROUTER_MODELS = {
+      "qwen/qwen3.6-plus:free": {"name": "...", "input": 0, "output": 0},
+      ...
+    }
+
+ERROR HANDLING & FALLBACK:
+  Groq Scenarios:
+    - Auth error (401 Unauthorized) → Try OpenRouter
+    - Rate limit (429 Too Many Requests) → Try OpenRouter
+    - Server error (500+) → Try OpenRouter
+    - Network timeout → Try OpenRouter
+    - Success → Return Groq result
+  
+  OpenRouter Scenarios:
+    - Any error → Return error dict
+    - Success → Return OpenRouter result
+  
+  Response on Total Failure:
+    {
+      "success": false,
+      "error": "All providers failed: Groq error..., OpenRouter error...",
+      "provider": "none",
+      "content": null,
+      "cost": 0
+    }
+
+TECH STACK:
+  Framework: FastAPI 0.109.0 (modern async/await ASGI)
+  Server: Uvicorn (ASGI server, production-ready)
+  Validation: Pydantic 2.6.0 (type-safe DTOs)
+  Environment: python-dotenv 1.0.0 (.env file support)
+  AI Clients: groq 0.4.2, openai 1.3.9 (compatible with OpenRouter)
+  HTTP: httpx 0.25.0 (async HTTP for model fetching)
+  Python: 3.11+
+
+CODE QUALITY:
+  Logger: Centralized logging in app/utils/logger.py
+    - Format: "timestamp - logger_name - level - message"
+    - Setup: Called once, prevents duplicate logs
+    - Usage: logger = setup_logger(__name__)
+  
+  Formatting: app/utils/formatting.py
+    - Converts scientific notation to human-readable
+    - Example: 5.9e-07 → "$0.59/1M tokens"
+    - Applied to all model responses
+  
+  Type Safety: All DTOs in app/models/__init__.py via Pydantic
+    - Request validation: ContentRequest
+    - Response format: ContentResponse
+    - Type hints on all functions
+  
+  Dependency Injection: FastAPI's Depends() for AIService injection
+    - Route handlers receive ai_service via DI
+    - Single AIService instance per FastAPI app
+    - Clean separation of concerns
+
+DEPLOYMENT:
+  Docker: Dockerfile (Python 3.11 slim alpine base)
+    - Non-root user for security
+    - Health check: curl http://localhost:5000/health
+    - Production-ready Uvicorn configuration
+  
+  docker-compose.yml: Updated to include ai-service
+    ai-service (port 5000):
+      - Environment: GROQ_API_KEY, OPENROUTER_API_KEY (from .env)
+      - Health check: /health endpoint
+      - Depends on: Nothing (standalone)
+      - Restarts: Always
+  
+  Local Run:
+    python main.py
+    Access: http://localhost:5000
+
+TESTING (Manual):
+  1. Start service: python main.py
+  2. Test health: curl http://localhost:5000/health
+  3. List models: curl http://localhost:5000/models | python -m json.tool
+  4. Generate content:
+     curl -X POST http://localhost:5000/generate-content \
+       -H "Content-Type: application/json" \
+       -d '{"prompt":"Write a funny post","tone":"humorous","platform":"twitter"}'
+  5. Test endpoint: curl -X POST http://localhost:5000/test
+
+FILES CREATED IN PHASE 1:
+  ✅ app/__init__.py
+  ✅ app/main.py (FastAPI app definition)
+  ✅ app/config.py (centralized configuration)
+  ✅ app/models/__init__.py (Pydantic DTOs)
+  ✅ app/providers/__init__.py
+  ✅ app/providers/base.py (abstract interface)
+  ✅ app/providers/groq_provider.py
+  ✅ app/providers/openrouter_provider.py
+  ✅ app/services/__init__.py
+  ✅ app/services/ai_service.py
+  ✅ app/routes/__init__.py
+  ✅ app/routes/health.py
+  ✅ app/routes/models.py
+  ✅ app/routes/generation.py
+  ✅ app/utils/__init__.py
+  ✅ app/utils/logger.py
+  ✅ app/utils/formatting.py
+  ✅ main.py (entry point)
+  ✅ requirements.txt
+  ✅ .env.example
+  ✅ Dockerfile
+
+NEXT PHASE: Phase 2 - Java Integration (READY TO START)
+  1. Create Java DTOs: ContentGenerationRequest.java, ContentGenerationResponse.java
+  2. Create Java client: AiServiceClient.java (REST client to http://localhost:5000)
+  3. Create Java service: AiService.java (wraps client, adds business logic)
+  4. Create Java controller: AiController.java (REST endpoint /api/ai/generate-content)
+  5. Update application.properties: ai.service.url=http://localhost:5000
+  6. Test: POST http://localhost:8080/api/ai/generate-content
+  7. Validate: Java backend ↔ Python AI service ↔ Groq/OpenRouter
+
+================================================================================
+17. KUBERNETES DEPLOYMENT (Docker Desktop K8s + EC2)
 ====================================================
 
 STATUS: ✅ COMPLETE - Full K8s stack with monitoring (2026-04-03)
