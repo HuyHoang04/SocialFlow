@@ -83,7 +83,7 @@ class GroqProvider(BaseProvider):
             }
         
         except Exception as e:
-            logger.error(f"❌ Groq failed ({model}): {e}")
+            logger.error(f"Groq failed ({model}): {e}")
             raise
     
     def calculate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:

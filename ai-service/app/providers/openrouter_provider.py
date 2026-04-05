@@ -153,10 +153,15 @@ class OpenRouterProvider(BaseProvider):
             # Fallback to average OpenRouter pricing
             return (input_tokens * 3.0/1_000_000) + (output_tokens * 15.0/1_000_000)
     
-    async def generate_image(self, prompt: str, style: str = None, count: int = 1) -> Dict[str, Any]:
-        """Generate image using OpenRouter (via Stable Diffusion integration)"""
+    async def generate_image(self, prompt: str, style: str = None, model: str = None, count: int = 1) -> Dict[str, Any]:
+        """Generate image using OpenRouter chat completions with image modality"""
         try:
-            logger.info(f"Generating image via OpenRouter (Stable Diffusion)...")
+            # Set default model if not provided
+            if not model:
+                model = "stabilityai/stable-diffusion-3-large:extended"
+            
+            logger.info(f"Generating image via OpenRouter...")
+            logger.info(f"  Model: {model}")
             logger.info(f"  Prompt: {prompt[:100]}...")
             logger.info(f"  Count: {count}")
             
@@ -175,32 +180,53 @@ class OpenRouterProvider(BaseProvider):
                 if style_suffix:
                     full_prompt = f"{prompt}, {style_suffix}"
             
-            # Use OpenRouter's vision/image generation model
-            # Currently OpenRouter supports image generation via Stable Diffusion models
-            response = self.client.images.generate(
-                prompt=full_prompt,
-                n=min(count, 4),  # OpenRouter limits to 4 per request
-                size="1024x1024",
-                model="stabilityai/stable-diffusion-3-large:extended"
+            # Use chat completions endpoint with image modality (OpenRouter native format)
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ],
+                modalities=["image"],  # Enable image generation
+                temperature=0.7
             )
             
-            # Process images
+            # Process response
             images = []
             total_cost = 0.10 * count  # Estimate for API call
             
-            for img_data in response.data:
-                images.append({
-                    "url": img_data.url,
-                    "base64": None,  # OpenRouter returns URLs, not base64
-                    "seed": None
-                })
+            # Extract images from response
+            if response.choices and len(response.choices) > 0:
+                message = response.choices[0].message
+                
+                # Check for images in message
+                if hasattr(message, 'images') and message.images:
+                    for img in message.images:
+                        images.append({
+                            "url": img.image_url.url if hasattr(img.image_url, 'url') else str(img.image_url),
+                            "seed": None,
+                            "finish_reason": "success"
+                        })
+                
+                # Fallback: check for image content in text (base64 data URL)
+                elif message.content and "data:image" in str(message.content):
+                    images.append({
+                        "url": str(message.content),
+                        "seed": None,
+                        "finish_reason": "success"
+                    })
+            
+            if not images:
+                logger.warning("No images found in response")
             
             logger.info(f"Generated {len(images)} images via OpenRouter | Cost: ${total_cost:.6f}")
             
             return {
                 "images": images,
                 "provider": "openrouter",
-                "model": "stabilityai/stable-diffusion-3-large:extended",
+                "model": model,
                 "cost": total_cost,
                 "image_count": len(images),
                 "success": True,

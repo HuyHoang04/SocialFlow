@@ -41,12 +41,19 @@ class PixazoProvider(BaseProvider):
                             width: int = 1024, height: int = 1024, count: int = 1) -> Dict[str, Any]:
         """Generate image using Pixazo API"""
         try:
+            # Ensure model is set (fallback to fastest free model if None)
+            if model is None:
+                from app.config import DEFAULT_IMAGE_MODEL
+                model = DEFAULT_IMAGE_MODEL
+                logger.info(f"Model not specified, using default: {model}")
+            
             if not self.api_key:
                 logger.error("PIXAZO_API_KEY not configured")
                 return {
                     "success": False,
                     "error": "PIXAZO_API_KEY not configured",
-                    "images": []
+                    "images": [],
+                    "image_count": 0
                 }
             
             if model not in PIXAZO_MODELS:
@@ -55,7 +62,8 @@ class PixazoProvider(BaseProvider):
                 return {
                     "success": False,
                     "error": f"Unknown model: {model}. Available: {available}",
-                    "images": []
+                    "images": [],
+                    "image_count": 0
                 }
             
             model_config = PIXAZO_MODELS[model]
@@ -90,11 +98,20 @@ class PixazoProvider(BaseProvider):
                 
                 if image_url:
                     logger.info(f"Generated image: {image_url[:80]}...")
+                    images = [
+                        {
+                            "url": image_url,
+                            "seed": 42,
+                            "finish_reason": "success"
+                        }
+                        for _ in range(count)
+                    ]
                     return {
                         "success": True,
                         "provider": "pixazo",
                         "model": model,
-                        "images": [image_url for _ in range(count)],  # Repeat if multiple requested
+                        "images": images,
+                        "image_count": len(images),
                         "cost": self.calculate_cost(count, model),
                         "raw_response": data
                     }
@@ -104,6 +121,7 @@ class PixazoProvider(BaseProvider):
                         "success": False,
                         "error": "No image_url in response",
                         "images": [],
+                        "image_count": 0,
                         "raw_response": data
                     }
         
@@ -112,7 +130,8 @@ class PixazoProvider(BaseProvider):
             return {
                 "success": False,
                 "error": str(e),
-                "images": []
+                "images": [],
+                "image_count": 0
             }
     
     def _build_payload(self, model: str, prompt: str, width: int, height: int, style: str = None) -> Dict[str, Any]:
@@ -147,7 +166,7 @@ class PixazoProvider(BaseProvider):
                 "output_quality": 90,
                 "prompt_strength": 0.85
             }
-        elif model in ["sd-xl-lightning", "sd-xl-lightning-stream", "sd-xl-1-0"]:
+        elif model in ["sd-xl-lightning", "sd-xl-lightning-stream"]:
             return {
                 "prompt": prompt,
                 "negativePrompt": "",
@@ -156,6 +175,17 @@ class PixazoProvider(BaseProvider):
                 "num_steps": 20,
                 "guidance": 5,
                 "seed": 42
+            }
+        elif model == "sd-xl-1-0":
+            # SDXL Base 1.0 uses different field names (underscore, _scale suffix)
+            return {
+                "prompt": prompt,
+                "negative_prompt": "",
+                "height": height,
+                "width": width,
+                "num_steps": 20,
+                "guidance_scale": 5,
+                "seed": 40
             }
         elif model == "sd-1-5":
             return {

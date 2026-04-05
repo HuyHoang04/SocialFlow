@@ -8,21 +8,9 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
-# Debug prints
-if not GROQ_API_KEY:
-    print("WARNING: GROQ_API_KEY not found in environment!")
-else:
-    print(f"OK GROQ_API_KEY: {GROQ_API_KEY[:20]}... (len={len(GROQ_API_KEY)})")
-
-if not OPENROUTER_API_KEY:
-    print("WARNING: OPENROUTER_API_KEY not found in environment!")
-else:
-    print(f"OK OPENROUTER_API_KEY: {OPENROUTER_API_KEY[:20]}... (len={len(OPENROUTER_API_KEY)})")
-
-if not PIXAZO_API_KEY:
-    print("WARNING: PIXAZO_API_KEY not found in environment!")
-else:
-    print(f"OK PIXAZO_API_KEY: {PIXAZO_API_KEY[:20]}... (len={len(PIXAZO_API_KEY)})")
+# Feature Flags & Fallback Configuration
+ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() in ("true", "1", "yes")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Default Models
 DEFAULT_GROQ_MODEL = "mixtral-8x7b-32768"
@@ -124,5 +112,6 @@ OPENROUTER_MAX_TOKENS = 500
 DEFAULT_TEMPERATURE = 0.7
 
 # Image Model Defaults
-DEFAULT_IMAGE_MODEL = "stable-diffusion-3-5"
+DEFAULT_IMAGE_MODEL = "flux-1-schnell"  # Default to fastest FREE Pixazo model
 DEFAULT_IMAGE_PROVIDER = "pixazo"  # Pixazo is primary (FREE)
+ENABLE_IMAGE_FALLBACK = os.getenv("ENABLE_IMAGE_FALLBACK", "true").lower() in ("true", "1", "yes")

@@ -141,7 +141,10 @@ async def generate_image(request: ImageGenerationRequest, ai_service: AIService 
         logger.error(f"Image generation failed: {result['error']}")
         raise HTTPException(status_code=500, detail=result["error"])
     
-    logger.info(f"Image generation success | Images: {result['image_count']} | Provider: {result['provider']} | Cost: ${result['cost']:.6f}")
+    image_count = result.get("image_count", len(result.get("images", [])))
+    provider = result.get("provider", "unknown")
+    cost = result.get("cost", 0.0)
+    logger.info(f"Image generation success | Images: {image_count} | Provider: {provider} | Cost: ${cost:.6f}")
     
     return ImageGenerationResponse(**result)
 

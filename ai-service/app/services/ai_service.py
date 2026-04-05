@@ -7,6 +7,8 @@ from app.config import (
     FALLBACK_OPENROUTER_MODEL,
     DEFAULT_IMAGE_MODEL,
     DEFAULT_IMAGE_PROVIDER,
+    ENABLE_FALLBACK,
+    ENABLE_IMAGE_FALLBACK,
 )
 from app.providers.groq_provider import GroqProvider
 from app.providers.openrouter_provider import OpenRouterProvider
@@ -33,7 +35,7 @@ class AIService:
     
     async def refresh_models(self):
         """Refresh model lists from all providers (text and image)"""
-        logger.info("🔄 Refreshing model lists from all providers...")
+        logger.info("Refreshing model lists from all providers...")
         await asyncio.gather(
             self.groq_provider.fetch_models(),
             self.openrouter_provider.fetch_models(),
@@ -41,7 +43,7 @@ class AIService:
             self.pixazo_provider.fetch_models(),
             return_exceptions=True
         )
-        logger.info(" Model refresh complete")
+        logger.info("Model refresh complete")
     
     def get_available_models(self) -> Dict[str, Any]:
         """Get all available models with formatted pricing"""
@@ -389,7 +391,7 @@ class AIService:
         if provider == "pixazo" and model is None:
             model = DEFAULT_IMAGE_MODEL
         
-        logger.info(f"🖼️  Image generation request: {prompt[:50]}... | Provider: {provider}")
+        logger.info(f"Image generation request: {prompt[:50]}... | Provider: {provider}")
         
         # Try Pixazo (PRIMARY - FREE)
         if provider == "pixazo":
@@ -404,15 +406,27 @@ class AIService:
                 )
                 return result
             except Exception as e:
+                if not ENABLE_IMAGE_FALLBACK:
+                    logger.error(f"Pixazo failed, fallback disabled: {e}")
+                    return {
+                        "images": [],
+                        "provider": "none",
+                        "success": False,
+                        "cost": 0,
+                        "image_count": 0,
+                        "error": f"Pixazo generation failed (fallback disabled): {str(e)}"
+                    }
+                
                 logger.warning(f"Pixazo generation failed: {e}, trying OpenRouter fallback...")
                 # Fallback to OpenRouter
                 try:
                     result = await self.openrouter_provider.generate_image(
                         prompt=prompt,
                         style=style,
+                        model=model,
                         count=count
                     )
-                    logger.info(f" Used OpenRouter fallback (cost: ${result.get('cost', 0):.6f})")
+                    logger.info(f"Used OpenRouter fallback (cost: ${result.get('cost', 0):.6f})")
                     return result
                 except Exception as fallback_error:
                     return {
@@ -430,21 +444,36 @@ class AIService:
                 result = await self.openrouter_provider.generate_image(
                     prompt=prompt,
                     style=style,
+                    model=model,
                     count=count
                 )
-                logger.info(f" Used OpenRouter | Cost: ${result.get('cost', 0):.6f}")
+                logger.info(f"Used OpenRouter | Cost: ${result.get('cost', 0):.6f}")
                 return result
             except Exception as e:
                 logger.error(f"OpenRouter image generation failed: {e}")
+                
+                if not ENABLE_IMAGE_FALLBACK:
+                    logger.error(f"OpenRouter failed, fallback disabled")
+                    return {
+                        "images": [],
+                        "provider": "none",
+                        "success": False,
+                        "cost": 0,
+                        "image_count": 0,
+                        "error": f"OpenRouter generation failed (fallback disabled): {str(e)}"
+                    }
+                
                 # Try Pixazo as emergency fallback
                 try:
                     logger.warning(f"OpenRouter failed, trying Pixazo emergency fallback...")
                     result = await self.pixazo_provider.generate_image(
                         prompt=prompt,
                         style=style,
+                        width=width,
+                        height=height,
                         count=count
                     )
-                    logger.info(f" Used Pixazo emergency fallback (FREE)")
+                    logger.info(f"Used Pixazo emergency fallback (FREE)")
                     return result
                 except Exception as fallback_error:
                     return {
