@@ -6,22 +6,69 @@ load_dotenv()
 # API Keys - strip whitespace
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
 # Debug prints
 if not GROQ_API_KEY:
-    print("⚠️  WARNING: GROQ_API_KEY not found in environment!")
+    print("WARNING: GROQ_API_KEY not found in environment!")
 else:
-    print(f"✅ GROQ_API_KEY: {GROQ_API_KEY[:20]}... (len={len(GROQ_API_KEY)})")
+    print(f"OK GROQ_API_KEY: {GROQ_API_KEY[:20]}... (len={len(GROQ_API_KEY)})")
 
 if not OPENROUTER_API_KEY:
-    print("⚠️  WARNING: OPENROUTER_API_KEY not found in environment!")
+    print("WARNING: OPENROUTER_API_KEY not found in environment!")
 else:
-    print(f"✅ OPENROUTER_API_KEY: {OPENROUTER_API_KEY[:20]}... (len={len(OPENROUTER_API_KEY)})")
+    print(f"OK OPENROUTER_API_KEY: {OPENROUTER_API_KEY[:20]}... (len={len(OPENROUTER_API_KEY)})")
+
+if not PIXAZO_API_KEY:
+    print("WARNING: PIXAZO_API_KEY not found in environment!")
+else:
+    print(f"OK PIXAZO_API_KEY: {PIXAZO_API_KEY[:20]}... (len={len(PIXAZO_API_KEY)})")
 
 # Default Models
 DEFAULT_GROQ_MODEL = "mixtral-8x7b-32768"
 DEFAULT_OPENROUTER_MODEL = "auto"
 FALLBACK_OPENROUTER_MODEL = "qwen/qwen3.6-plus:free"  # Free model for fallback
+
+# Pixazo Models - Stable Diffusion via Pixazo Gateway
+# Only XL v1.0 and Inpainting are marked as FREE in UI
+PIXAZO_MODELS = {
+    "sd-xl-1-0": {
+        "name": "Stable Diffusion XL 1.0 - FREE",
+        "description": "SDXL 1.0 standard model",
+        "cost_per_image": 0.0,  # 100% FREE
+        "endpoint": "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
+        "method": "POST",
+        "has_negative_prompt": True,
+        "free": True,
+    },
+    "sd-inpainting": {
+        "name": "Stable Diffusion Inpainting - FREE",
+        "description": "Inpainting - modify specific regions of images",
+        "cost_per_image": 0.0,  # 100% FREE
+        "endpoint": "https://gateway.pixazo.ai/inpainting/v1/getImage",
+        "method": "POST",
+        "has_negative_prompt": True,
+        "free": True,
+    },
+    "flux-1-schnell": {
+        "name": "Flux 1 Schnell - FREE",
+        "description": "Fast Flux model - ultra-fast image generation",
+        "cost_per_image": 0.0,  # 100% FREE
+        "endpoint": "https://gateway.pixazo.ai/flux-1-schnell/v1/getData",
+        "method": "POST",
+        "has_negative_prompt": False,
+        "free": True,
+    },
+    "sdxl-base-1-0": {
+        "name": "SDXL Base 1.0 - FREE",
+        "description": "Stable Diffusion XL Base 1.0",
+        "cost_per_image": 0.0,  # 100% FREE
+        "endpoint": "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
+        "method": "POST",
+        "has_negative_prompt": True,
+        "free": True,
+    },
+}
 
 # Groq Models (Free tier - generous limits)
 GROQ_MODELS = {
@@ -63,53 +110,7 @@ GROQ_MODELS = {
 }
 
 # OpenRouter Models (Popular ones - supports 200+ models)
-OPENROUTER_MODELS = {
-    "qwen/qwen3.6-plus:free": {
-        "name": "Qwen 3.6 Plus (FREE)",
-        "input_cost": 0,
-        "output_cost": 0,
-        "is_free": True,
-        "context_window": 1000000,
-        "note": "100% free - fully open source"
-    },
-    "auto": {
-        "name": "Auto (Best Value)",
-        "input_cost": 1.0 / 1_000_000,
-        "output_cost": 5.0 / 1_000_000,
-        "is_free": False,
-        "context_window": 8192,
-        "note": "OpenRouter auto-routes to best value model"
-    },
-    "meta-llama/llama-3-8b-instruct": {
-        "name": "Llama 3 8B (OpenRouter)",
-        "input_cost": 0.05 / 1_000_000,
-        "output_cost": 0.1 / 1_000_000,
-        "is_free": False,
-        "context_window": 8192
-    },
-    "meta-llama/llama-3-70b-instruct": {
-        "name": "Llama 3 70B (OpenRouter)",
-        "input_cost": 0.59 / 1_000_000,
-        "output_cost": 0.79 / 1_000_000,
-        "is_free": False,
-        "context_window": 8192
-    },
-    "anthropic/claude-3-5-sonnet": {
-        "name": "Claude 3.5 Sonnet (Premium)",
-        "input_cost": 3.0 / 1_000_000,
-        "output_cost": 15.0 / 1_000_000,
-        "is_free": False,
-        "context_window": 200000
-    },
-    "google/gemma-4-31b-it": {
-        "name": "Google Gemma 4 31B",
-        "input_cost": 0.14 / 1_000_000,
-        "output_cost": 0.4 / 1_000_000,
-        "is_free": False,
-        "context_window": 262144,
-        "note": "Strong on coding & reasoning"
-    }
-}
+OPENROUTER_MODELS = {}
 
 # Costs (in USD per 1M tokens)
 GROQ_INPUT_COST = 0.27 / 1_000_000
@@ -121,3 +122,7 @@ OPENROUTER_OUTPUT_COST = 15.0 / 1_000_000
 GROQ_MAX_TOKENS = 500
 OPENROUTER_MAX_TOKENS = 500
 DEFAULT_TEMPERATURE = 0.7
+
+# Image Model Defaults
+DEFAULT_IMAGE_MODEL = "stable-diffusion-3-5"
+DEFAULT_IMAGE_PROVIDER = "pixazo"  # Pixazo is primary (FREE)

@@ -1,8 +1,15 @@
 # Content generation routes
 from fastapi import APIRouter, HTTPException, Depends
-from app.models import ContentRequest, ContentResponse
+from app.models import (
+    ContentRequest, ContentResponse, 
+    RewriteRequest, RewriteResponse, 
+    KeywordOptimizationRequest, KeywordOptimizationResponse,
+    ImageGenerationRequest, ImageGenerationResponse,
+    ImageModelsResponse
+)
 from app.services.ai_service import AIService
 from app.utils.logger import setup_logger
+from app.prompts import format_content_generation_prompt, format_rewrite_prompt, format_optimization_prompt
 
 logger = setup_logger(__name__)
 
@@ -20,26 +27,13 @@ async def generate_content(request: ContentRequest, ai_service: AIService = Depe
     Uses dual provider strategy (Groq primary, OpenRouter fallback)
     """
     
-    logger.info(f"📝 Content generation requested")
+    logger.info("Content generation requested")
     logger.info(f"   Prompt: {request.prompt[:50]}...")
     logger.info(f"   Tone: {request.tone}")
     logger.info(f"   Platform: {request.platform}")
     
-    # Build full prompt with context
-    full_prompt = f"""
-You are an expert social media content creator.
-
-Platform: {request.platform}
-Tone: {request.tone}
-
-Task: {request.prompt}
-
-Requirements:
-- Create engaging, authentic content
-- Match the specified tone
-- Optimized for {request.platform}
-- Keep it concise and impactful
-"""
+    # Build full prompt with context using formatter
+    full_prompt = format_content_generation_prompt(request.prompt, request.platform, request.tone)
     
     # Generate content with optional provider/model selection
     result = await ai_service.generate_content(
@@ -52,13 +46,115 @@ Requirements:
         logger.error(f"Content generation failed: {result['error']}")
         raise HTTPException(status_code=500, detail=result["error"])
     
-    logger.info(f"✅ Success | Provider: {result['provider']} | Model: {result.get('model', 'N/A')} | Cost: ${result['cost']:.6f}")
+    logger.info(f"Success | Provider: {result['provider']} | Model: {result.get('model', 'N/A')} | Cost: ${result['cost']:.6f}")
     
     return ContentResponse(**result)
+
+@router.post("/rewrite-content", response_model=RewriteResponse)
+async def rewrite_content(request: RewriteRequest, ai_service: AIService = Depends(get_ai_service)) -> RewriteResponse:
+    """
+    Rewrite content with specified tone adjustment
+    Supported tones: professional, casual, humorous, inspirational, technical
+    """
+    
+    logger.info("Content rewrite requested")
+    logger.info(f"   Original: {request.content[:50]}...")
+    logger.info(f"   Tone: {request.tone}")
+    logger.info(f"   Platform: {request.platform}")
+    
+    result = await ai_service.rewrite_content(
+        content=request.content,
+        tone=request.tone,
+        provider=request.provider,
+        model=request.model
+    )
+    
+    if not result["success"]:
+        logger.error(f"Content rewrite failed: {result['error']}")
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    logger.info(f"Rewrite success | Tone: {result['tone_applied']} | Cost: ${result['cost']:.6f}")
+    
+    return RewriteResponse(**result)
+
+@router.post("/optimize-keywords", response_model=KeywordOptimizationResponse)
+async def optimize_keywords(request: KeywordOptimizationRequest, ai_service: AIService = Depends(get_ai_service)) -> KeywordOptimizationResponse:
+    """
+    Suggest hashtags and keywords for content optimization
+    """
+    
+    logger.info("Keyword optimization requested")
+    logger.info(f"   Content: {request.content[:50]}...")
+    logger.info(f"   Platform: {request.platform}")
+    logger.info(f"   Max hashtags: {request.max_hashtags}")
+    
+    result = await ai_service.optimize_keywords(
+        content=request.content,
+        keywords=request.keywords,
+        platform=request.platform,
+        max_hashtags=request.max_hashtags,
+        provider=request.provider,
+        model=request.model
+    )
+    
+    if not result["success"]:
+        logger.error(f"Keyword optimization failed: {result['error']}")
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    logger.info(f"Optimization success | Hashtags: {len(result['hashtags'])} | Keywords: {len(result['keywords'])} | Cost: ${result['cost']:.6f}")
+    
+    return KeywordOptimizationResponse(**result)
 
 @router.post("/test")
 async def test_endpoint(ai_service: AIService = Depends(get_ai_service)):
     """Quick test endpoint"""
-    logger.info("🧪 Test endpoint called")
+    logger.info("Test endpoint called")
     result = await ai_service.generate_content("Say hello in one word!")
     return result
+
+@router.post("/generate-image", response_model=ImageGenerationResponse)
+async def generate_image(request: ImageGenerationRequest, ai_service: AIService = Depends(get_ai_service)) -> ImageGenerationResponse:
+    """
+    Image generation endpoint
+    Supports: Pixazo (FREE primary), OpenRouter (paid fallback)
+    """
+    
+    logger.info("Image generation requested")
+    logger.info(f"   Prompt: {request.prompt[:50]}...")
+    logger.info(f"   Style: {request.style}")
+    logger.info(f"   Provider: {request.provider or 'auto (Pixazo primary)'}")
+    logger.info(f"   Size: {request.width}x{request.height}")
+    logger.info(f"   Count: {request.count}")
+    
+    result = await ai_service.generate_image(
+        prompt=request.prompt,
+        style=request.style,
+        platform=request.platform,
+        width=request.width,
+        height=request.height,
+        count=request.count,
+        provider=request.provider,
+        model=request.model
+    )
+    
+    if not result["success"]:
+        logger.error(f"Image generation failed: {result['error']}")
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    logger.info(f"Image generation success | Images: {result['image_count']} | Provider: {result['provider']} | Cost: ${result['cost']:.6f}")
+    
+    return ImageGenerationResponse(**result)
+
+@router.get("/image-models", response_model=ImageModelsResponse)
+async def get_image_models(ai_service: AIService = Depends(get_ai_service)) -> ImageModelsResponse:
+    """
+    Get available image generation models
+    - Pixazo: 100% FREE Stable Diffusion (SD 3.5, 3, XL, Lightning, 1.5)
+    - OpenRouter: Paid fallback ($0.10/image)
+    """
+    
+    logger.info("Fetching available image models (Pixazo + OpenRouter)")
+    
+    models = ai_service.get_available_image_models()
+    
+    return ImageModelsResponse(**models)

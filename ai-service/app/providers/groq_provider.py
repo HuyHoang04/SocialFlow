@@ -45,11 +45,11 @@ class GroqProvider(BaseProvider):
                             }
                 
                 self.models_cache = models
-                logger.info(f"✅ Fetched {len(models)} models from Groq API")
+                logger.info(f"Fetched {len(models)} models from Groq API")
                 return models
         
         except Exception as e:
-            logger.warning(f"❌ Failed to fetch Groq models from API: {e}")
+            logger.warning(f"Failed to fetch Groq models from API: {e}")
             logger.info("Using fallback hardcoded models from config")
             self.models_cache = self.hardcoded_models
             return self.hardcoded_models
@@ -70,7 +70,7 @@ class GroqProvider(BaseProvider):
             content = response.choices[0].message.content
             cost = self.calculate_cost(response.usage.prompt_tokens, response.usage.completion_tokens, model)
             
-            logger.info(f"✅ Groq success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
+            logger.info(f"Groq success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
             
             return {
                 "content": content,

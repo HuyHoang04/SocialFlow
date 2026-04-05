@@ -21,6 +21,7 @@ class OpenRouterProvider(BaseProvider):
             }
         )
         self.models_cache = None
+        self.image_models_cache = None
         self.hardcoded_models = OPENROUTER_MODELS
     
     async def fetch_models(self) -> Dict[str, Any]:
@@ -48,14 +49,67 @@ class OpenRouterProvider(BaseProvider):
                         }
                 
                 self.models_cache = models
-                logger.info(f"✅ Fetched {len(models)} models from OpenRouter")
+                logger.info(f"Fetched {len(models)} models from OpenRouter")
                 return models
         
         except Exception as e:
-            logger.warning(f"❌ Failed to fetch OpenRouter models: {e}")
+            logger.warning(f"Failed to fetch OpenRouter models: {e}")
             logger.info("Using fallback hardcoded models")
             self.models_cache = self.hardcoded_models
             return self.hardcoded_models
+    
+    async def fetch_image_models(self) -> Dict[str, Any]:
+        """Fetch available image generation models from OpenRouter API"""
+        try:
+            if not OPENROUTER_API_KEY:
+                logger.warning("OPENROUTER_API_KEY not set, cannot fetch image models")
+                self.image_models_cache = {}
+                return {}
+            
+            logger.info("Fetching OpenRouter image generation models...")
+            async with httpx.AsyncClient(timeout=10) as client:
+                # Use OpenRouter's modality filter for image generation models
+                response = await client.get(
+                    "https://openrouter.ai/api/v1/models?output_modality=image",
+                    headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"}
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                image_models = {}
+                
+                for model in data.get("data", []):
+                    model_id = model.get("id", "")
+                    if model_id:
+                        # Get completion price from pricing - try different field names
+                        pricing = model.get("pricing", {})
+                        completion_price = pricing.get("completion", 0.0)
+                        
+                        # Convert string to float if needed
+                        if isinstance(completion_price, str):
+                            completion_price = float(completion_price)
+                        
+                        image_models[model_id] = {
+                            "name": model.get("name", model_id),
+                            "cost_per_image": completion_price,
+                            "description": f"{model.get('name', model_id)} via OpenRouter",
+                            "context_length": model.get("context_length", 0),
+                        }
+                        logger.info(f"  Found image model: {model_id} (${completion_price:.2e}/image)")
+                
+                if image_models:
+                    self.image_models_cache = image_models
+                    logger.info(f"Fetched {len(image_models)} image models from OpenRouter")
+                    return image_models
+                else:
+                    logger.warning("No image models found from OpenRouter API")
+                    self.image_models_cache = {}
+                    return {}
+        
+        except Exception as e:
+            logger.warning(f"Failed to fetch OpenRouter image models: {e}")
+            self.image_models_cache = {}
+            return {}
     
     async def generate(self, prompt: str, model: str) -> Dict[str, Any]:
         """Generate content using OpenRouter"""
@@ -73,7 +127,7 @@ class OpenRouterProvider(BaseProvider):
             content = response.choices[0].message.content
             cost = self.calculate_cost(response.usage.prompt_tokens, response.usage.completion_tokens, model)
             
-            logger.info(f"✅ OpenRouter success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
+            logger.info(f"OpenRouter success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
             
             return {
                 "content": content,
@@ -86,7 +140,7 @@ class OpenRouterProvider(BaseProvider):
             }
         
         except Exception as e:
-            logger.error(f"❌ OpenRouter failed ({model}): {e}")
+            logger.error(f"OpenRouter failed ({model}): {e}")
             raise
     
     def calculate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
@@ -98,3 +152,61 @@ class OpenRouterProvider(BaseProvider):
         else:
             # Fallback to average OpenRouter pricing
             return (input_tokens * 3.0/1_000_000) + (output_tokens * 15.0/1_000_000)
+    
+    async def generate_image(self, prompt: str, style: str = None, count: int = 1) -> Dict[str, Any]:
+        """Generate image using OpenRouter (via Stable Diffusion integration)"""
+        try:
+            logger.info(f"Generating image via OpenRouter (Stable Diffusion)...")
+            logger.info(f"  Prompt: {prompt[:100]}...")
+            logger.info(f"  Count: {count}")
+            
+            # Build prompt with style
+            full_prompt = prompt
+            if style:
+                style_prompts = {
+                    "photorealistic": "photorealistic, detailed, high quality, professional photography",
+                    "illustration": "artistic illustration, digital art, painted, stylized",
+                    "anime": "anime style, manga, vibrant colors, detailed",
+                    "abstract": "abstract art, creative, experimental, surreal",
+                    "3d": "3D render, CGI, cinematic, high detail",
+                    "sketch": "sketch, pencil drawing, line art, minimalist"
+                }
+                style_suffix = style_prompts.get(style, "")
+                if style_suffix:
+                    full_prompt = f"{prompt}, {style_suffix}"
+            
+            # Use OpenRouter's vision/image generation model
+            # Currently OpenRouter supports image generation via Stable Diffusion models
+            response = self.client.images.generate(
+                prompt=full_prompt,
+                n=min(count, 4),  # OpenRouter limits to 4 per request
+                size="1024x1024",
+                model="stabilityai/stable-diffusion-3-large:extended"
+            )
+            
+            # Process images
+            images = []
+            total_cost = 0.10 * count  # Estimate for API call
+            
+            for img_data in response.data:
+                images.append({
+                    "url": img_data.url,
+                    "base64": None,  # OpenRouter returns URLs, not base64
+                    "seed": None
+                })
+            
+            logger.info(f"Generated {len(images)} images via OpenRouter | Cost: ${total_cost:.6f}")
+            
+            return {
+                "images": images,
+                "provider": "openrouter",
+                "model": "stabilityai/stable-diffusion-3-large:extended",
+                "cost": total_cost,
+                "image_count": len(images),
+                "success": True,
+                "error": None
+            }
+        
+        except Exception as e:
+            logger.error(f"OpenRouter image generation failed: {e}")
+            raise

@@ -17,7 +17,7 @@ def get_ai_service() -> AIService:
 @router.get("/models", response_model=ModelsResponse)
 async def list_models(ai_service: AIService = Depends(get_ai_service)):
     """List all available models from both providers with pricing info"""
-    logger.info("📖 Listing available models")
+    logger.info("Listing available models")
     models = ai_service.get_available_models()
     return ModelsResponse(
         groq=models["groq"],
@@ -27,7 +27,7 @@ async def list_models(ai_service: AIService = Depends(get_ai_service)):
 @router.post("/refresh-models", response_model=RefreshModelsResponse)
 async def refresh_models(ai_service: AIService = Depends(get_ai_service)):
     """Manually refresh model lists from provider APIs"""
-    logger.info("🔄 Manual model refresh triggered")
+    logger.info(" Manual model refresh triggered")
     await ai_service.refresh_models()
     return {
         "status": "success",

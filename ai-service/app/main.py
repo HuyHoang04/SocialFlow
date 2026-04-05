@@ -20,9 +20,9 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup"""
-    logger.info("🚀 Startup: Loading models from provider APIs...")
+    logger.info("Startup: Loading models from provider APIs...")
     await ai_service.refresh_models()
-    logger.info("✅ AI Service ready!")
+    logger.info("AI Service ready!")
 
 # Include routers
 app.include_router(health.router)
