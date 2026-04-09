@@ -1,10 +1,11 @@
 # Groq provider implementation
 import httpx
-from typing import Dict, Any
+from typing import Dict, Any, List
 from groq import Groq
 from app.config import GROQ_API_KEY, GROQ_MODELS, GROQ_MAX_TOKENS, DEFAULT_TEMPERATURE
 from app.providers.base import BaseProvider
 from app.utils.logger import setup_logger
+from app.models import TextResponse
 
 logger = setup_logger(__name__)
 
@@ -54,7 +55,7 @@ class GroqProvider(BaseProvider):
             self.models_cache = self.hardcoded_models
             return self.hardcoded_models
     
-    async def generate(self, prompt: str, model: str) -> Dict[str, Any]:
+    async def generate(self, prompt: str, model: str) -> TextResponse:
         """Generate content using Groq"""
         try:
             logger.info(f"Attempting Groq provider ({model})...")
@@ -72,15 +73,15 @@ class GroqProvider(BaseProvider):
             
             logger.info(f"Groq success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
             
-            return {
-                "content": content,
-                "provider": "groq",
-                "model": model,
-                "cost": cost,
-                "tokens": response.usage.completion_tokens,
-                "success": True,
-                "error": None
-            }
+            return TextResponse(
+                content=content,
+                provider="groq",
+                model=model,
+                cost=cost,
+                token_count=response.usage.completion_tokens,
+                success=True,
+                error=None
+            )
         
         except Exception as e:
             logger.error(f"Groq failed ({model}): {e}")
@@ -95,3 +96,17 @@ class GroqProvider(BaseProvider):
         else:
             # Fallback to average Groq pricing
             return (input_tokens * 0.27/1_000_000) + (output_tokens * 0.81/1_000_000)
+
+    async def fetch_embedding_models(self) -> Dict[str, Any]:
+        """Groq does not have embedding models, return empty"""
+        logger.info("Groq does not provide embedding models")
+        return {}
+
+    async def embed(self, texts: List[str], model: str, images: List[str] = None) -> Dict[str, Any]:
+        """Groq does not support embeddings"""
+        logger.error("Groq does not provide embedding models")
+        raise NotImplementedError("Groq does not provide embedding services")
+
+    def calculate_embedding_cost(self, token_count: int, model: str) -> float:
+        """Groq embeddings not supported"""
+        return 0.0

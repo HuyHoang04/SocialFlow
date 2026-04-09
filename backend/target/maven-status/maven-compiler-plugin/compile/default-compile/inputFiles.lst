@@ -8,6 +8,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\model\PublishResult.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\SocialFlowApplication.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\BrandRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\InboxService.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\model\Embedding.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\CampaignController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\RegisterRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\security\JwtUtil.java
@@ -47,6 +48,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\dto\LoginResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\security\JwtAuthFilter.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\Brand.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\InboxMessage.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\controller\Heathcheck.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\SecurityConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\PostAnalytics.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\CampaignResponse.java
@@ -59,6 +61,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\LinkedInPub
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\CorsConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\BlueskyPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\AnalyticsController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\constants\ErrorMessages.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\SocialPageRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\Post.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\CreateBrandRequest.java

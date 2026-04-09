@@ -8,15 +8,47 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
+# Backend integration
+JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")  # Java backend URL
+
+# PostgreSQL Configuration
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "socialflow")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
 # Feature Flags & Fallback Configuration
 ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() in ("true", "1", "yes")
+ENABLE_EMBBED_FALLBACK = os.getenv("ENABLE_EMBBED_FALLBACK", "false").lower() in ("true", "1", "yes")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Default Models
-DEFAULT_GROQ_MODEL = "mixtral-8x7b-32768"
+DEFAULT_GROQ_MODEL = "llama-3.1-70b-versatile"
 DEFAULT_OPENROUTER_MODEL = "auto"
 FALLBACK_OPENROUTER_MODEL = "qwen/qwen3.6-plus:free"  # Free model for fallback
 
+# Costs (in USD per 1M tokens)
+GROQ_INPUT_COST = 0.27 / 1_000_000
+GROQ_OUTPUT_COST = 0.81 / 1_000_000
+OPENROUTER_INPUT_COST = 3.0 / 1_000_000  # Claude avg
+OPENROUTER_OUTPUT_COST = 15.0 / 1_000_000
+
+# API Settings
+GROQ_MAX_TOKENS = 500
+OPENROUTER_MAX_TOKENS = 500
+DEFAULT_TEMPERATURE = 0.7
+
+# Image Model Defaults
+DEFAULT_IMAGE_MODEL = "flux-1-schnell"  # Default to fastest FREE Pixazo model
+DEFAULT_IMAGE_PROVIDER = "pixazo"  # Pixazo is primary (FREE)
+ENABLE_IMAGE_FALLBACK = os.getenv("ENABLE_IMAGE_FALLBACK", "true").lower() in ("true", "1", "yes")
+
+KNOW_MUTI_MODAL_EMBEDDING_MODELS = [
+                "nvidia/llama-nemotron-embed-vl-1b-v2",
+                "nvidia/embed-qa-4",
+                "nomic-ai/nomic-embed-vision-v1.5"]
 # Pixazo Models - Stable Diffusion via Pixazo Gateway
 # Only XL v1.0 and Inpainting are marked as FREE in UI
 PIXAZO_MODELS = {
@@ -100,18 +132,3 @@ GROQ_MODELS = {
 # OpenRouter Models (Popular ones - supports 200+ models)
 OPENROUTER_MODELS = {}
 
-# Costs (in USD per 1M tokens)
-GROQ_INPUT_COST = 0.27 / 1_000_000
-GROQ_OUTPUT_COST = 0.81 / 1_000_000
-OPENROUTER_INPUT_COST = 3.0 / 1_000_000  # Claude avg
-OPENROUTER_OUTPUT_COST = 15.0 / 1_000_000
-
-# API Settings
-GROQ_MAX_TOKENS = 500
-OPENROUTER_MAX_TOKENS = 500
-DEFAULT_TEMPERATURE = 0.7
-
-# Image Model Defaults
-DEFAULT_IMAGE_MODEL = "flux-1-schnell"  # Default to fastest FREE Pixazo model
-DEFAULT_IMAGE_PROVIDER = "pixazo"  # Pixazo is primary (FREE)
-ENABLE_IMAGE_FALLBACK = os.getenv("ENABLE_IMAGE_FALLBACK", "true").lower() in ("true", "1", "yes")

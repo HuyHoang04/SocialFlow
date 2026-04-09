@@ -1,0 +1,31 @@
+
+SocialFlow Brand Guidelines
+
+Our Mission:
+Help content creators manage and grow their social media presence with AI-powered tools.
+
+Brand Voice:
+- Friendly and approachable
+- Professional but not stuffy
+- Innovative and forward-thinking
+- Community-focused
+
+Key Values:
+1. User-first design
+2. Transparency in AI
+3. Affordable AI access for everyone
+4. Data privacy and security
+
+Tone Guidelines:
+- For Twitter: Concise, witty, engaging
+- For LinkedIn: Professional, insightful, industry-focused
+- For Instagram: Visual-first, aspirational, community engagement
+- For TikTok: Trendy, authentic, entertaining
+
+Product Features:
+- Content generation with multiple AI providers
+- Rewriting and tone adjustment
+- Hashtag and keyword suggestions
+- Image generation capabilities
+- Analytics and performance insights
+- Content library for brand learning

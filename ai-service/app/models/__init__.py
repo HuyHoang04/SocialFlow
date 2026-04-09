@@ -2,6 +2,23 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
+# ========== Base Response Model ==========
+
+class BaseResponse(BaseModel):
+    """Base response model with common fields"""
+    success: bool
+    error: Optional[str] = None
+    provider: str
+    model: Optional[str] = None
+    cost: float
+
+
+class TextResponse(BaseResponse):
+    """Response model for text generation (provider level)"""
+    content: str
+    token_count: int
+
+
 class ContentRequest(BaseModel):
     """Request model for content generation"""
     prompt: str
@@ -110,7 +127,42 @@ class ImageGenerationResponse(BaseModel):
     error: Optional[str] = None
 
 
+class ImageResponse(BaseResponse):
+    """Response model for image generation (provider level)"""
+    images: List[Dict[str, Any]]
+    image_count: int
+
+
 class ImageModelsResponse(BaseModel):
     """Response model for available image models"""
     pixazo: dict  # Pixazo FREE Stable Diffusion
     openrouter: Optional[dict] = None  # OpenRouter paid fallback
+
+
+class EmbeddingRequest(BaseModel):
+    """Request model for text embedding"""
+    brand_id: str  # REQUIRED - which brand owns these embeddings
+    texts: List[str]  # Texts to embed (required)
+    images: Optional[List[str]] = None  # URLs or base64 images (for multimodal models)
+    provider: Optional[str] = None  # "groq" or "openrouter", None for auto-fallback
+    model: Optional[str] = None  # Specific model, None for default
+
+
+class EmbeddingResponse(BaseModel):
+    """Response model for text embedding"""
+    embeddings: List[List[float]]  # List of embedding vectors
+    provider: str  # Which provider was used
+    model: Optional[str] = None  # Model name
+    dimension: int  # Vector dimension (768, 1536, etc.)
+    token_count: int  # Total tokens used
+    embedding_count: int  # Number of embeddings generated
+    cost: float  # Cost in USD
+    success: bool
+    error: Optional[str] = None
+
+
+class EmbeddingModelsResponse(BaseModel):
+    """Response model for available embedding models"""
+    groq: dict  # {"model_name": {"dimension": 768, "supports_images": False, ...}}
+    openrouter: dict  # Similar structure
+    success: bool = True

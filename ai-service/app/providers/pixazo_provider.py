@@ -4,6 +4,7 @@ from typing import Dict, Any
 from app.config import PIXAZO_API_KEY, PIXAZO_MODELS
 from app.providers.base import BaseProvider
 from app.utils.logger import setup_logger
+from app.models import ImageResponse
 
 logger = setup_logger(__name__)
 
@@ -38,7 +39,7 @@ class PixazoProvider(BaseProvider):
         return self.models_cache
     
     async def generate_image(self, prompt: str, model: str = None, style: str = None, 
-                            width: int = 1024, height: int = 1024, count: int = 1) -> Dict[str, Any]:
+                            width: int = 1024, height: int = 1024, count: int = 1) -> ImageResponse:
         """Generate image using Pixazo API"""
         try:
             # Ensure model is set (fallback to fastest free model if None)
@@ -49,22 +50,28 @@ class PixazoProvider(BaseProvider):
             
             if not self.api_key:
                 logger.error("PIXAZO_API_KEY not configured")
-                return {
-                    "success": False,
-                    "error": "PIXAZO_API_KEY not configured",
-                    "images": [],
-                    "image_count": 0
-                }
+                return ImageResponse(
+                    success=False,
+                    error="PIXAZO_API_KEY not configured",
+                    images=[],
+                    image_count=0,
+                    provider="pixazo",
+                    model=model,
+                    cost=0.0
+                )
             
             if model not in PIXAZO_MODELS:
                 logger.error(f"Unknown Pixazo model: {model}")
                 available = ", ".join(PIXAZO_MODELS.keys())
-                return {
-                    "success": False,
-                    "error": f"Unknown model: {model}. Available: {available}",
-                    "images": [],
-                    "image_count": 0
-                }
+                return ImageResponse(
+                    success=False,
+                    error=f"Unknown model: {model}. Available: {available}",
+                    images=[],
+                    image_count=0,
+                    provider="pixazo",
+                    model=model,
+                    cost=0.0
+                )
             
             model_config = PIXAZO_MODELS[model]
             endpoint = model_config["endpoint"]
@@ -106,33 +113,39 @@ class PixazoProvider(BaseProvider):
                         }
                         for _ in range(count)
                     ]
-                    return {
-                        "success": True,
-                        "provider": "pixazo",
-                        "model": model,
-                        "images": images,
-                        "image_count": len(images),
-                        "cost": self.calculate_cost(count, model),
-                        "raw_response": data
-                    }
+                    cost = self.calculate_cost(count, model)
+                    return ImageResponse(
+                        success=True,
+                        error=None,
+                        provider="pixazo",
+                        model=model,
+                        images=images,
+                        image_count=len(images),
+                        cost=cost
+                    )
                 else:
                     logger.error(f"No image URL in response: {data}")
-                    return {
-                        "success": False,
-                        "error": "No image_url in response",
-                        "images": [],
-                        "image_count": 0,
-                        "raw_response": data
-                    }
+                    return ImageResponse(
+                        success=False,
+                        error="No image_url in response",
+                        images=[],
+                        image_count=0,
+                        provider="pixazo",
+                        model=model,
+                        cost=0.0
+                    )
         
         except Exception as e:
             logger.error(f"Pixazo generation failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "images": [],
-                "image_count": 0
-            }
+            return ImageResponse(
+                success=False,
+                error=str(e),
+                images=[],
+                image_count=0,
+                provider="pixazo",
+                model=model or "unknown",
+                cost=0.0
+            )
     
     def _build_payload(self, model: str, prompt: str, width: int, height: int, style: str = None) -> Dict[str, Any]:
         """Build request payload based on model type"""
@@ -242,4 +255,19 @@ class PixazoProvider(BaseProvider):
     def calculate_cost(self, count: int, model: str = None) -> float:
         """Calculate cost for Pixazo image generation - ALWAYS FREE!"""
         # Pixazo is 100% free
+        return 0.0
+
+    # Embedding methods (not supported by Pixazo - image generation only)
+    async def fetch_embedding_models(self) -> Dict[str, Any]:
+        """Pixazo does not support embeddings - image generation only"""
+        logger.info("Pixazo does not provide embedding models (image generation only)")
+        return {}
+
+    async def embed(self, texts: Any, model: str, images: Any = None) -> Dict[str, Any]:
+        """Pixazo does not support embeddings"""
+        logger.error("Pixazo does not support text embeddings")
+        raise NotImplementedError("Pixazo is for image generation only, not embeddings")
+
+    def calculate_embedding_cost(self, token_count: int, model: str) -> float:
+        """Pixazo embeddings not supported"""
         return 0.0

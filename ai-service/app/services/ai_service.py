@@ -85,6 +85,18 @@ class AIService:
             try:
                 return await self.groq_provider.generate(prompt, model)
             except Exception as groq_error:
+                if not ENABLE_FALLBACK:
+                    logger.error(f"Groq failed, fallback disabled: {groq_error}")
+                    return {
+                        "content": "I apologize, but I'm unable to generate content right now.",
+                        "provider": "none",
+                        "model": model,
+                        "cost": 0,
+                        "tokens": 0,
+                        "success": False,
+                        "error": f"Groq generation failed (fallback disabled): {str(groq_error)}"
+                    }
+                
                 logger.warning(f"Groq failed, trying fallback to OpenRouter...")
                 try:
                     return await self.openrouter_provider.generate(prompt, FALLBACK_OPENROUTER_MODEL)
@@ -177,6 +189,19 @@ class AIService:
                     "error": result.get("error")
                 }
             except Exception as groq_error:
+                if not ENABLE_FALLBACK:
+                    logger.error(f"Groq rewrite failed, fallback disabled: {groq_error}")
+                    return {
+                        "original_content": content,
+                        "rewritten_content": content,
+                        "tone_applied": tone_lower,
+                        "provider": "none",
+                        "success": False,
+                        "cost": 0,
+                        "tokens": 0,
+                        "error": f"Groq rewrite failed (fallback disabled): {str(groq_error)}"
+                    }
+                
                 logger.warning(f"Groq rewrite failed, trying fallback...")
                 try:
                     result = await self.openrouter_provider.generate(rewrite_prompt, FALLBACK_OPENROUTER_MODEL)
@@ -282,6 +307,19 @@ class AIService:
                     "error": result.get("error")
                 }
             except Exception as groq_error:
+                if not ENABLE_FALLBACK:
+                    logger.error(f"Groq keyword optimization failed, fallback disabled: {groq_error}")
+                    return {
+                        "hashtags": [],
+                        "keywords": keywords or [],
+                        "trending_topics": [],
+                        "provider": "none",
+                        "success": False,
+                        "cost": 0,
+                        "tokens": 0,
+                        "error": f"Groq keyword optimization failed (fallback disabled): {str(groq_error)}"
+                    }
+                
                 logger.warning(f"Groq keyword optimization failed, trying fallback...")
                 try:
                     result = await self.openrouter_provider.generate(optimization_prompt, FALLBACK_OPENROUTER_MODEL)
