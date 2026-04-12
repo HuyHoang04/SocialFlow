@@ -49,46 +49,51 @@ KNOW_MUTI_MODAL_EMBEDDING_MODELS = [
                 "nvidia/llama-nemotron-embed-vl-1b-v2",
                 "nvidia/embed-qa-4",
                 "nomic-ai/nomic-embed-vision-v1.5"]
-# Pixazo Models - Stable Diffusion via Pixazo Gateway
-# Only XL v1.0 and Inpainting are marked as FREE in UI
+# Pixazo Models - Stable Diffusion via Pixazo Gateway (100% FREE)
 PIXAZO_MODELS = {
     "sd-xl-1-0": {
         "name": "Stable Diffusion XL 1.0 - FREE",
         "description": "SDXL 1.0 standard model",
         "cost_per_image": 0.0,  # 100% FREE
+        "is_free": True,  # STANDARDIZED FIELD
         "endpoint": "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
         "method": "POST",
         "has_negative_prompt": True,
-        "free": True,
     },
     "sd-inpainting": {
         "name": "Stable Diffusion Inpainting - FREE",
         "description": "Inpainting - modify specific regions of images",
         "cost_per_image": 0.0,  # 100% FREE
+        "is_free": True,  # STANDARDIZED FIELD
         "endpoint": "https://gateway.pixazo.ai/inpainting/v1/getImage",
         "method": "POST",
         "has_negative_prompt": True,
-        "free": True,
     },
     "flux-1-schnell": {
         "name": "Flux 1 Schnell - FREE",
         "description": "Fast Flux model - ultra-fast image generation",
         "cost_per_image": 0.0,  # 100% FREE
+        "is_free": True,  # STANDARDIZED FIELD
         "endpoint": "https://gateway.pixazo.ai/flux-1-schnell/v1/getData",
         "method": "POST",
         "has_negative_prompt": False,
-        "free": True,
     },
     "sdxl-base-1-0": {
         "name": "SDXL Base 1.0 - FREE",
         "description": "Stable Diffusion XL Base 1.0",
         "cost_per_image": 0.0,  # 100% FREE
+        "is_free": True,  # STANDARDIZED FIELD
         "endpoint": "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
         "method": "POST",
         "has_negative_prompt": True,
-        "free": True,
     },
 }
+
+# OpenRouter Models (Free and Paid)
+OPENROUTER_MODELS = {}
+
+# Image Models on OpenRouter
+OPENROUTER_IMAGE_MODELS = {}
 
 # Groq Models (Free tier - generous limits)
 GROQ_MODELS = {
@@ -129,6 +134,6 @@ GROQ_MODELS = {
     }
 }
 
-# OpenRouter Models (Popular ones - supports 200+ models)
-OPENROUTER_MODELS = {}
+# NOTE: OpenRouter full model list is fetched dynamically from API
+# See OPENROUTER_MODELS dict above for examples with is_free field
 

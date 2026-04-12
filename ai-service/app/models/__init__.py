@@ -21,11 +21,11 @@ class TextResponse(BaseResponse):
 
 class ContentRequest(BaseModel):
     """Request model for content generation"""
-    prompt: str
+    prompt: str                          # REQUIRED
     tone: str = "professional"
     platform: str = "general"
-    provider: Optional[str] = None  # "groq" or "openrouter", None for auto-fallback
-    model: Optional[str] = None  # Specific model, None for default
+    provider: str                        # REQUIRED: "groq" or "openrouter"
+    model: str                           # REQUIRED: model name or "auto"
 
 
 class ContentResponse(BaseModel):
@@ -41,11 +41,11 @@ class ContentResponse(BaseModel):
 
 class RewriteRequest(BaseModel):
     """Request model for content rewriting"""
-    content: str
+    content: str                        # REQUIRED
     tone: str  # "professional", "casual", "humorous", "inspirational", "technical"
     platform: str = "general"
-    provider: Optional[str] = None
-    model: Optional[str] = None
+    provider: str                       # REQUIRED: "groq" or "openrouter"
+    model: str                          # REQUIRED: model name or "auto"
 
 
 class RewriteResponse(BaseModel):
@@ -63,12 +63,12 @@ class RewriteResponse(BaseModel):
 
 class KeywordOptimizationRequest(BaseModel):
     """Request model for keyword/hashtag optimization"""
-    content: str
+    content: str                        # REQUIRED
     keywords: Optional[List[str]] = None  # Optional existing keywords to enhance
     platform: str = "general"
     max_hashtags: int = 10
-    provider: Optional[str] = None
-    model: Optional[str] = None
+    provider: str                       # REQUIRED: "groq" or "openrouter"
+    model: str                          # REQUIRED: model name or "auto"
 
 
 class KeywordOptimizationResponse(BaseModel):
@@ -106,14 +106,14 @@ class RefreshModelsResponse(BaseModel):
 
 class ImageGenerationRequest(BaseModel):
     """Request model for image generation"""
-    prompt: str
-    style: Optional[str] = None  # "photorealistic", "illustration", "anime", "abstract", "3d", "sketch"
-    platform: str = "general"  # "instagram", "twitter", "general", etc.
+    prompt: str                         # REQUIRED
+    style: str = "photorealistic"       # "photorealistic", "illustration", "anime", "abstract", "3d", "sketch"
+    platform: str = "general"
     width: int = 1024
     height: int = 1024
-    count: int = 1  # Number of images to generate (1-10)
-    provider: Optional[str] = None  # "stable_diffusion" or "openrouter"
-    model: Optional[str] = None  # Specific model ID
+    count: int = 1
+    provider: str                       # REQUIRED: "pixazo" or "openrouter"
+    model: str                          # REQUIRED: model name or "auto"
 
 
 class ImageGenerationResponse(BaseModel):
@@ -141,11 +141,10 @@ class ImageModelsResponse(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     """Request model for text embedding"""
-    brand_id: str  # REQUIRED - which brand owns these embeddings
-    texts: List[str]  # Texts to embed (required)
-    images: Optional[List[str]] = None  # URLs or base64 images (for multimodal models)
-    provider: Optional[str] = None  # "groq" or "openrouter", None for auto-fallback
-    model: Optional[str] = None  # Specific model, None for default
+    brand_id: str                       # REQUIRED - which brand owns these embeddings
+    texts: List[str]                    # REQUIRED - Texts to embed
+    images: Optional[List[str]] = None  # Optional URLs or base64 images (for multimodal)
+    model: str = "auto"                 # Optional: specific model, default "auto"
 
 
 class EmbeddingResponse(BaseModel):

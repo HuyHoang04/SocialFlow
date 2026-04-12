@@ -126,7 +126,7 @@ class RagService:
         brand_id: str,
         library_item_id: str,
         extracted_text: str,
-        model: str = "nvidia/llama-nemotron-embed-vl-1b-v2"
+        model: str
     ) -> Tuple[int, int]:
         """
         Chunk text and generate embeddings for all chunks.

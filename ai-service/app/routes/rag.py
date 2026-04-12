@@ -63,13 +63,13 @@ class RagStatusResponse(BaseModel):
 
 class RagGenerateContentRequest(BaseModel):
     """Generate content using RAG context"""
-    brand_id: str
-    prompt: str
-    rag_query: Optional[str] = None  # Custom RAG search query (defaults to prompt)
-    rag_limit: int = 3  # Number of RAG results to include
+    brand_id: str                        # REQUIRED
+    prompt: str                          # REQUIRED
+    rag_query: Optional[str] = None      # Custom RAG search query (defaults to prompt)
+    rag_limit: int = 3
     rag_threshold: float = 0.3
-    provider: Optional[str] = None
-    model: Optional[str] = None
+    provider: str                        # REQUIRED: "groq" or "openrouter"
+    model: str                           # REQUIRED: model name or "auto"
     tone: Optional[str] = None
 
 class RagGenerateContentResponse(BaseModel):
@@ -80,7 +80,7 @@ class RagGenerateContentResponse(BaseModel):
     rag_query_used: str = ""
     rag_results_count: int = 0
     tokens_used: Optional[int] = None
-    model_used: str = ""
+    ai_model: str = ""
     error: Optional[str] = None
 
 # ============= Endpoints =============
@@ -214,7 +214,7 @@ async def search_content(
             query_text=request.query,
             limit=request.limit,
             threshold=request.threshold,
-            model=request.model or "nvidia/llama-nemotron-embed-vl-1b-v2"
+            model=request.model
         )
         
         logger.info(f"RAG search found {len(results)} results")
@@ -400,7 +400,7 @@ Now generate the content:"""
             rag_query_used=rag_query,
             rag_results_count=len(rag_results),
             tokens_used=result_tokens,
-            model_used=result_model,
+            ai_model=result_model,
             error=None
         )
     
