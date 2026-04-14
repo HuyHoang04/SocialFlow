@@ -447,3 +447,692 @@ class RagService:
                     conn.close()
                 except:
                     pass
+    
+    # ============= SIMPLE HELPER METHODS FOR BUSINESS LOGIC =============
+    
+    async def upload_file(
+        self,
+        brand_id: str,
+        file_content: bytes,
+        file_name: str,
+        category: Optional[str],
+        library_service
+    ):
+        """Complete file upload workflow"""
+        from app.models.rag_models import RagUploadResponse
+        
+        try:
+            logger.info(f"Upload file workflow | Brand: {brand_id} | File: {file_name}")
+            
+            # Step 1: Save file to storage
+            success, file_path, error = library_service.save_uploaded_file(
+                file_content=file_content,
+                file_name=file_name,
+                brand_id=brand_id
+            )
+            
+            if not success:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type="unknown",
+                    error=f"File save failed: {error}"
+                )
+            
+            # Step 2: Extract text from file
+            file_type = library_service.get_file_type(file_name)
+            success, extracted_text, error = library_service.extract_text_from_file(
+                file_path=file_path,
+                file_type=file_type
+            )
+            
+            if not success:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type=file_type,
+                    error=f"Text extraction failed: {error}"
+                )
+            
+            # Step 3: Save to database
+            auto_category = library_service.get_category_from_filename(file_name)
+            final_category = category or auto_category
+            
+            library_id = self.save_library_item(
+                brand_id=brand_id,
+                file_name=file_name,
+                file_type=file_type,
+                category=final_category,
+                extracted_text=extracted_text,
+                storage_url=file_path,
+                file_size=len(file_content),
+                metadata={"upload_timestamp": datetime.now().isoformat()}
+            )
+            
+            if not library_id:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type=file_type,
+                    error="Failed to save library item"
+                )
+            
+            # Step 4: Generate embeddings
+            total_chunks, saved_embeddings = await self.generate_embeddings_for_file(
+                brand_id=brand_id,
+                library_item_id=library_id,
+                extracted_text=extracted_text,
+                model="auto"
+            )
+            
+            logger.info(f"✓ Upload complete | Library: {library_id} | Chunks: {total_chunks}")
+            
+            return RagUploadResponse(
+                success=True,
+                library_id=library_id,
+                file_name=file_name,
+                file_type=file_type,
+                category=final_category,
+                extracted_chars=len(extracted_text),
+                text_preview=extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text,
+                total_chunks=total_chunks,
+                embeddings_saved=saved_embeddings
+            )
+        
+        except Exception as e:
+            logger.error(f"Upload error: {e}")
+            return RagUploadResponse(
+                success=False,
+                file_name=file_name,
+                file_type="unknown",
+                error=f"Server error: {str(e)}"
+            )
+    
+    async def get_library_files(self, brand_id: str, limit: int = 10, offset: int = 0) -> List[Dict]:
+        """Get library files - returns raw dicts for wrapping in DTO"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = """
+                SELECT id, file_name, file_type, category, file_size, created_at
+                FROM content_library_item
+                WHERE brand_id = %s AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (brand_id, limit, offset))
+            rows = cursor.fetchall()
+            
+            return [
+                {
+                    "library_id": row[0],
+                    "file_name": row[1],
+                    "file_type": row[2],
+                    "category": row[3],
+                    "file_size": row[4],
+                    "created_at": row[5].isoformat() if row[5] else None
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            logger.error(f"Get library files error: {e}")
+            return []
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    async def count_library_files(self, brand_id: str) -> int:
+        """Count library files for brand"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s AND deleted_at IS NULL", (brand_id,))
+            result = cursor.fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Count library files error: {e}")
+            return 0
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    def get_rag_status_sync(self, brand_id: str) -> Optional[Dict[str, Any]]:
+        """Get RAG status - synchronous version to avoid naming conflict with async method"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT id, total_files, indexed_chunks, total_embeddings, 
+                       status, error_message, last_updated, created_at
+                FROM rag_index
+                WHERE brand_id = %s
+            """
+            
+            cursor.execute(query, (brand_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                logger.info(f"No RAG index found for brand: {brand_id}")
+                return None
+            
+            return {
+                "index_id": row[0],
+                "total_files": row[1],
+                "indexed_chunks": row[2],
+                "total_embeddings": row[3],
+                "status": row[4],
+                "error_message": row[5],
+                "last_updated": row[6].isoformat() if row[6] else None,
+                "created_at": row[7].isoformat() if row[7] else None
+            }
+        
+        except Exception as e:
+            logger.error(f"Get RAG status error: {e}")
+            return None
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    def delete_library_file_sync(self, brand_id: str, library_id: str) -> bool:
+        """Delete library file - synchronous version"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = "UPDATE content_library_item SET deleted_at = NOW() WHERE id = %s AND brand_id = %s"
+            cursor.execute(query, (library_id, brand_id))
+            
+            if cursor.rowcount == 0:
+                logger.warning(f"Library item not found: {library_id}")
+                return False
+            
+            conn.commit()
+            logger.info(f"✓ Deleted library item: {library_id}")
+            return True
+        
+        except Exception as e:
+            logger.error(f"Delete error: {e}")
+            if conn:
+                try:
+                    conn.rollback()
+                except:
+                    pass
+            return False
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    async def generate_content_with_rag(self, request, ai_service):
+        """Generate content with RAG augmentation"""
+        from app.models.rag_models import RagGenerateContentResponse
+        from app.prompts import format_rag_generation_prompt
+        
+        try:
+            logger.info(f"Generate content with RAG | Brand: {request.brand_id}")
+            
+            # Search RAG
+            rag_query = request.rag_query or request.prompt
+            rag_results = await self.search_similar_chunks(
+                brand_id=request.brand_id,
+                query_text=rag_query,
+                limit=request.rag_limit,
+                threshold=request.rag_threshold
+            )
+            
+            # Augment prompt with context
+            augmented_prompt = request.prompt
+            if rag_results:
+                context_text = "\n\n".join([
+                    f"[Source: {r.get('chunk_id', 'N/A')} | Relevance: {r.get('similarity', 0):.1%}]\n{r.get('text', '')}"
+                    for r in rag_results
+                ])
+                augmented_prompt = format_rag_generation_prompt(
+                    prompt=request.prompt,
+                    context=context_text
+                )
+            
+            # Generate content
+            generation_result = await ai_service.generate_content(
+                prompt=augmented_prompt,
+                provider=request.provider,
+                model=request.model
+            )
+            
+            # Handle both dict and Pydantic responses
+            if isinstance(generation_result, dict):
+                result_success = generation_result.get("success")
+                result_content = generation_result.get("content")
+                result_error = generation_result.get("error", "Unknown error")
+                result_tokens = generation_result.get("tokens_used") or generation_result.get("token_count")
+                result_model = generation_result.get("model", "")
+            else:
+                result_success = generation_result.success if hasattr(generation_result, 'success') else False
+                result_content = generation_result.content if hasattr(generation_result, 'content') else None
+                result_error = generation_result.error if hasattr(generation_result, 'error') else "Unknown error"
+                result_tokens = generation_result.tokens_used if hasattr(generation_result, 'tokens_used') else None
+                result_model = generation_result.model if hasattr(generation_result, 'model') else ""
+            
+            if not result_success:
+                logger.error(f"Generation failed: {result_error}")
+                return RagGenerateContentResponse(
+                    success=False,
+                    content=None,
+                    rag_context=rag_results,
+                    rag_query_used=rag_query,
+                    rag_results_count=len(rag_results),
+                    error=result_error
+                )
+            
+            logger.info("✓ Generate content with RAG complete")
+            
+            return RagGenerateContentResponse(
+                success=True,
+                content=result_content,
+                rag_context=rag_results,
+                rag_query_used=rag_query,
+                rag_results_count=len(rag_results),
+                tokens_used=result_tokens,
+                ai_model=result_model
+            )
+        
+        except Exception as e:
+            logger.error(f"Generate content error: {e}")
+            return RagGenerateContentResponse(
+                success=False,
+                content=None,
+                rag_context=[],
+                rag_query_used="",
+                rag_results_count=0,
+                error=f"Server error: {str(e)}"
+            )
+    
+    async def generate_content_with_rag_and_images(self, request, ai_service):
+        """Generate content with RAG and image references"""
+        return await self.generate_content_with_rag(request, ai_service)
+    
+    async def upload_file(
+        self,
+        brand_id: str,
+        file_content: bytes,
+        file_name: str,
+        category: Optional[str],
+        library_service
+    ):
+        """
+        Complete file upload workflow.
+        Returns RagUploadResponse DTO.
+        """
+        from app.models.rag_models import RagUploadResponse
+        
+        try:
+            logger.info(f"Upload file workflow | Brand: {brand_id} | File: {file_name}")
+            
+            # Step 1: Save file to storage
+            success, file_path, error = library_service.save_uploaded_file(
+                file_content=file_content,
+                file_name=file_name,
+                brand_id=brand_id
+            )
+            
+            if not success:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type="unknown",
+                    error=f"File save failed: {error}"
+                )
+            
+            # Step 2: Extract text from file
+            file_type = library_service.get_file_type(file_name)
+            success, extracted_text, error = library_service.extract_text_from_file(
+                file_path=file_path,
+                file_type=file_type
+            )
+            
+            if not success:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type=file_type,
+                    error=f"Text extraction failed: {error}"
+                )
+            
+            # Step 3: Save to database
+            auto_category = library_service.get_category_from_filename(file_name)
+            final_category = category or auto_category
+            
+            library_id = self.save_library_item(
+                brand_id=brand_id,
+                file_name=file_name,
+                file_type=file_type,
+                category=final_category,
+                extracted_text=extracted_text,
+                storage_url=file_path,
+                file_size=len(file_content),
+                metadata={"uplo_timestamp": datetime.now().isoformat()}
+            )
+            
+            if not library_id:
+                return RagUploadResponse(
+                    success=False,
+                    file_name=file_name,
+                    file_type=file_type,
+                    error="Failed to save library item"
+                )
+            
+            # Step 4: Generate embeddings
+            total_chunks, saved_embeddings = await self.generate_embeddings_for_file(
+                brand_id=brand_id,
+                library_item_id=library_id,
+                extracted_text=extracted_text,
+                model="auto"
+            )
+            
+            logger.info(f"✓ Upload workflow complete | Library: {library_id} | Chunks: {total_chunks} | Embeddings: {saved_embeddings}")
+            
+            return RagUploadResponse(
+                success=True,
+                library_id=library_id,
+                file_name=file_name,
+                file_type=file_type,
+                category=final_category,
+                extracted_chars=len(extracted_text),
+                text_preview=extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text,
+                total_chunks=total_chunks,
+                embeddings_saved=saved_embeddings
+            )
+        
+        except Exception as e:
+            logger.error(f"Upload workflow error: {e}")
+            return RagUploadResponse(
+                success=False,
+                file_name=file_name,
+                file_type="unknown",
+                error=f"Server error: {str(e)}"
+            )
+    
+    async def list_library_files(
+        self,
+        brand_id: str,
+        limit: int = 10,
+        offset: int = 0
+    ):
+        """
+        List all library files for brand.
+        Returns RagLibraryResponse DTO.
+        """
+        from app.models.rag_models import RagLibraryResponse
+        
+        try:
+            db_client = get_db_client()
+            conn = db_client.get_connection()
+            cursor = None
+            
+            cursor = conn.cursor()
+            
+            # Get total count
+            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s", (brand_id,))
+            total_files = cursor.fetchone()[0]
+            
+            # Get paginated results
+            query = """
+                SELECT id, file_name, file_type, category, file_size, created_at
+                FROM content_library_item
+                WHERE brand_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, (brand_id, limit, offset))
+            rows = cursor.fetchall()
+            
+            files = [
+                {
+                    "library_id": row[0],
+                    "file_name": row[1],
+                    "file_type": row[2],
+                    "category": row[3],
+                    "file_size": row[4],
+                    "created_at": row[5].isoformat() if row[5] else None
+                }
+                for row in rows
+            ]
+            
+            return RagLibraryResponse(
+                success=True,
+                brand_id=brand_id,
+                files=files,
+                total_files=total_files
+            )
+        
+        except Exception as e:
+            logger.error(f"List library error: {e}")
+            return RagLibraryResponse(
+                success=False,
+                brand_id=brand_id,
+                files=[],
+                total_files=0,
+                error=f"Server error: {str(e)}"
+            )
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    async def get_rag_status(self, brand_id: str):
+        """
+        Get RAG status for brand.
+        Returns RagStatusResponse DTO.
+        """
+        from app.models.rag_models import RagStatusResponse
+        
+        try:
+            status_data = self.get_rag_status(brand_id)
+            
+            return RagStatusResponse(
+                success=True,
+                brand_id=brand_id,
+                status_data=status_data
+            )
+        
+        except Exception as e:
+            logger.error(f"Get status error: {e}")
+            return RagStatusResponse(
+                success=False,
+                brand_id=brand_id,
+                status_data=None,
+                error=f"Server error: {str(e)}"
+            )
+    
+    async def delete_library_file(self, brand_id: str, library_id: str):
+        """
+        Delete library file (soft delete).
+        Returns RagDeleteResponse DTO.
+        """
+        from app.models.rag_models import RagDeleteResponse
+        
+        try:
+            db_client = get_db_client()
+            conn = db_client.get_connection()
+            cursor = None
+            
+            cursor = conn.cursor()
+            
+            # Soft delete - set deleted_at timestamp
+            query = "UPDATE content_library_item SET deleted_at = NOW() WHERE id = %s AND brand_id = %s"
+            cursor.execute(query, (library_id, brand_id))
+            
+            if cursor.rowcount == 0:
+                return RagDeleteResponse(
+                    success=False,
+                    message="",
+                    error="Library item not found"
+                )
+            
+            conn.commit()
+            
+            logger.info(f"✓ Deleted library item: {library_id}")
+            
+            return RagDeleteResponse(
+                success=True,
+                message=f"Deleted library item {library_id}"
+            )
+        
+        except Exception as e:
+            logger.error(f"Delete error: {e}")
+            return RagDeleteResponse(
+                success=False,
+                message="",
+                error=f"Server error: {str(e)}"
+            )
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+    
+    async def generate_content_with_rag(self, request, ai_service):
+        """
+        Generate content with RAG augmentation.
+        Returns RagGenerateContentResponse DTO.
+        """
+        from app.models.rag_models import RagGenerateContentResponse
+        from app.prompts import format_rag_generation_prompt
+        
+        try:
+            logger.info(f"Generate content with RAG | Brand: {request.brand_id}")
+            
+            # Search RAG
+            rag_query = request.rag_query or request.prompt
+            rag_results = await self.search_similar_chunks(
+                brand_id=request.brand_id,
+                query_text=rag_query,
+                limit=request.rag_limit,
+                threshold=request.rag_threshold
+            )
+            
+            # Augment prompt with context
+            augmented_prompt = request.prompt
+            if rag_results:
+                context_text = "\n\n".join([
+                    f"[Source: {r.get('chunk_id', 'N/A')} | Relevance: {r.get('similarity', 0):.1%}]\n{r.get('text', '')}"
+                    for r in rag_results
+                ])
+                augmented_prompt = format_rag_generation_prompt(
+                    prompt=request.prompt,
+                    context=context_text
+                )
+            
+            # Generate content
+            generation_result = await ai_service.generate_content(
+                prompt=augmented_prompt,
+                provider=request.provider,
+                model=request.model
+            )
+            
+            # Handle both dict and Pydantic responses
+            if isinstance(generation_result, dict):
+                result_success = generation_result.get("success")
+                result_content = generation_result.get("content")
+                result_error = generation_result.get("error", "Unknown error")
+                result_tokens = generation_result.get("tokens_used") or generation_result.get("token_count")
+                result_model = generation_result.get("model", "")
+            else:
+                result_success = generation_result.success if hasattr(generation_result, 'success') else False
+                result_content = generation_result.content if hasattr(generation_result, 'content') else None
+                result_error = generation_result.error if hasattr(generation_result, 'error') else "Unknown error"
+                result_tokens = generation_result.tokens_used if hasattr(generation_result, 'tokens_used') else None
+                result_model = generation_result.model if hasattr(generation_result, 'model') else ""
+            
+            if not result_success:
+                logger.error(f"Generation failed: {result_error}")
+                return RagGenerateContentResponse(
+                    success=False,
+                    content=None,
+                    rag_context=rag_results,
+                    rag_query_used=rag_query,
+                    rag_results_count=len(rag_results),
+                    error=result_error
+                )
+            
+            logger.info("✓ Generate content with RAG complete")
+            
+            return RagGenerateContentResponse(
+                success=True,
+                content=result_content,
+                rag_context=rag_results,
+                rag_query_used=rag_query,
+                rag_results_count=len(rag_results),
+                tokens_used=result_tokens,
+                ai_model=result_model
+            )
+        
+        except Exception as e:
+            logger.error(f"Generate content error: {e}")
+            return RagGenerateContentResponse(
+                success=False,
+                content=None,
+                rag_context=[],
+                rag_query_used="",
+                rag_results_count=0,
+                error=f"Server error: {str(e)}"
+            )
+    
+    async def generate_content_with_rag_and_images(self, request, ai_service):
+        """
+        Generate content with RAG augmentation and image references.
+        Same as generate_content_with_rag for now.
+        """
+        return await self.generate_content_with_rag(request, ai_service)

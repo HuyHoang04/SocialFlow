@@ -1,215 +1,98 @@
 # RAG Routes - Content library upload, search, and management
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query
-from typing import List, Optional, Dict, Any
+# CLEANLY SEPARATED: Routes handle HTTP only, all logic delegated to services
+from fastapi import APIRouter, UploadFile, File, Depends, Query
+from typing import Optional
 from app.services.rag_service import RagService
 from app.services.content_library_service import ContentLibraryService
 from app.services.ai_service import AIService
 from app.utils.logger import setup_logger
-from pydantic import BaseModel
-from app.prompts import format_rag_generation_prompt
+from app.models.rag_models import (
+    RagSearchRequest, RagSearchResponse,
+    RagGenerateContentRequest, RagGenerateContentResponse,
+    RagStatusResponse, RagLibraryResponse, 
+    RagUploadResponse, RagDeleteResponse
+)
 
 logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
-# Service instances
-rag_service: Optional[RagService] = None
-library_service: Optional[ContentLibraryService] = None
-ai_service: Optional[AIService] = None
+# ============= Dependency Injection =============
 
 def get_rag_service() -> RagService:
     """Get RAG service singleton"""
-    global rag_service
-    if rag_service is None:
-        rag_service = RagService()
-    return rag_service
+    return RagService()
 
 def get_library_service() -> ContentLibraryService:
     """Get content library service singleton"""
-    global library_service
-    if library_service is None:
-        library_service = ContentLibraryService()
-    return library_service
+    return ContentLibraryService()
 
 def get_ai_service() -> AIService:
     """Get AI service singleton"""
-    global ai_service
-    if ai_service is None:
-        ai_service = AIService()
-    return ai_service
+    return AIService()
 
-# Request/Response Models
-class RagSearchRequest(BaseModel):
-    """RAG similarity search request"""
-    brand_id: str
-    query: str
-    limit: int = 5
-    threshold: float = 0.7
-    model: Optional[str] = None
 
-class RagSearchResponse(BaseModel):
-    """RAG search result"""
-    results: List[dict]
-    query: str
-    total_results: int
-    success: bool
-    error: Optional[str] = None
+# ============= ENDPOINTS - HTTP HANDLERS ONLY =============
 
-class RagStatusResponse(BaseModel):
-    """RAG index status"""
-    brand_id: str
-    status_data: Optional[dict]
-    success: bool
-    error: Optional[str] = None
-
-class RagGenerateContentRequest(BaseModel):
-    """Generate content using RAG context"""
-    brand_id: str                        # REQUIRED
-    prompt: str                          # REQUIRED
-    rag_query: Optional[str] = None      # Custom RAG search query (defaults to prompt)
-    rag_limit: int = 3
-    rag_threshold: float = 0.3
-    provider: str                        # REQUIRED: "groq" or "openrouter"
-    model: str                           # REQUIRED: model name or "auto"
-    tone: Optional[str] = None
-
-class RagGenerateContentResponse(BaseModel):
-    """Response with generated content and RAG context used"""
-    success: bool
-    content: Optional[str] = None
-    rag_context: List[dict] = []  # RAG results used for generation
-    rag_query_used: str = ""
-    rag_results_count: int = 0
-    tokens_used: Optional[int] = None
-    ai_model: str = ""
-    error: Optional[str] = None
-
-# ============= Endpoints =============
-
-@router.post("/upload")
+@router.post("/upload", response_model=RagUploadResponse)
 async def upload_to_library(
     brand_id: str,
     category: Optional[str] = None,
     file: UploadFile = File(...),
     library_service: ContentLibraryService = Depends(get_library_service),
     rag_service: RagService = Depends(get_rag_service)
-) -> dict:
-    """
-    Upload file to brand's content library.
-    
-    Supported file types:
-    - TEXT: .txt, .md, .csv
-    - PDF: .pdf
-    - IMAGE: .png, .jpg, .jpeg, .gif (OCR extraction)
-    - DOCUMENT: .docx, .doc
-    
-    Process:
-    1. Save file to storage
-    2. Extract text (OCR/PDF parsing)
-    3. Chunk text
-    4. Generate embeddings
-    5. Store in rag_embedding table
-    """
+) -> RagUploadResponse:
+    """Upload file to brand's content library"""
     try:
-        logger.info(f"RAG upload started | Brand: {brand_id} | File: {file.filename}")
+        if not file or not file.filename:
+            return RagUploadResponse(
+                success=False,
+                file_name=file.filename or "unknown",
+                file_type="unknown",
+                error="File name required"
+            )
         
-        # Validate file
-        if not file.filename:
-            raise HTTPException(status_code=400, detail="File name required")
-        
-        # Read file content
         file_content = await file.read()
         
         if not file_content:
-            raise HTTPException(status_code=400, detail="Empty file")
+            return RagUploadResponse(
+                success=False,
+                file_name=file.filename,
+                file_type="unknown",
+                error="Empty file"
+            )
         
-        # Determine file type and category
-        file_type = library_service.get_file_type(file.filename)
-        auto_category = library_service.get_category_from_filename(file.filename)
-        final_category = category or auto_category
-        
-        logger.info(f"File type: {file_type} | Category: {final_category}")
-        
-        # Save file to storage
-        success, file_path, error = library_service.save_uploaded_file(
+        # Delegate ALL business logic to service
+        response = await rag_service.upload_file(
+            brand_id=brand_id,
             file_content=file_content,
             file_name=file.filename,
-            brand_id=brand_id
+            category=category,
+            library_service=library_service
         )
         
-        if not success:
-            raise HTTPException(status_code=400, detail=f"File upload failed: {error}")
-        
-        # Extract text from file
-        success, extracted_text, error = library_service.extract_text_from_file(
-            file_path=file_path,
-            file_type=file_type
-        )
-        
-        if not success:
-            logger.error(f"Text extraction failed: {error}")
-            raise HTTPException(status_code=400, detail=f"Text extraction failed: {error}")
-        
-        logger.info(f"Extracted text: {len(extracted_text)} characters")
-        
-        # Save to content_library_item table
-        library_id = rag_service.save_library_item(
-            brand_id=brand_id,
-            file_name=file.filename,
-            file_type=file_type,
-            category=final_category,
-            extracted_text=extracted_text,
-            storage_url=file_path,
-            file_size=len(file_content),
-            metadata={
-                "original_name": file.filename,
-                "upload_timestamp": str(__import__('datetime').datetime.now())
-            }
-        )
-        
-        if not library_id:
-            raise HTTPException(status_code=500, detail="Failed to save library item")
-        
-        # Generate embeddings for chunks
-        total_chunks, saved_embeddings = await rag_service.generate_embeddings_for_file(
-            brand_id=brand_id,
-            library_item_id=library_id,
-            extracted_text=extracted_text
-        )
-        
-        logger.info(f"RAG upload complete | Library ID: {library_id} | Chunks: {total_chunks} | Embeddings: {saved_embeddings}")
-        
-        return {
-            "success": True,
-            "library_id": library_id,
-            "file_name": file.filename,
-            "file_type": file_type,
-            "category": final_category,
-            "extracted_chars": len(extracted_text),
-            "text_preview": extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text,
-            "total_chunks": total_chunks,
-            "embeddings_saved": saved_embeddings
-        }
+        return response
     
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"RAG upload error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Upload endpoint error: {e}")
+        return RagUploadResponse(
+            success=False,
+            file_name=file.filename or "unknown",
+            file_type="unknown",
+            error=f"Server error: {str(e)}"
+        )
+
 
 @router.post("/search", response_model=RagSearchResponse)
 async def search_content(
     request: RagSearchRequest,
     rag_service: RagService = Depends(get_rag_service)
 ) -> RagSearchResponse:
-    """
-    Search for similar content using embedding similarity.
-    
-    Returns top-N chunks with similarity scores.
-    """
+    """Search for similar content using embeddings"""
     try:
-        logger.info(f"RAG search started | Brand: {request.brand_id} | Query: '{request.query}'")
+        logger.info(f"Search endpoint | Brand: {request.brand_id} | Query: {request.query}")
         
+        # Call service - returns raw list of dicts
         results = await rag_service.search_similar_chunks(
             brand_id=request.brand_id,
             query_text=request.query,
@@ -218,46 +101,58 @@ async def search_content(
             model=request.model
         )
         
-        logger.info(f"RAG search found {len(results)} results")
-        
+        # Wrap in DTO
         return RagSearchResponse(
+            success=True,
             results=results,
             query=request.query,
-            total_results=len(results),
-            success=True,
-            error=None
+            total_results=len(results) if results else 0
         )
     
     except Exception as e:
-        logger.error(f"RAG search error: {e}")
+        logger.error(f"Search endpoint error: {e}")
         return RagSearchResponse(
+            success=False,
             results=[],
             query=request.query,
             total_results=0,
-            success=False,
-            error=str(e)
+            error=f"Server error: {str(e)}"
         )
 
-@router.get("/library/{brand_id}")
+
+@router.get("/library/{brand_id}", response_model=RagLibraryResponse)
 async def list_library_files(
     brand_id: str,
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     rag_service: RagService = Depends(get_rag_service)
-) -> dict:
+) -> RagLibraryResponse:
     """List all uploaded files for a brand"""
     try:
-        logger.info(f"Listing library files for brand: {brand_id}")
+        logger.info(f"List library endpoint | Brand: {brand_id} | Limit: {limit} | Offset: {offset}")
         
-        # TODO: Implement database query to list files
-        # For now, return structure
-        return {
-            "success": True,
-            "brand_id": brand_id,
-            "files": [],
-            "total_files": 0
-        }
+        # Call service - returns raw list of dicts
+        files = await rag_service.get_library_files(brand_id, limit, offset)
+        total_files = await rag_service.count_library_files(brand_id)
+        
+        # Wrap in DTO
+        return RagLibraryResponse(
+            success=True,
+            brand_id=brand_id,
+            files=files,
+            total_files=total_files
+        )
+    
     except Exception as e:
-        logger.error(f"List library error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"List library endpoint error: {e}")
+        return RagLibraryResponse(
+            success=False,
+            brand_id=brand_id,
+            files=[],
+            total_files=0,
+            error=f"Server error: {str(e)}"
+        )
+
 
 @router.get("/status/{brand_id}", response_model=RagStatusResponse)
 async def get_rag_status(
@@ -266,45 +161,61 @@ async def get_rag_status(
 ) -> RagStatusResponse:
     """Get RAG indexing status for a brand"""
     try:
-        logger.info(f"Getting RAG status for brand: {brand_id}")
+        logger.info(f"Status endpoint | Brand: {brand_id}")
         
-        status = rag_service.get_rag_status(brand_id)
+        # Call service - returns raw status dict or None
+        status_data = rag_service.get_rag_status_sync(brand_id)
         
+        # Wrap in DTO
         return RagStatusResponse(
-            brand_id=brand_id,
-            status_data=status,
             success=True,
-            error=None
+            brand_id=brand_id,
+            status_data=status_data
         )
     
     except Exception as e:
-        logger.error(f"Get status error: {e}")
+        logger.error(f"Status endpoint error: {e}")
         return RagStatusResponse(
+            success=False,
             brand_id=brand_id,
             status_data=None,
-            success=False,
-            error=str(e)
+            error=f"Server error: {str(e)}"
         )
 
-@router.delete("/library/{brand_id}/{library_id}")
+
+@router.delete("/library/{brand_id}/{library_id}", response_model=RagDeleteResponse)
 async def delete_library_file(
     brand_id: str,
     library_id: str,
     rag_service: RagService = Depends(get_rag_service)
-) -> dict:
+) -> RagDeleteResponse:
     """Delete file from library (soft delete)"""
     try:
-        logger.info(f"Deleting library file: {library_id} for brand: {brand_id}")
+        logger.info(f"Delete endpoint | Brand: {brand_id} | Library ID: {library_id}")
         
-        # TODO: Implement soft delete in database
-        return {
-            "success": True,
-            "message": f"Deleted library item {library_id}"
-        }
+        # Call service
+        success = rag_service.delete_library_file_sync(brand_id, library_id)
+        
+        if success:
+            return RagDeleteResponse(
+                success=True,
+                message=f"Deleted library item {library_id}"
+            )
+        else:
+            return RagDeleteResponse(
+                success=False,
+                message="",
+                error="Library item not found"
+            )
     
     except Exception as e:
-        logger.error(f"Delete error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Delete endpoint error: {e}")
+        return RagDeleteResponse(
+            success=False,
+            message="",
+            error=f"Server error: {str(e)}"
+        )
+
 
 @router.post("/generate-content", response_model=RagGenerateContentResponse)
 async def generate_content_with_rag(
@@ -312,100 +223,53 @@ async def generate_content_with_rag(
     rag_service: RagService = Depends(get_rag_service),
     ai_service: AIService = Depends(get_ai_service)
 ) -> RagGenerateContentResponse:
-    """
-    Generate content augmented with brand guidelines from RAG.
-    
-    Process:
-    1. Search RAG for brand guidelines matching prompt
-    2. Augment prompt with retrieved context
-    3. Generate content using AI
-    4. Return generated content + context used
-    """
+    """Generate content augmented with RAG context"""
     try:
-        logger.info(f"RAG generate-content started | Brand: {request.brand_id}")
+        logger.info(f"Generate content endpoint | Brand: {request.brand_id}")
         
-        # Search RAG for brand guidelines
-        rag_query = request.rag_query or request.prompt
-        logger.info(f"Searching RAG with query: {rag_query}")
-        
-        rag_results = await rag_service.search_similar_chunks(
-            brand_id=request.brand_id,
-            query_text=rag_query,
-            limit=request.rag_limit,
-            threshold=request.rag_threshold
+        response = await rag_service.generate_content_with_rag(
+            request=request,
+            ai_service=ai_service
         )
         
-        logger.info(f"Found {len(rag_results)} RAG results")
-        
-        # Build augmented prompt with RAG context using standard prompt template
-        augmented_prompt = request.prompt
-        
-        if rag_results:
-            context_text = "\n\n".join([
-                f"[Source: {r.get('chunk_id', 'N/A')} | Relevance: {r.get('similarity', 0):.1%}]\n{r.get('text', '')}"
-                for r in rag_results
-            ])
-            
-            # Use standard RAG prompt template to ensure consistent formatting
-            augmented_prompt = format_rag_generation_prompt(
-                prompt=request.prompt,
-                context=context_text
-            )
-            
-            logger.info(f"Augmented prompt with {len(rag_results)} RAG results")
-        
-        # Generate content with augmented prompt
-        generation_result = await ai_service.generate_content(
-            prompt=augmented_prompt,
-            provider=request.provider,
-            model=request.model
-        )
-        
-        # Handle both dict and Pydantic model responses
-        if isinstance(generation_result, dict):
-            result_success = generation_result.get("success")
-            result_content = generation_result.get("content")
-            result_error = generation_result.get("error", "Unknown error")
-            result_tokens = generation_result.get("tokens_used") or generation_result.get("token_count")
-            result_model = generation_result.get("model", "")
-        else:
-            result_success = generation_result.success if hasattr(generation_result, 'success') else False
-            result_content = generation_result.content if hasattr(generation_result, 'content') else None
-            result_error = generation_result.error if hasattr(generation_result, 'error') else "Unknown error"
-            result_tokens = generation_result.tokens_used if hasattr(generation_result, 'tokens_used') else None
-            result_model = generation_result.model if hasattr(generation_result, 'model') else ""
-        
-        if not result_success:
-            logger.error(f"Content generation failed: {result_error}")
-            return RagGenerateContentResponse(
-                success=False,
-                content=None,
-                rag_context=rag_results,
-                rag_query_used=rag_query,
-                rag_results_count=len(rag_results),
-                error=result_error
-            )
-        
-        logger.info("RAG generate-content completed successfully")
-        
-        return RagGenerateContentResponse(
-            success=True,
-            content=result_content,
-            rag_context=rag_results,
-            rag_query_used=rag_query,
-            rag_results_count=len(rag_results),
-            tokens_used=result_tokens,
-            ai_model=result_model,
-            error=None
-        )
+        return response
     
     except Exception as e:
-        logger.error(f"RAG generate-content error: {e}", exc_info=True)
+        logger.error(f"Generate content endpoint error: {e}")
         return RagGenerateContentResponse(
             success=False,
             content=None,
             rag_context=[],
             rag_query_used="",
             rag_results_count=0,
-            error=str(e)
+            error=f"Server error: {str(e)}"
+        )
+
+
+@router.post("/generate-with-images", response_model=RagGenerateContentResponse)
+async def generate_content_with_rag_and_images(
+    request: RagGenerateContentRequest,
+    rag_service: RagService = Depends(get_rag_service),
+    ai_service: AIService = Depends(get_ai_service)
+) -> RagGenerateContentResponse:
+    """Generate content with RAG context and image references"""
+    try:
+        logger.info(f"Generate content with images endpoint | Brand: {request.brand_id}")
+        
+        response = await rag_service.generate_content_with_rag_and_images(
+            request=request,
+            ai_service=ai_service
+        )
+        
+        return response
+    
+    except Exception as e:
+        logger.error(f"Generate content with images endpoint error: {e}")
+        return RagGenerateContentResponse(
+            success=False,
+            content=None,
+            rag_context=[],
+            rag_query_used="",
+            rag_results_count=0,
+            error=f"Server error: {str(e)}"
         )
