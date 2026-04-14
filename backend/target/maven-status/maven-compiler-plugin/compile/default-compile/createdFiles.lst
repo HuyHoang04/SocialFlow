@@ -17,6 +17,7 @@ com\socialflow\ai\dto\ContentRequest.class
 com\socialflow\ai\dto\ProviderModelsResponse$ProviderModelsResponseBuilder.class
 com\socialflow\ai\dto\ProviderModelsResponse.class
 com\socialflow\ai\dto\RagSearchResponse$RagSearchResponseBuilder.class
+com\socialflow\ai\dto\RagStatusResponse.class
 com\socialflow\service\CampaignService.class
 com\socialflow\service\publisher\FacebookPublisher.class
 com\socialflow\ai\dto\ContentResponse$ContentResponseBuilder.class
@@ -32,6 +33,7 @@ com\socialflow\ai\dto\ImageGenerationResponse.class
 com\socialflow\ai\dto\KeywordOptimizationRequest.class
 com\socialflow\model\Post.class
 com\socialflow\dto\LoginResponse.class
+com\socialflow\ai\dto\RagDeleteResponse$RagDeleteResponseBuilder.class
 com\socialflow\service\publisher\TwitterPublisher.class
 com\socialflow\repository\PostAnalyticsRepository.class
 com\socialflow\security\JwtAuthFilter.class
@@ -94,6 +96,7 @@ com\socialflow\model\InboxMessage$InboxMessageBuilder.class
 com\socialflow\controller\CampaignController.class
 com\socialflow\dto\PostAnalyticsResponse$PostAnalyticsResponseBuilder.class
 com\socialflow\ai\dto\EmbeddingResponse$EmbeddingResponseBuilder.class
+com\socialflow\ai\dto\RagUploadResponse.class
 com\socialflow\service\PostScheduler.class
 com\socialflow\repository\InboxMessageRepository.class
 com\socialflow\ai\dto\RagSearchRequest.class
@@ -118,18 +121,23 @@ com\socialflow\ai\dto\EmbeddingRequest.class
 com\socialflow\model\Brand.class
 com\socialflow\ai\dto\RewriteRequest$RewriteRequestBuilder.class
 com\socialflow\model\PublishResult$PublishResultBuilder.class
+com\socialflow\ai\dto\RagStatusResponse$RagStatusResponseBuilder.class
 com\socialflow\ai\dto\ContentRequest$ContentRequestBuilder.class
 com\socialflow\ai\dto\RewriteRequest.class
 com\socialflow\model\enums\PlatformType.class
 com\socialflow\ai\dto\ModelInfo$ModelInfoBuilder.class
 com\socialflow\dto\CreatePostRequest.class
 com\socialflow\dto\InboxMessageResponse$InboxMessageResponseBuilder.class
+com\socialflow\ai\dto\RagLibraryResponse$RagLibraryResponseBuilder.class
 com\socialflow\repository\UserRepository.class
 com\socialflow\config\CorsConfig.class
 com\socialflow\ai\dto\RagSearchResponse.class
 com\socialflow\dto\AnalyticsOverviewResponse.class
+com\socialflow\ai\dto\RagLibraryResponse.class
 com\socialflow\model\Embedding.class
 com\socialflow\model\PublishResult.class
+com\socialflow\ai\dto\RagUploadResponse$RagUploadResponseBuilder.class
+com\socialflow\ai\dto\RagDeleteResponse.class
 com\socialflow\ai\dto\RagGenerateContentResponse$RagGenerateContentResponseBuilder.class
 com\socialflow\controller\Heathcheck.class
 com\socialflow\ai\dto\HealthResponse$HealthResponseBuilder.class

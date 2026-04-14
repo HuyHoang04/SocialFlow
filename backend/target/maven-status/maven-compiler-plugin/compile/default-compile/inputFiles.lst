@@ -1,6 +1,8 @@
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\OAuthService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\enums\PlatformType.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PostAnalyticsRepository.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagLibraryResponse.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagUploadResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\InboxMessageRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\PublisherService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\OAuthController.java
@@ -45,6 +47,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\service\FacebookAnalyticsServ
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\controller\AiController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\PostController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\CampaignService.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagStatusResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\PostMedia.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PostRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiServiceClient.java
@@ -65,6 +68,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\controller\Heathcheck.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\SecurityConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\PostAnalytics.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\CampaignResponse.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagDeleteResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\PlatformCommentDto.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\enums\PostStatus.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ImageGenerationResponse.java

@@ -19,6 +19,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.socialflow.ai.dto.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST Client for Python AI Service
@@ -293,7 +294,7 @@ public class AiServiceClient {
      * POST /rag/upload
      * Multipart form data: brand_id, category (optional), file
      */
-    public Map<String, Object> uploadToRag(String brandId, String category, byte[] fileContent, String fileName) {
+    public RagUploadResponse uploadToRag(String brandId, String category, byte[] fileContent, String fileName) {
         try {
             log.info("Calling Python AI Service: POST /rag/upload | Brand: {} | File: {} | Size: {} bytes", 
                      brandId, fileName, fileContent.length);
@@ -322,32 +323,33 @@ public class AiServiceClient {
             
             HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
             
-            ResponseEntity<Object> response = restTemplate.exchange(
+            ResponseEntity<RagUploadResponse> response = restTemplate.exchange(
                 url,
                 HttpMethod.POST,
                 entity,
-                Object.class
+                RagUploadResponse.class
             );
             
-            @SuppressWarnings("unchecked")
-            Map<String, Object> result = (Map<String, Object>) response.getBody();
+            RagUploadResponse result = response.getBody();
             
-            // Extract library_id from response
-            if (result != null && (boolean) result.getOrDefault("success", false)) {
+            if (result != null && result.isSuccessful()) {
                 log.info("✓ RAG upload successful | Library ID: {} | Chunks: {}", 
-                         result.get("library_id"), result.get("total_chunks"));
+                         result.getLibraryId(), result.getTotalChunks());
             } else {
-                log.warn("✗ RAG upload failed: {}", result != null ? result.get("error") : "Unknown error");
+                log.warn("✗ RAG upload failed: {}", result != null ? result.getErrorMessage() : "Unknown error");
             }
             
-            return result;
+            return result != null ? result : RagUploadResponse.builder()
+                .success(false)
+                .error("No response from service")
+                .build();
             
         } catch (Exception e) {
             log.error("✗ RAG upload failed: {}", e.getMessage());
-            return Map.of(
-                "success", false,
-                "error", "Failed to upload file: " + e.getMessage()
-            );
+            return RagUploadResponse.builder()
+                .success(false)
+                .error("Failed to upload file: " + e.getMessage())
+                .build();
         }
     }
     
@@ -355,20 +357,12 @@ public class AiServiceClient {
      * Search RAG content library
      * POST /rag/search
      */
-    public RagSearchResponse searchRag(String brandId, String query, Integer limit, Float threshold) {
+    public RagSearchResponse searchRag(RagSearchRequest request) {
         try {
             log.info("Calling Python AI Service: POST /rag/search | Brand: {} | Query: {} | Limit: {}", 
-                     brandId, query, limit);
+                     request.getBrandId(), request.getQuery(), request.getLimit());
             
             String url = pythonServiceUrl + "/rag/search";
-            
-            RagSearchRequest request = RagSearchRequest.builder()
-                .brandId(brandId)
-                .query(query)
-                .limit(limit != null ? limit : 5)
-                .threshold(threshold != null ? threshold : 0.3f)
-                .build();
-            
             HttpEntity<RagSearchRequest> entity = new HttpEntity<>(request, getHeaders());
             
             ResponseEntity<RagSearchResponse> response = restTemplate.exchange(
@@ -395,7 +389,7 @@ public class AiServiceClient {
      * Delete item from RAG library
      * DELETE /rag/library/{brand_id}/{library_id}
      */
-    public Map<String, Object> deleteFromRag(String brandId, String itemId) {
+    public RagDeleteResponse deleteFromRag(String brandId, String itemId) {
         try {
             log.info("Calling Python AI Service: DELETE /rag/library/{}/{} | Brand: {} | Item: {}", 
                      brandId, itemId, brandId, itemId);
@@ -405,24 +399,22 @@ public class AiServiceClient {
                 .buildAndExpand(brandId, itemId)
                 .toUriString();
             
-            ResponseEntity<Object> response = restTemplate.exchange(
+            ResponseEntity<RagDeleteResponse> response = restTemplate.exchange(
                 url,
                 HttpMethod.DELETE,
                 new HttpEntity<>(getHeaders()),
-                Object.class
+                RagDeleteResponse.class
             );
             
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = (Map<String, Object>) response.getBody();
             log.info("✓ RAG delete successful");
-            return body;
+            return response.getBody();
             
         } catch (RestClientException e) {
             log.error("✗ RAG delete failed: {}", e.getMessage());
-            return Map.of(
-                "success", false,
-                "error", "Failed to call Python service: " + e.getMessage()
-            );
+            return RagDeleteResponse.builder()
+                .success(false)
+                .error("Failed to call Python service: " + e.getMessage())
+                .build();
         }
     }
     
@@ -430,33 +422,28 @@ public class AiServiceClient {
      * Get RAG index status
      * GET /rag/status/{brand_id}
      */
-    public Map<String, Object> getRagStatus(String brandId) {
+    public RagStatusResponse getRagStatus(String brandId) {
         try {
             log.info("Calling Python AI Service: GET /rag/status/{} | Brand: {}", brandId, brandId);
             
-            String url = UriComponentsBuilder.fromHttpUrl(pythonServiceUrl)
-                .path("/rag/status/{brand_id}")
-                .buildAndExpand(brandId)
-                .toUriString();
+            String url = pythonServiceUrl + "/rag/status/" + brandId;
             
-            ResponseEntity<Object> response = restTemplate.exchange(
+            ResponseEntity<RagStatusResponse> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 new HttpEntity<>(getHeaders()),
-                Object.class
+                RagStatusResponse.class
             );
             
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = (Map<String, Object>) response.getBody();
             log.info("✓ Get RAG status successful");
-            return body;
+            return response.getBody();
             
         } catch (RestClientException e) {
             log.error("✗ Get RAG status failed: {}", e.getMessage());
-            return Map.of(
-                "success", false,
-                "error", "Failed to call Python service: " + e.getMessage()
-            );
+            return RagStatusResponse.builder()
+                .success(false)
+                .error("Failed to call Python service: " + e.getMessage())
+                .build();
         }
     }
     
@@ -464,34 +451,35 @@ public class AiServiceClient {
      * List RAG content library
      * GET /rag/library/{brand_id}
      */
-    public Map<String, Object> listRagLibrary(String brandId, Integer limit, Integer offset) {
+    public RagLibraryResponse listRagLibrary(String brandId, Integer limit, Integer offset) {
         try {
             log.info("Calling Python AI Service: GET /rag/library/{} | Brand: {} | Limit: {} | Offset: {}", 
                      brandId, brandId, limit, offset);
             
             String url = UriComponentsBuilder.fromHttpUrl(pythonServiceUrl)
                 .path("/rag/library/{brand_id}")
+                .queryParamIfPresent("limit", Optional.ofNullable(limit))
+                .queryParamIfPresent("offset", Optional.ofNullable(offset))
                 .buildAndExpand(brandId)
                 .toUriString();
             
-            ResponseEntity<Object> response = restTemplate.exchange(
+            ResponseEntity<RagLibraryResponse> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 new HttpEntity<>(getHeaders()),
-                Object.class
+                RagLibraryResponse.class
             );
             
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = (Map<String, Object>) response.getBody();
             log.info("✓ List RAG library successful");
-            return body;
+            return response.getBody();
             
         } catch (RestClientException e) {
             log.error("✗ List RAG library failed: {}", e.getMessage());
-            return Map.of(
-                "success", false,
-                "error", "Failed to call Python service: " + e.getMessage()
-            );
+            return RagLibraryResponse.builder()
+                .success(false)
+                .error("Failed to call Python service: " + e.getMessage())
+                .build();
+            
         }
     }
     

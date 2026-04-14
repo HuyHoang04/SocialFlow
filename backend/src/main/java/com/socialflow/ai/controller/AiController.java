@@ -369,12 +369,7 @@ public class AiController {
             log.info("→ RAG search | Brand: {} | Query: {} | Limit: {} | Threshold: {}", 
                      request.getBrandId(), request.getQuery(), request.getLimit(), request.getThreshold());
             
-            RagSearchResponse response = aiServiceClient.searchRag(
-                request.getBrandId(),
-                request.getQuery(),
-                request.getLimit(),
-                request.getThreshold()
-            );
+            RagSearchResponse response = aiServiceClient.searchRag(request);
             
             if (!response.isSuccessful()) {
                 log.warn("✗ RAG search failed: {}", response.getErrorMessage());
@@ -398,30 +393,36 @@ public class AiController {
      * DELETE /api/ai/rag/delete/{itemId}
      */
     @DeleteMapping("/rag/delete/{itemId}")
-    public ResponseEntity<?> deleteFromRag(
+    public ResponseEntity<RagDeleteResponse> deleteFromRag(
             @PathVariable String itemId,
             @RequestParam String brandId) {
         try {
             if (brandId == null || brandId.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "brand_id is required"
-                ));
+                return ResponseEntity.badRequest().body(RagDeleteResponse.builder()
+                    .success(false)
+                    .error("brand_id is required")
+                    .build());
             }
             
             log.info("→ Delete from RAG | Brand: {} | Item: {}", brandId, itemId);
             
-            Map<String, Object> response = aiServiceClient.deleteFromRag(brandId, itemId);
+            RagDeleteResponse response = aiServiceClient.deleteFromRag(brandId, itemId);
             
-            log.info("✓ Delete from RAG successful");
-            return ResponseEntity.ok(response);
+            if (response.isSuccessful()) {
+                log.info("✓ Delete from RAG successful");
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("✗ Delete from RAG failed: {}", response.getErrorMessage());
+                return ResponseEntity.badRequest().body(response);
+            }
             
         } catch (Exception e) {
             log.error("✗ Delete from RAG error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Delete failed: " + e.getMessage()
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagDeleteResponse.builder()
+                    .success(false)
+                    .error("Delete failed: " + e.getMessage())
+                    .build());
         }
     }
     
@@ -430,28 +431,35 @@ public class AiController {
      * GET /api/ai/rag/status
      */
     @GetMapping("/rag/status")
-    public ResponseEntity<?> getRagStatus(@RequestParam String brandId) {
+    public ResponseEntity<RagStatusResponse> getRagStatus(@RequestParam String brandId) {
         try {
             if (brandId == null || brandId.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "brand_id is required"
-                ));
+                return ResponseEntity.badRequest().body(RagStatusResponse.builder()
+                    .success(false)
+                    .error("brand_id is required")
+                    .build());
             }
             
             log.info("→ Get RAG status | Brand: {}", brandId);
             
-            Map<String, Object> response = aiServiceClient.getRagStatus(brandId);
+            RagStatusResponse response = aiServiceClient.getRagStatus(brandId);
             
-            log.info("✓ Get RAG status successful");
-            return ResponseEntity.ok(response);
+            if (response != null && response.isSuccessful()) {
+                log.info("✓ Get RAG status successful");
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("✗ Get RAG status failed: {}", response != null ? response.getErrorMessage() : "Unknown error");
+                return ResponseEntity.badRequest().body(response != null ? response : 
+                    RagStatusResponse.builder().success(false).error("Unknown error").build());
+            }
             
         } catch (Exception e) {
             log.error("✗ Get RAG status error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Get status failed: " + e.getMessage()
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagStatusResponse.builder()
+                    .success(false)
+                    .error("Get status failed: " + e.getMessage())
+                    .build());
         }
     }
     
@@ -460,32 +468,39 @@ public class AiController {
      * GET /api/ai/rag/library
      */
     @GetMapping("/rag/library")
-    public ResponseEntity<?> listRagLibrary(
+    public ResponseEntity<RagLibraryResponse> listRagLibrary(
             @RequestParam String brandId,
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
         try {
             if (brandId == null || brandId.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "brand_id is required"
-                ));
+                return ResponseEntity.badRequest().body(RagLibraryResponse.builder()
+                    .success(false)
+                    .error("brand_id is required")
+                    .build());
             }
             
             log.info("→ List RAG library | Brand: {} | Limit: {} | Offset: {}", 
                      brandId, limit, offset);
             
-            Map<String, Object> response = aiServiceClient.listRagLibrary(brandId, limit, offset);
+            RagLibraryResponse response = aiServiceClient.listRagLibrary(brandId, limit, offset);
             
-            log.info("✓ List RAG library successful");
-            return ResponseEntity.ok(response);
+            if (response != null && response.isSuccessful()) {
+                log.info("✓ List RAG library successful | Total files: {}", response.getTotalFiles());
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("✗ List RAG library failed: {}", response != null ? response.getErrorMessage() : "Unknown error");
+                return ResponseEntity.badRequest().body(response != null ? response : 
+                    RagLibraryResponse.builder().success(false).error("Unknown error").build());
+            }
             
         } catch (Exception e) {
             log.error("✗ List RAG library error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "List library failed: " + e.getMessage()
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagLibraryResponse.builder()
+                    .success(false)
+                    .error("List library failed: " + e.getMessage())
+                    .build());
         }
     }
     
@@ -592,23 +607,23 @@ public class AiController {
      * POST /api/ai/rag/upload
      */
     @PostMapping("/rag/upload")
-    public ResponseEntity<?> uploadToRag(
+    public ResponseEntity<RagUploadResponse> uploadToRag(
             @RequestParam String brandId,
             @RequestParam(required = false) String category,
             @RequestParam MultipartFile file) {
         try {
             if (brandId == null || brandId.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "brand_id is required"
-                ));
+                return ResponseEntity.badRequest().body(RagUploadResponse.builder()
+                    .success(false)
+                    .error("brand_id is required")
+                    .build());
             }
             
             if (file == null || file.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "File is required"
-                ));
+                return ResponseEntity.badRequest().body(RagUploadResponse.builder()
+                    .success(false)
+                    .error("File is required")
+                    .build());
             }
             
             String fileName = file.getOriginalFilename();
@@ -617,29 +632,32 @@ public class AiController {
             log.info("→ Upload to RAG | Brand: {} | File: {} | Size: {} bytes | Category: {}", 
                      brandId, fileName, fileContent.length, category);
             
-            Map<String, Object> response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName);
+            RagUploadResponse response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName);
             
-            if (response == null || !(boolean) response.getOrDefault("success", false)) {
-                log.warn("✗ Upload to RAG failed");
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            if (response != null && response.isSuccessful()) {
+                log.info("✓ Upload to RAG successful | Library ID: {} | Chunks: {}", 
+                         response.getLibraryId(), response.getTotalChunks());
+                return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            } else {
+                log.warn("✗ Upload to RAG failed: {}", response != null ? response.getErrorMessage() : "Unknown error");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response != null ? response : 
+                    RagUploadResponse.builder().success(false).error("Unknown error").build());
             }
-            
-            log.info("✓ Upload to RAG successful | Library ID: {} | Chunks: {}", 
-                     response.get("library_id"), response.get("total_chunks"));
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
         } catch (IOException e) {
             log.error("✗ Upload to RAG file read error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "success", false,
-                "error", "Failed to read file: " + e.getMessage()
-            ));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                RagUploadResponse.builder()
+                    .success(false)
+                    .error("Failed to read file: " + e.getMessage())
+                    .build());
         } catch (Exception e) {
             log.error("✗ Upload to RAG error: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Upload failed: " + e.getMessage()
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagUploadResponse.builder()
+                    .success(false)
+                    .error("Upload failed: " + e.getMessage())
+                    .build());
         }
     }
     
