@@ -1152,6 +1152,157 @@ Files Created/Modified in Phase 2:
 ✅ V3__RagModule.sql (database migration, new)
 ✅ app/config.py (updated: Groq model fix)
 
+================================================================================
+18A. AI SERVICE - PHASE 2B (Code Refactoring - Clean Architecture) ✅ COMPLETE
+====================================================================
+
+STATUS: ✅ COMPLETE - Python code refactored for clean architecture (2026-04-14)
+  - Architecture: Clean separation of concerns (routes → services → models)
+  - Type Safety: All endpoints use Pydantic DTOs for requests/responses
+  - Code Quality: No mixed models+routes, proper HTTP handler isolation
+  - Syntax: ✅ All files validated successfully
+
+PURPOSE: Clean up messy Python code, achieve proper separation of concerns matching Java backend
+  - Problem (Before): Routes handled business logic, inline model definitions, type mismatches
+  - Solution (After): Routes = HTTP only, services = business logic, models = DTOs with validation
+
+FILES CREATED/MODIFIED:
+
+1. ✅ app/models/rag_models.py (NEW - 250+ lines)
+   Purpose: Centralized Pydantic DTOs for all RAG endpoints
+   Models Created:
+   - RagSearchRequest: brand_id, query, limit, threshold, model (with Field validation)
+   - RagSearchResponse: success, results[], query, total_results, error
+   - RagStatusResponse: success, brand_id, status_data, error
+   - RagLibraryResponse: success, brand_id, files[], total_files, error
+   - RagUploadResponse: success, library_id, file_name, file_type, category, extracted_chars, text_preview, total_chunks, embeddings_saved, error
+   - RagDeleteResponse: success, message, error
+   - RagGenerateContentRequest: brand_id, prompt, rag_query, rag_limit, rag_threshold, provider, model, tone
+   - RagGenerateContentResponse: success, content, rag_context[], rag_query_used, rag_results_count, tokens_used, ai_model, error
+   Feature: All models include Field() validation, JSON schema examples, proper typing
+
+2. ✅ app/routes/rag.py (REFACTORED - 300+ lines)
+   Before: 293+ lines with mixed BaseModel definitions, business logic, and routes (spaghetti code)
+   After: Clean separation - HTTP handlers only, all logic delegated to services
+   Architecture:
+   - Each endpoint: Parse request → Call service → Wrap result in DTO → Return
+   - Dependency injection via Depends(get_*_service())
+   - No inline business logic, no duplicate model definitions
+   Endpoints (7 total):
+   - POST /upload → upload_file()
+   - POST /search → RagService.search_similar_chunks()
+   - GET /library → RagService.get_library_files()
+   - GET /status → RagService.get_rag_status_sync()
+   - DELETE /library/{id} → RagService.delete_library_file_sync()
+   - POST /generate-content → RagService.generate_content_with_rag()
+   - POST /generate-content-with-images → RagService.generate_content_with_rag_and_images()
+   Validation: ✅ Python syntax verified successfully
+
+3. ✅ app/services/rag_service.py (EXTENDED - 900+ lines)
+   Added 6 new helper methods for business logic:
+   
+   Async Methods:
+   - upload_file(brand_id, file_content, file_name, category, library_service)
+     * Complete workflow: save → extract → chunk → embed
+     * Returns: RagUploadResponse DTO
+     * Handles errors gracefully with detailed error messages
+   
+   - generate_embeddings_for_file(brand_id, library_item_id, text, model)
+     * Chunks text (512 tokens with 20% overlap)
+     * Generates embeddings via OpenRouter (multimodal 2048-dim)
+     * Saves chunks+vectors to rag_embedding table
+     * Returns: (total_chunks, embeddings_saved)
+   
+   - generate_content_with_rag(request, ai_service)
+     * RAG + AI generation workflow
+     * Embeds user prompt, searches similar chunks
+     * Augments prompt with RAG context
+     * Calls AI provider (Groq/OpenRouter)
+     * Returns: RagGenerateContentResponse with content + context + metrics
+   
+   - generate_content_with_rag_and_images(request, ai_service)
+     * Image variant - delegates to generate_content_with_rag()
+     * Returns: RagGenerateContentResponse
+   
+   Sync Methods (avoid async naming conflicts):
+   - get_rag_status_sync(brand_id)
+     * Queries rag_index table for status/metrics
+     * Returns: status_data dict or None
+   
+   - get_library_files(brand_id, limit=10, offset=0)
+     * Paginated file listing from content_library_item
+     * Returns: List[Dict] for DTO wrapping
+   
+   - count_library_files(brand_id)
+     * Quick count query for pagination
+     * Returns: int count
+   
+   - delete_library_file_sync(brand_id, library_id)
+     * Soft delete: mark item deleted, remove embeddings
+     * Returns: bool success
+
+Syntax Fixes:
+- Fixed unmatched ')' at line 798 (missing 'async def upload_file(' declaration)
+- Result: ✅ All files pass py_compile validation
+
+ARCHITECTURE BEFORE vs AFTER:
+
+BEFORE (Messy):
+  rag.py (293+ lines)
+  ├── @app.post("/upload") → [6 inline validation lines]
+  ├── class RagSearchRequest (definition)  ← duplicate from somewhere
+  ├── @app.post("/search") → [15 lines of business logic]
+  ├── class RagSearchResponse (definition) ← another duplicate
+  ├── @app.get("/library") → [12 lines of query logic]
+  ├── class RagLibraryResponse (definition) ← ❌ same pattern
+  └── ... more mixed definitions and routes
+
+AFTER (Clean):
+  app/models/rag_models.py (250+ lines)
+  ├── RagSearchRequest (Pydantic with Field validation)
+  ├── RagSearchResponse (Pydantic with defaults)
+  ├── RagStatusResponse (Pydantic)
+  ├── RagLibraryResponse (Pydantic)
+  ├── RagUploadResponse (Pydantic)
+  ├── RagDeleteResponse (Pydantic)
+  ├── RagGenerateContentRequest (Pydantic)
+  └── RagGenerateContentResponse (Pydantic)
+  
+  app/routes/rag.py (300+ lines)
+  ├── @app.post("/upload") → request = RagUploadRequest() → service.upload_file() → RagUploadResponse()
+  ├── @app.post("/search") → request = RagSearchRequest() → service.search_similar_chunks() → RagSearchResponse()
+  ├── @app.get("/library") → params parsed → service.get_library_files() → RagLibraryResponse()
+  ├── @app.get("/status") → service.get_rag_status_sync() → RagStatusResponse()
+  ├── @app.delete("/library/{id}") → service.delete_library_file_sync() → RagDeleteResponse()
+  └── @app.post("/generate-content") → request = RagGenerateContentRequest() → service.generate_content_with_rag() → RagGenerateContentResponse()
+  
+  app/services/rag_service.py (900+ lines)
+  ├── upload_file() → Complete workflow, returns DTO-compatible dict
+  ├── search_similar_chunks() → Returns results for wrapping
+  ├── generate_content_with_rag() → Returns content + metrics
+  ├── delete_library_file_sync() → Soft delete logic
+  └── [existing methods unchanged]
+
+BENEFITS:
+✅ Type Safety: All requests/responses typed with Pydantic validation
+✅ Separation of Concerns: Routes handle HTTP only, services handle logic
+✅ Testability: Each layer (routes, services, models) independently testable
+✅ Maintainability: Changes to business logic don't require route changes
+✅ Code Reuse: Multiple routes can call same service methods
+✅ Error Handling: Consistent error responses across all endpoints
+✅ Documentation: Pydantic models auto-generate OpenAPI schemas
+
+TESTING STATUS:
+✅ rag_models.py: Syntax validated
+✅ rag.py: Syntax validated
+✅ rag_service.py: Syntax validated (after fix)
+✅ Python app import: Verified successfully
+
+NEXT ACTION:
+Run end-to-end tests with test_rag_endpoints.py to verify all 7 endpoints working correctly
+
+================================================================================
+
 Next Phase (Phase 3): Java Integration
 - Create Java DTOs for RAG/AI operations
 - Implement AiServiceClient (REST client to Python service)
