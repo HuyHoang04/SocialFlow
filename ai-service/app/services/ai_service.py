@@ -65,11 +65,13 @@ class AIService:
         self,
         prompt: str,
         provider: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        max_words: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Generate content with specified provider and model
         Falls back to free OpenRouter model if primary fails
+        max_words: approximate word count (1 token ≈ 0.75 words)
         """
         
         # Set defaults
@@ -80,10 +82,20 @@ class AIService:
         elif provider == "openrouter" and model is None:
             model = DEFAULT_OPENROUTER_MODEL
         
+        # Convert words to tokens (approximately: 1 word ≈ 1.33 tokens)
+        if max_words is None:
+            max_words = 150
+        max_tokens = max(int(max_words * 1.33), 13)  # minimum 13 tokens for Groq
+        
         # Generate with specified provider
         if provider == "groq":
             try:
-                return await self.groq_provider.generate(prompt, model)
+                result = await self.groq_provider.generate(prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                # Rename token_count to tokens for API response consistency
+                if "token_count" in result_dict:
+                    result_dict["tokens"] = result_dict.pop("token_count")
+                return result_dict
             except Exception as groq_error:
                 if not ENABLE_FALLBACK:
                     logger.error(f"Groq failed, fallback disabled: {groq_error}")
@@ -99,7 +111,12 @@ class AIService:
                 
                 logger.warning(f"Groq failed, trying fallback to OpenRouter...")
                 try:
-                    return await self.openrouter_provider.generate(prompt, FALLBACK_OPENROUTER_MODEL)
+                    result = await self.openrouter_provider.generate(prompt, FALLBACK_OPENROUTER_MODEL, max_tokens)
+                    result_dict = result.dict() if hasattr(result, 'dict') else result
+                    # Rename token_count to tokens for API response consistency
+                    if "token_count" in result_dict:
+                        result_dict["tokens"] = result_dict.pop("token_count")
+                    return result_dict
                 except Exception as fallback_error:
                     logger.error(f"Both providers failed")
                     return {
@@ -114,7 +131,12 @@ class AIService:
         
         elif provider == "openrouter":
             try:
-                return await self.openrouter_provider.generate(prompt, model)
+                result = await self.openrouter_provider.generate(prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                # Rename token_count to tokens for API response consistency
+                if "token_count" in result_dict:
+                    result_dict["tokens"] = result_dict.pop("token_count")
+                return result_dict
             except Exception as e:
                 logger.error(f"OpenRouter failed: {e}")
                 return {
@@ -142,11 +164,13 @@ class AIService:
         content: str,
         tone: str,
         provider: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        max_words: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Rewrite content with specified tone
         Supported tones: professional, casual, humorous, inspirational, technical
+        max_words: approximate word count (1 token ≈ 0.75 words)
         """
         tone_lower = tone.lower()
         
@@ -173,20 +197,30 @@ class AIService:
         elif provider == "openrouter" and model is None:
             model = DEFAULT_OPENROUTER_MODEL
         
+        # Convert words to tokens (approximately: 1 word ≈ 1.33 tokens)
+        if max_words is None:
+            max_words = 150
+        max_tokens = max(int(max_words * 1.33), 13)  # minimum 13 tokens for Groq
+        
         # Rewrite with specified provider
         if provider == "groq":
             try:
-                result = await self.groq_provider.generate(rewrite_prompt, model)
+                result = await self.groq_provider.generate(rewrite_prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                # Rename token_count to tokens for API response consistency
+                tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
+                # Extract clean rewritten content (handles verbose AI responses)
+                clean_content = self._extract_rewritten_content(result_dict["content"], content)
                 return {
                     "original_content": content,
-                    "rewritten_content": result["content"],
+                    "rewritten_content": clean_content,
                     "tone_applied": tone_lower,
-                    "provider": result["provider"],
-                    "model": result.get("model"),
-                    "cost": result["cost"],
-                    "tokens": result["tokens"],
-                    "success": result["success"],
-                    "error": result.get("error")
+                    "provider": result_dict["provider"],
+                    "model": result_dict.get("model"),
+                    "cost": result_dict["cost"],
+                    "tokens": tokens,
+                    "success": result_dict["success"],
+                    "error": result_dict.get("error")
                 }
             except Exception as groq_error:
                 if not ENABLE_FALLBACK:
@@ -204,17 +238,22 @@ class AIService:
                 
                 logger.warning(f"Groq rewrite failed, trying fallback...")
                 try:
-                    result = await self.openrouter_provider.generate(rewrite_prompt, FALLBACK_OPENROUTER_MODEL)
+                    result = await self.openrouter_provider.generate(rewrite_prompt, FALLBACK_OPENROUTER_MODEL, max_tokens)
+                    result_dict = result.dict() if hasattr(result, 'dict') else result
+                    # Rename token_count to tokens for API response consistency
+                    tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
+                    # Extract clean rewritten content (handles verbose AI responses)
+                    clean_content = self._extract_rewritten_content(result_dict["content"], content)
                     return {
                         "original_content": content,
-                        "rewritten_content": result["content"],
+                        "rewritten_content": clean_content,
                         "tone_applied": tone_lower,
-                        "provider": result["provider"],
-                        "model": result.get("model"),
-                        "cost": result["cost"],
-                        "tokens": result["tokens"],
-                        "success": result["success"],
-                        "error": result.get("error")
+                        "provider": result_dict["provider"],
+                        "model": result_dict.get("model"),
+                        "cost": result_dict["cost"],
+                        "tokens": tokens,
+                        "success": result_dict["success"],
+                        "error": result_dict.get("error")
                     }
                 except Exception as fallback_error:
                     return {
@@ -230,17 +269,22 @@ class AIService:
         
         elif provider == "openrouter":
             try:
-                result = await self.openrouter_provider.generate(rewrite_prompt, model)
+                result = await self.openrouter_provider.generate(rewrite_prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                # Rename token_count to tokens for API response consistency
+                tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
+                # Extract clean rewritten content (handles verbose AI responses)
+                clean_content = self._extract_rewritten_content(result_dict["content"], content)
                 return {
                     "original_content": content,
-                    "rewritten_content": result["content"],
+                    "rewritten_content": clean_content,
                     "tone_applied": tone_lower,
-                    "provider": result["provider"],
-                    "model": result.get("model"),
-                    "cost": result["cost"],
-                    "tokens": result["tokens"],
-                    "success": result["success"],
-                    "error": result.get("error")
+                    "provider": result_dict["provider"],
+                    "model": result_dict.get("model"),
+                    "cost": result_dict["cost"],
+                    "tokens": tokens,
+                    "success": result_dict["success"],
+                    "error": result_dict.get("error")
                 }
             except Exception as e:
                 return {
@@ -273,10 +317,12 @@ class AIService:
         platform: str = "general",
         max_hashtags: int = 10,
         provider: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        max_words: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Suggest relevant hashtags and keywords for content
+        max_words: approximate word count (1 token ≈ 0.75 words)
         """
         
         # Build optimization prompt using formatter
@@ -290,21 +336,38 @@ class AIService:
         elif provider == "openrouter" and model is None:
             model = DEFAULT_OPENROUTER_MODEL
         
+        # Convert words to tokens (approximately: 1 word ≈ 1.33 tokens)
+        if max_words is None:
+            max_words = 150
+        max_tokens = max(int(max_words * 1.33), 13)  # minimum 13 tokens for Groq
+        
         # Generate with specified provider
         if provider == "groq":
             try:
-                result = await self.groq_provider.generate(optimization_prompt, model)
-                hashtags, keywords_list, topics = self._parse_optimization_response(result["content"])
+                result = await self.groq_provider.generate(optimization_prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                hashtags, keywords_list, topics = self._parse_optimization_response(result_dict["content"])
+                
+                # Check if parsing returned placeholder values (keyword1, keyword2, etc.)
+                is_placeholder = any('keyword' in str(kw).lower() or 'hashtag' in str(h).lower() or 'topic' in str(t).lower() 
+                                    for kw in keywords_list for h in hashtags for t in topics)
+                
+                if not hashtags or not keywords_list or is_placeholder:
+                    logger.warning(f"AI returned placeholder values, using fallback extraction")
+                    hashtags, keywords_list, topics = self._extract_fallback_keywords(content, keywords)
+                
+                # Rename token_count to tokens for API response consistency
+                tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                 return {
                     "hashtags": hashtags[:max_hashtags],
                     "keywords": keywords_list,
                     "trending_topics": topics,
-                    "provider": result["provider"],
-                    "model": result.get("model"),
-                    "cost": result["cost"],
-                    "tokens": result["tokens"],
-                    "success": result["success"],
-                    "error": result.get("error")
+                    "provider": result_dict["provider"],
+                    "model": result_dict.get("model"),
+                    "cost": result_dict["cost"],
+                    "tokens": tokens,
+                    "success": result_dict["success"],
+                    "error": result_dict.get("error")
                 }
             except Exception as groq_error:
                 if not ENABLE_FALLBACK:
@@ -322,18 +385,30 @@ class AIService:
                 
                 logger.warning(f"Groq keyword optimization failed, trying fallback...")
                 try:
-                    result = await self.openrouter_provider.generate(optimization_prompt, FALLBACK_OPENROUTER_MODEL)
-                    hashtags, keywords_list, topics = self._parse_optimization_response(result["content"])
+                    result = await self.openrouter_provider.generate(optimization_prompt, FALLBACK_OPENROUTER_MODEL, max_tokens)
+                    result_dict = result.dict() if hasattr(result, 'dict') else result
+                    hashtags, keywords_list, topics = self._parse_optimization_response(result_dict["content"])
+                    
+                    # Check if parsing returned placeholder values
+                    is_placeholder = any('keyword' in str(kw).lower() or 'hashtag' in str(h).lower() or 'topic' in str(t).lower() 
+                                        for kw in keywords_list for h in hashtags for t in topics)
+                    
+                    if not hashtags or not keywords_list or is_placeholder:
+                        logger.warning(f"AI returned placeholder values, using fallback extraction")
+                        hashtags, keywords_list, topics = self._extract_fallback_keywords(content, keywords)
+                    
+                    # Rename token_count to tokens for API response consistency
+                    tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                     return {
                         "hashtags": hashtags[:max_hashtags],
                         "keywords": keywords_list,
                         "trending_topics": topics,
-                        "provider": result["provider"],
-                        "model": result.get("model"),
-                        "cost": result["cost"],
-                        "tokens": result["tokens"],
-                        "success": result["success"],
-                        "error": result.get("error")
+                        "provider": result_dict["provider"],
+                        "model": result_dict.get("model"),
+                        "cost": result_dict["cost"],
+                        "tokens": tokens,
+                        "success": result_dict["success"],
+                        "error": result_dict.get("error")
                     }
                 except Exception as fallback_error:
                     return {
@@ -349,18 +424,30 @@ class AIService:
         
         elif provider == "openrouter":
             try:
-                result = await self.openrouter_provider.generate(optimization_prompt, model)
-                hashtags, keywords_list, topics = self._parse_optimization_response(result["content"])
+                result = await self.openrouter_provider.generate(optimization_prompt, model, max_tokens)
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                hashtags, keywords_list, topics = self._parse_optimization_response(result_dict["content"])
+                
+                # Check if parsing returned placeholder values
+                is_placeholder = any('keyword' in str(kw).lower() or 'hashtag' in str(h).lower() or 'topic' in str(t).lower() 
+                                    for kw in keywords_list for h in hashtags for t in topics)
+                
+                if not hashtags or not keywords_list or is_placeholder:
+                    logger.warning(f"AI returned placeholder values, using fallback extraction")
+                    hashtags, keywords_list, topics = self._extract_fallback_keywords(content, keywords)
+                
+                # Rename token_count to tokens for API response consistency
+                tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                 return {
                     "hashtags": hashtags[:max_hashtags],
                     "keywords": keywords_list,
                     "trending_topics": topics,
-                    "provider": result["provider"],
-                    "model": result.get("model"),
-                    "cost": result["cost"],
-                    "tokens": result["tokens"],
-                    "success": result["success"],
-                    "error": result.get("error")
+                    "provider": result_dict["provider"],
+                    "model": result_dict.get("model"),
+                    "cost": result_dict["cost"],
+                    "tokens": tokens,
+                    "success": result_dict["success"],
+                    "error": result_dict.get("error")
                 }
             except Exception as e:
                 return {
@@ -388,24 +475,104 @@ class AIService:
     
     def _parse_optimization_response(self, response: str) -> tuple:
         """Parse AI response to extract hashtags, keywords, and topics"""
+        import re
+        
         hashtags = []
         keywords_list = []
         topics = []
         
-        lines = response.split("\n")
+        if not response or not response.strip():
+            return hashtags, keywords_list, topics
+        
+        # Split by lines and process
+        lines = response.split('\n')
+        
+        current_section = None
+        section_data = ""
+        
         for line in lines:
             line = line.strip()
-            if line.startswith("HASHTAGS:"):
-                hashtags_str = line.replace("HASHTAGS:", "").strip()
-                hashtags = [tag.strip() for tag in hashtags_str.split(",") if tag.strip()]
-            elif line.startswith("KEYWORDS:"):
-                keywords_str = line.replace("KEYWORDS:", "").strip()
-                keywords_list = [kw.strip() for kw in keywords_str.split(",") if kw.strip()]
-            elif line.startswith("TRENDING_TOPICS:"):
-                topics_str = line.replace("TRENDING_TOPICS:", "").strip()
-                topics = [t.strip() for t in topics_str.split(",") if t.strip()]
+            if not line:
+                continue
+                
+            # Detect section headers (case-insensitive)
+            line_upper = line.upper()
+            
+            if re.search(r'^HASHTAGS?:', line_upper):
+                # Extract data after the colon
+                match = re.search(r'^HASHTAGS?:\s*(.*)', line, re.IGNORECASE)
+                if match:
+                    section_data = match.group(1).strip()
+                    hashtags = [tag.strip() for tag in section_data.split(',') if tag.strip()]
+                    # Clean up hashtags - remove extra text after common delimiters
+                    hashtags = [re.sub(r'\s+.*$', '', tag) for tag in hashtags]
+                    hashtags = [f"#{tag.lstrip('#')}" for tag in hashtags if tag]
+                current_section = None
+                
+            elif re.search(r'^KEYWORDS?:', line_upper):
+                # Extract data after the colon
+                match = re.search(r'^KEYWORDS?:\s*(.*)', line, re.IGNORECASE)
+                if match:
+                    section_data = match.group(1).strip()
+                    keywords_list = [kw.strip() for kw in section_data.split(',') if kw.strip()]
+                    # Clean up keywords - remove extra text after common delimiters
+                    keywords_list = [re.sub(r'\s+(?:BUT|ALSO|SAID|MAYBE|PERHAPS|OR|AND).*$', '', kw, flags=re.IGNORECASE) for kw in keywords_list]
+                    keywords_list = [kw.strip() for kw in keywords_list if kw.strip()]
+                current_section = None
+                
+            elif re.search(r'^TRENDING[_\s]TOPICS?:', line_upper):
+                # Extract data after the colon
+                match = re.search(r'^TRENDING[_\s]TOPICS?:\s*(.*)', line, re.IGNORECASE)
+                if match:
+                    section_data = match.group(1).strip()
+                    topics = [t.strip() for t in section_data.split(',') if t.strip()]
+                    # Clean up topics - remove extra text and punctuation
+                    topics = [re.sub(r'\s+(?:BUT|ALSO|SAID|MAYBE|PERHAPS).*$', '', t, flags=re.IGNORECASE) for t in topics]
+                    topics = [re.sub(r'^[.,\s]+', '', t) for t in topics]  # Remove leading punctuation
+                    topics = [t.strip() for t in topics if t.strip() and len(t.strip()) > 1]
+                current_section = None
         
         return hashtags, keywords_list, topics
+    
+    def _extract_fallback_keywords(self, content: str, existing_keywords: list = None) -> tuple:
+        """
+        Fallback method to extract keywords from content when AI parsing fails.
+        Uses simple NLP heuristics: nouns, compound nouns, and important words.
+        """
+        import re
+        
+        # Clean content
+        words = re.findall(r'\b[a-z]+\b', content.lower())
+        
+        # Common stopwords to exclude
+        stopwords = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+                     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+                     'should', 'may', 'might', 'must', 'can', 'shall', 'if', 'or', 'and',
+                     'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as',
+                     'it', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she',
+                     'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how'}
+        
+        # Extract meaningful words
+        keywords = [w for w in words if w not in stopwords and len(w) > 2]
+        
+        # Count word frequency
+        from collections import Counter
+        freq = Counter(keywords)
+        
+        # Get top keywords
+        top_keywords = [word for word, _ in freq.most_common(5)]
+        
+        # Add existing keywords if provided
+        if existing_keywords:
+            top_keywords = list(dict.fromkeys(existing_keywords + top_keywords))[:5]
+        
+        # Generate hashtags from keywords
+        hashtags = [f"#{kw.title()}" for kw in top_keywords[:3]]
+        
+        # Generate trending topics (similar to keywords but broader)
+        topics = [word.title() for word in top_keywords[2:4]]
+        
+        return hashtags, top_keywords, topics
     
     async def generate_image(
         self,
@@ -442,7 +609,8 @@ class AIService:
                     height=height,
                     count=count
                 )
-                return result
+                # Convert to dict if it's a Pydantic model
+                return result.dict() if hasattr(result, 'dict') else result
             except Exception as e:
                 if not ENABLE_IMAGE_FALLBACK:
                     logger.error(f"Pixazo failed, fallback disabled: {e}")
@@ -464,8 +632,9 @@ class AIService:
                         model=model,
                         count=count
                     )
-                    logger.info(f"Used OpenRouter fallback (cost: ${result.get('cost', 0):.6f})")
-                    return result
+                    result_dict = result.dict() if hasattr(result, 'dict') else result
+                    logger.info(f"Used OpenRouter fallback (cost: ${result_dict.get('cost', 0):.6f})")
+                    return result_dict
                 except Exception as fallback_error:
                     return {
                         "images": [],
@@ -485,8 +654,9 @@ class AIService:
                     model=model,
                     count=count
                 )
-                logger.info(f"Used OpenRouter | Cost: ${result.get('cost', 0):.6f}")
-                return result
+                result_dict = result.dict() if hasattr(result, 'dict') else result
+                logger.info(f"Used OpenRouter | Cost: ${result_dict.get('cost', 0):.6f}")
+                return result_dict
             except Exception as e:
                 logger.error(f"OpenRouter image generation failed: {e}")
                 
@@ -511,8 +681,9 @@ class AIService:
                         height=height,
                         count=count
                     )
+                    result_dict = result.dict() if hasattr(result, 'dict') else result
                     logger.info(f"Used Pixazo emergency fallback (FREE)")
-                    return result
+                    return result_dict
                 except Exception as fallback_error:
                     return {
                         "images": [],
@@ -542,3 +713,40 @@ class AIService:
             "pixazo": pixazo_models,
             "openrouter": openrouter_models
         }
+    
+    def _extract_rewritten_content(self, ai_response: str, original_content: str) -> str:
+        """
+        Extract clean rewritten content from AI response.
+        Sometimes AI includes reasoning/thinking in the response.
+        This tries to extract just the actual rewritten content.
+        """
+        if not ai_response:
+            return original_content
+        
+        # If response is roughly similar length to original, it's probably the rewrite (not reasoning)
+        if len(ai_response) < len(original_content) * 5:  # Allow up to 5x for expansion
+            return ai_response.strip()
+        
+        # If response is too long, look for the actual rewrite by extracting after reasoning markers
+        lines = ai_response.split('\n')
+        
+        # Look for common ending markers that signal actual output after reasoning
+        for i, line in enumerate(lines):
+            lower = line.lower()
+            if any(marker in lower for marker in ['possible rewrites:', 'rewrite:', 'output:', 'revised:']):
+                # Return content after this marker
+                remaining = '\n'.join(lines[i+1:]).strip()
+                if remaining and len(remaining) < len(original_content) * 5:
+                    return remaining
+        
+        # If no markers found, try to get the shortest meaningful paragraph
+        # Split by double newlines or take the shortest paragraph
+        paragraphs = [p.strip() for p in ai_response.split('\n\n') if p.strip()]
+        
+        # Find shortest paragraph that's not just the original
+        for para in sorted(paragraphs, key=len):
+            if para and len(para) > len(original_content) * 0.5 and len(para) < len(original_content) * 5:
+                return para
+        
+        # Fallback: return first sentence or short paragraph
+        return ai_response.strip().split('\n')[0] if ai_response.strip() else original_content

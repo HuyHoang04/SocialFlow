@@ -24,6 +24,7 @@ class ContentRequest(BaseModel):
     prompt: str                          # REQUIRED
     tone: str = "professional"
     platform: str = "general"
+    max_words: int = 150                 # OPTIONAL: max output in words (10-1500, ~1 token = 0.75 words)
     provider: str                        # REQUIRED: "groq" or "openrouter"
     model: str                           # REQUIRED: model name or "auto"
 
@@ -44,6 +45,7 @@ class RewriteRequest(BaseModel):
     content: str                        # REQUIRED
     tone: str  # "professional", "casual", "humorous", "inspirational", "technical"
     platform: str = "general"
+    max_words: int = 150                 # OPTIONAL: max output in words (10-1500, ~1 token = 0.75 words)
     provider: str                       # REQUIRED: "groq" or "openrouter"
     model: str                          # REQUIRED: model name or "auto"
 
@@ -67,6 +69,7 @@ class KeywordOptimizationRequest(BaseModel):
     keywords: Optional[List[str]] = None  # Optional existing keywords to enhance
     platform: str = "general"
     max_hashtags: int = 10
+    max_words: int = 150                 # OPTIONAL: max output in words (10-1500, ~1 token = 0.75 words)
     provider: str                       # REQUIRED: "groq" or "openrouter"
     model: str                          # REQUIRED: model name or "auto"
 
@@ -144,6 +147,7 @@ class EmbeddingRequest(BaseModel):
     brand_id: str                       # REQUIRED - which brand owns these embeddings
     texts: List[str]                    # REQUIRED - Texts to embed
     images: Optional[List[str]] = None  # Optional URLs or base64 images (for multimodal)
+    provider: Optional[str] = "openrouter"  # Optional: embedding provider (default openrouter)
     model: str = "auto"                 # Optional: specific model, default "auto"
 
 

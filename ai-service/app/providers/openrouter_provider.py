@@ -113,16 +113,16 @@ class OpenRouterProvider(BaseProvider):
             self.image_models_cache = {}
             return {}
     
-    async def generate(self, prompt: str, model: str) -> TextResponse:
+    async def generate(self, prompt: str, model: str, max_tokens: int = 500) -> TextResponse:
         """Generate content using OpenRouter"""
         try:
-            logger.info(f"Attempting OpenRouter provider ({model})...")
+            logger.info(f"Attempting OpenRouter provider ({model}, max_tokens={max_tokens})...")
             logger.info(f"  API Key length: {len(OPENROUTER_API_KEY) if OPENROUTER_API_KEY else 0}")
             
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=OPENROUTER_MAX_TOKENS,
+                max_tokens=max_tokens,
                 temperature=DEFAULT_TEMPERATURE
             )
             

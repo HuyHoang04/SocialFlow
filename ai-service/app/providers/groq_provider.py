@@ -55,16 +55,16 @@ class GroqProvider(BaseProvider):
             self.models_cache = self.hardcoded_models
             return self.hardcoded_models
     
-    async def generate(self, prompt: str, model: str) -> TextResponse:
+    async def generate(self, prompt: str, model: str, max_tokens: int = 500) -> TextResponse:
         """Generate content using Groq"""
         try:
-            logger.info(f"Attempting Groq provider ({model})...")
+            logger.info(f"Attempting Groq provider ({model}, max_tokens={max_tokens})...")
             logger.info(f"  API Key length: {len(GROQ_API_KEY) if GROQ_API_KEY else 0}")
             
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=GROQ_MAX_TOKENS,
+                max_tokens=max_tokens,
                 temperature=DEFAULT_TEMPERATURE
             )
             

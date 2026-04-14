@@ -25,6 +25,19 @@ Requirements:
 - Keep it concise and impactful
 """
 
+# ==================== RAG CONTENT GENERATION ====================
+RAG_CONTENT_GENERATION_PROMPT = """You are an AI content generator for SocialFlow.
+Generate content that matches the brand voice and guidelines provided below.
+Always stay true to the brand identity and messaging.
+
+BRAND GUIDELINES & CONTEXT:
+{context}
+
+USER REQUEST:
+{prompt}
+
+IMPORTANT: Output ONLY the generated content. Do not include any explanations, reasoning, thinking process, or preamble. Just the final content."""
+
 # ==================== CONTENT REWRITING ====================
 CONTENT_REWRITE_PROMPT = """Rewrite the following content with a {tone} tone ({tone_description}).
 Keep the original message and meaning intact, but adjust the style and language.
@@ -32,23 +45,30 @@ Keep the original message and meaning intact, but adjust the style and language.
 Original content:
 {content}
 
-Please provide ONLY the rewritten content, no explanations."""
+INSTRUCTION: Output ONLY the rewritten content. Do not include any explanations, reasoning, or preamble. Just the rewritten text."""
 
 # ==================== KEYWORD & HASHTAG OPTIMIZATION ====================
-KEYWORD_OPTIMIZATION_PROMPT = """Analyze the following social media content and suggest relevant hashtags and keywords.
+KEYWORD_OPTIMIZATION_PROMPT = """You are a social media keyword and hashtag optimization expert.
+
+Analyze this content and suggest relevant hashtags and keywords.
 Platform: {platform}
 Maximum hashtags: {max_hashtags}
 Existing keywords: {existing_keywords}
 
-Content:
+Content to analyze:
 {content}
 
-Provide your response in this format:
-HASHTAGS: #hashtag1, #hashtag2, #hashtag3
-KEYWORDS: keyword1, keyword2, keyword3
-TRENDING_TOPICS: topic1, topic2
+IMPORTANT INSTRUCTIONS:
+1. Extract 3-5 most relevant keywords from the content
+2. Suggest {max_hashtags} popular hashtags for this platform
+3. Identify 2-3 trending topics related to this content
+4. Format your response EXACTLY like this with no other text:
 
-Only provide the list items, no explanations."""
+HASHTAGS: #keyword1, #keyword2, #keyword3, #keyword4, #keyword5
+KEYWORDS: relevant, keyword, phrases, for, content
+TRENDING_TOPICS: trending, topic, area
+
+Do NOT include any explanations, reasoning, or preamble. Output only the three lines above."""
 
 # ==================== VALID TONE VALUES ====================
 VALID_TONES = ["professional", "casual", "humorous", "inspirational", "technical"]
@@ -88,4 +108,11 @@ def format_content_generation_prompt(prompt: str, platform: str, tone: str) -> s
         platform=platform,
         tone=tone,
         prompt=prompt
+    )
+
+def format_rag_generation_prompt(prompt: str, context: str) -> str:
+    """Format RAG content generation prompt with brand context"""
+    return RAG_CONTENT_GENERATION_PROMPT.format(
+        prompt=prompt,
+        context=context
     )

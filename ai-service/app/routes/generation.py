@@ -31,6 +31,7 @@ async def generate_content(request: ContentRequest, ai_service: AIService = Depe
     logger.info(f"   Prompt: {request.prompt[:50]}...")
     logger.info(f"   Tone: {request.tone}")
     logger.info(f"   Platform: {request.platform}")
+    logger.info(f"   Max Words: {request.max_words}")
     
     # Build full prompt with context using formatter
     full_prompt = format_content_generation_prompt(request.prompt, request.platform, request.tone)
@@ -39,7 +40,8 @@ async def generate_content(request: ContentRequest, ai_service: AIService = Depe
     result = await ai_service.generate_content(
         full_prompt,
         provider=request.provider,
-        model=request.model
+        model=request.model,
+        max_words=request.max_words
     )
     
     if not result["success"]:
@@ -61,12 +63,14 @@ async def rewrite_content(request: RewriteRequest, ai_service: AIService = Depen
     logger.info(f"   Original: {request.content[:50]}...")
     logger.info(f"   Tone: {request.tone}")
     logger.info(f"   Platform: {request.platform}")
+    logger.info(f"   Max Words: {request.max_words}")
     
     result = await ai_service.rewrite_content(
         content=request.content,
         tone=request.tone,
         provider=request.provider,
-        model=request.model
+        model=request.model,
+        max_words=request.max_words
     )
     
     if not result["success"]:
@@ -87,6 +91,7 @@ async def optimize_keywords(request: KeywordOptimizationRequest, ai_service: AIS
     logger.info(f"   Content: {request.content[:50]}...")
     logger.info(f"   Platform: {request.platform}")
     logger.info(f"   Max hashtags: {request.max_hashtags}")
+    logger.info(f"   Max Words: {request.max_words}")
     
     result = await ai_service.optimize_keywords(
         content=request.content,
@@ -94,7 +99,8 @@ async def optimize_keywords(request: KeywordOptimizationRequest, ai_service: AIS
         platform=request.platform,
         max_hashtags=request.max_hashtags,
         provider=request.provider,
-        model=request.model
+        model=request.model,
+        max_words=request.max_words
     )
     
     if not result["success"]:
@@ -136,6 +142,10 @@ async def generate_image(request: ImageGenerationRequest, ai_service: AIService 
         provider=request.provider,
         model=request.model
     )
+    
+    # Handle both dict and Pydantic model responses
+    if hasattr(result, 'dict'):
+        result = result.dict()
     
     if not result["success"]:
         logger.error(f"Image generation failed: {result['error']}")

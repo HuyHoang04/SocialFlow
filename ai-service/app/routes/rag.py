@@ -1,11 +1,12 @@
 # RAG Routes - Content library upload, search, and management
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.services.rag_service import RagService
 from app.services.content_library_service import ContentLibraryService
 from app.services.ai_service import AIService
 from app.utils.logger import setup_logger
 from pydantic import BaseModel
+from app.prompts import format_rag_generation_prompt
 
 logger = setup_logger(__name__)
 
@@ -336,7 +337,7 @@ async def generate_content_with_rag(
         
         logger.info(f"Found {len(rag_results)} RAG results")
         
-        # Build augmented prompt with RAG context
+        # Build augmented prompt with RAG context using standard prompt template
         augmented_prompt = request.prompt
         
         if rag_results:
@@ -345,17 +346,11 @@ async def generate_content_with_rag(
                 for r in rag_results
             ])
             
-            augmented_prompt = f"""You are an AI content generator for SocialFlow. 
-Generate content that matches the brand voice and guidelines provided below.
-Always stay true to the brand identity and messaging.
-
-BRAND GUIDELINES & CONTEXT:
-{context_text}
-
-USER REQUEST:
-{request.prompt}
-
-Now generate the content:"""
+            # Use standard RAG prompt template to ensure consistent formatting
+            augmented_prompt = format_rag_generation_prompt(
+                prompt=request.prompt,
+                context=context_text
+            )
             
             logger.info(f"Augmented prompt with {len(rag_results)} RAG results")
         
@@ -371,7 +366,7 @@ Now generate the content:"""
             result_success = generation_result.get("success")
             result_content = generation_result.get("content")
             result_error = generation_result.get("error", "Unknown error")
-            result_tokens = generation_result.get("tokens_used")
+            result_tokens = generation_result.get("tokens_used") or generation_result.get("token_count")
             result_model = generation_result.get("model", "")
         else:
             result_success = generation_result.success if hasattr(generation_result, 'success') else False
