@@ -123,7 +123,8 @@ class OpenRouterProvider(BaseProvider):
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
-                temperature=DEFAULT_TEMPERATURE
+                temperature=DEFAULT_TEMPERATURE,
+                extra_body={"reasoning": {"enabled": False}}
             )
             
             content = response.choices[0].message.content

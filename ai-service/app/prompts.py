@@ -10,7 +10,6 @@ TONE_DESCRIPTIONS = {
     "technical": "detailed and precise tone, include technical terms and specifics"
 }
 
-# ==================== CONTENT GENERATION ====================
 CONTENT_GENERATION_PROMPT = """You are an expert social media content creator.
 
 Platform: {platform}
@@ -26,17 +25,19 @@ Requirements:
 """
 
 # ==================== RAG CONTENT GENERATION ====================
-RAG_CONTENT_GENERATION_PROMPT = """You are an AI content generator for SocialFlow.
-Generate content that matches the brand voice and guidelines provided below.
-Always stay true to the brand identity and messaging.
+RAG_CONTENT_GENERATION_PROMPT = """You are an expert social media content creator.
 
-BRAND GUIDELINES & CONTEXT:
-{context}
+BRAND GUIDELINES & CONTEXT: {context}
 
-USER REQUEST:
-{prompt}
 
-IMPORTANT: Output ONLY the generated content. Do not include any explanations, reasoning, thinking process, or preamble. Just the final content."""
+Task: {prompt}
+
+Requirements:
+- Create engaging, authentic content
+- Match the specified tone
+
+- Keep it concise and impactful
+"""
 
 # ==================== CONTENT REWRITING ====================
 CONTENT_REWRITE_PROMPT = """Rewrite the following content with a {tone} tone ({tone_description}).
