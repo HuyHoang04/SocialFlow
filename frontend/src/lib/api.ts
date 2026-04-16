@@ -135,4 +135,126 @@ export const api = {
     getPostAnalyticsHistory: (postId: string) => request(`/analytics/posts/${postId}/history`),
     getPageAnalytics: (pageId: string) => request(`/analytics/pages/${pageId}`),
     getPageAnalyticsHistory: (pageId: string) => request(`/analytics/pages/${pageId}/history`),
+
+    // ============= AI SERVICE ENDPOINTS =============
+
+    // AI Models
+    getModels: () => request('/ai/models'),
+    getImageModels: () => request('/ai/image-models'),
+    refreshModels: () => request('/ai/refresh-models', { method: 'POST' }),
+
+    // Text Generation
+    generateContent: (data: {
+        prompt: string;
+        provider?: string;
+        model?: string;
+        tone?: string;
+        platform?: string;
+        max_words?: number;
+    }) => request('/ai/generate-content', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Content Rewrite
+    rewriteContent: (data: {
+        content: string;
+        tone: string;
+        provider?: string;
+        model?: string;
+        platform?: string;
+        max_words?: number;
+    }) => request('/ai/rewrite-content', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Keyword Optimization
+    optimizeKeywords: (data: {
+        content: string;
+        keywords?: string[];
+        platform?: string;
+        max_hashtags?: number;
+        provider?: string;
+        model?: string;
+        max_words?: number;
+    }) => request('/ai/optimize-keywords', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Image Generation
+    generateImage: async (data: {
+        prompt: string;
+        provider?: string;
+        model?: string;
+        style?: string;
+        platform?: string;
+        width?: number;
+        height?: number;
+        count?: number;
+    }) => request('/ai/generate-image', { method: 'POST', body: JSON.stringify(data) }),
+
+    // ============= RAG ENDPOINTS (Retrieval-Augmented Generation) =============
+
+    // RAG Status
+    ragGetStatus: (brandId: string) => 
+        request(`/ai/rag/status?brand_id=${brandId}`),
+
+    // Content Library - Upload
+    ragUploadFile: async (brandId: string, file: File, category?: string) => {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('brand_id', brandId);
+        formData.append('file', file);
+        if (category) formData.append('category', category);
+
+        const res = await fetch(`${API_BASE}/ai/rag/upload`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || res.statusText);
+        }
+        return res.json();
+    },
+
+    // Content Library - List files
+    ragListLibrary: (brandId: string, limit?: number, offset?: number) => {
+        const params = new URLSearchParams({ brand_id: brandId });
+        if (limit) params.append('limit', limit.toString());
+        if (offset) params.append('offset', offset.toString());
+        return request(`/ai/rag/library?${params}`);
+    },
+
+    // Content Library - Search
+    ragSearch: (data: {
+        brand_id: string;
+        query: string;
+        limit?: number;
+        threshold?: number;
+        model?: string;
+    }) => request('/ai/rag/search', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Content Library - Delete file
+    ragDeleteFile: (brandId: string, libraryId: string) =>
+        request(`/ai/rag/library/${brandId}/${libraryId}`, { method: 'DELETE' }),
+
+    // RAG + Content Generation
+    ragGenerateContent: (data: {
+        brand_id: string;
+        prompt: string;
+        rag_query?: string;
+        rag_limit?: number;
+        rag_threshold?: number;
+        provider?: string;
+        model?: string;
+        tone?: string;
+    }) => request('/ai/rag/generate-content', { method: 'POST', body: JSON.stringify(data) }),
+
+    // RAG + Content Generation with Images
+    ragGenerateContentWithImages: (data: {
+        brand_id: string;
+        prompt: string;
+        rag_query?: string;
+        rag_limit?: number;
+        rag_threshold?: number;
+        provider?: string;
+        model?: string;
+        tone?: string;
+        image_model?: string;
+    }) => request('/ai/rag/generate-content-with-images', { method: 'POST', body: JSON.stringify(data) }),
 };
