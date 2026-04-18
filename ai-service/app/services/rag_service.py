@@ -126,7 +126,8 @@ class RagService:
         brand_id: str,
         library_item_id: str,
         extracted_text: str,
-        model: str
+        model: str,
+        provider: str = "openrouter"
     ) -> Tuple[int, int]:
         """
         Chunk text and generate embeddings for all chunks.
@@ -150,7 +151,7 @@ class RagService:
                     brand_id=brand_id,
                     texts=chunks,  # Pass all chunks
                     model=model,
-                    provider="openrouter"
+                    provider=provider
                 )
                 
                 if not embedding_response.get("success"):
@@ -450,104 +451,7 @@ class RagService:
     
     # ============= SIMPLE HELPER METHODS FOR BUSINESS LOGIC =============
     
-    async def upload_file(
-        self,
-        brand_id: str,
-        file_content: bytes,
-        file_name: str,
-        category: Optional[str],
-        library_service
-    ):
-        """Complete file upload workflow"""
-        from app.models.rag_models import RagUploadResponse
-        
-        try:
-            logger.info(f"Upload file workflow | Brand: {brand_id} | File: {file_name}")
-            
-            # Step 1: Save file to storage
-            success, file_path, error = library_service.save_uploaded_file(
-                file_content=file_content,
-                file_name=file_name,
-                brand_id=brand_id
-            )
-            
-            if not success:
-                return RagUploadResponse(
-                    success=False,
-                    file_name=file_name,
-                    file_type="unknown",
-                    error=f"File save failed: {error}"
-                )
-            
-            # Step 2: Extract text from file
-            file_type = library_service.get_file_type(file_name)
-            success, extracted_text, error = library_service.extract_text_from_file(
-                file_path=file_path,
-                file_type=file_type
-            )
-            
-            if not success:
-                return RagUploadResponse(
-                    success=False,
-                    file_name=file_name,
-                    file_type=file_type,
-                    error=f"Text extraction failed: {error}"
-                )
-            
-            # Step 3: Save to database
-            auto_category = library_service.get_category_from_filename(file_name)
-            final_category = category or auto_category
-            
-            library_id = self.save_library_item(
-                brand_id=brand_id,
-                file_name=file_name,
-                file_type=file_type,
-                category=final_category,
-                extracted_text=extracted_text,
-                storage_url=file_path,
-                file_size=len(file_content),
-                metadata={"upload_timestamp": datetime.now().isoformat()}
-            )
-            
-            if not library_id:
-                return RagUploadResponse(
-                    success=False,
-                    file_name=file_name,
-                    file_type=file_type,
-                    error="Failed to save library item"
-                )
-            
-            # Step 4: Generate embeddings
-            total_chunks, saved_embeddings = await self.generate_embeddings_for_file(
-                brand_id=brand_id,
-                library_item_id=library_id,
-                extracted_text=extracted_text,
-                model="auto"
-            )
-            
-            logger.info(f"✓ Upload complete | Library: {library_id} | Chunks: {total_chunks}")
-            
-            return RagUploadResponse(
-                success=True,
-                library_id=library_id,
-                file_name=file_name,
-                file_type=file_type,
-                category=final_category,
-                extracted_chars=len(extracted_text),
-                text_preview=extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text,
-                total_chunks=total_chunks,
-                embeddings_saved=saved_embeddings
-            )
-        
-        except Exception as e:
-            logger.error(f"Upload error: {e}")
-            return RagUploadResponse(
-                success=False,
-                file_name=file_name,
-                file_type="unknown",
-                error=f"Server error: {str(e)}"
-            )
-    
+
     async def get_library_files(self, brand_id: str, limit: int = 10, offset: int = 0) -> List[Dict]:
         """Get library files - returns raw dicts for wrapping in DTO"""
         db_client = get_db_client()
@@ -558,7 +462,7 @@ class RagService:
             query = """
                 SELECT id, file_name, file_type, category, file_size, created_at
                 FROM content_library_item
-                WHERE brand_id = %s AND deleted_at IS NULL
+                WHERE brand_id = %s AND is_deleted = FALSE
                 ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
             """
@@ -567,12 +471,12 @@ class RagService:
             
             return [
                 {
-                    "library_id": row[0],
-                    "file_name": row[1],
+                    "id": row[0],
+                    "filename": row[1],
                     "file_type": row[2],
                     "category": row[3],
-                    "file_size": row[4],
-                    "created_at": row[5].isoformat() if row[5] else None
+                    "size": row[4],
+                    "uploadedAt": row[5].isoformat() if row[5] else None
                 }
                 for row in rows
             ]
@@ -598,7 +502,7 @@ class RagService:
         cursor = None
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s AND deleted_at IS NULL", (brand_id,))
+            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s AND is_deleted = FALSE", (brand_id,))
             result = cursor.fetchone()
             return result[0] if result else 0
         except Exception as e:
@@ -671,7 +575,7 @@ class RagService:
         cursor = None
         try:
             cursor = conn.cursor()
-            query = "UPDATE content_library_item SET deleted_at = NOW() WHERE id = %s AND brand_id = %s"
+            query = "UPDATE content_library_item SET is_deleted = TRUE WHERE id = %s AND brand_id = %s"
             cursor.execute(query, (library_id, brand_id))
             
             if cursor.rowcount == 0:
@@ -796,11 +700,14 @@ class RagService:
         file_content: bytes,
         file_name: str,
         category: Optional[str],
-        library_service
+        library_service,
+        provider: Optional[str] = None,
+        model: Optional[str] = None
     ):
         """
         Complete file upload workflow.
         Returns RagUploadResponse DTO.
+        Supports embedding model selection via provider and model parameters.
         """
         from app.models.rag_models import RagUploadResponse
         
@@ -849,7 +756,7 @@ class RagService:
                 extracted_text=extracted_text,
                 storage_url=file_path,
                 file_size=len(file_content),
-                metadata={"uplo_timestamp": datetime.now().isoformat()}
+                metadata={"upload_timestamp": datetime.now().isoformat()}
             )
             
             if not library_id:
@@ -865,7 +772,8 @@ class RagService:
                 brand_id=brand_id,
                 library_item_id=library_id,
                 extracted_text=extracted_text,
-                model="auto"
+                model=model or "auto",
+                provider=provider or "openrouter"
             )
             
             logger.info(f"✓ Upload workflow complete | Library: {library_id} | Chunks: {total_chunks} | Embeddings: {saved_embeddings}")
@@ -911,14 +819,14 @@ class RagService:
             cursor = conn.cursor()
             
             # Get total count
-            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s", (brand_id,))
+            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s AND is_deleted = FALSE", (brand_id,))
             total_files = cursor.fetchone()[0]
             
             # Get paginated results
             query = """
                 SELECT id, file_name, file_type, category, file_size, created_at
                 FROM content_library_item
-                WHERE brand_id = %s
+                WHERE brand_id = %s AND is_deleted = FALSE
                 ORDER BY created_at DESC
                 LIMIT %s OFFSET %s
             """
@@ -927,12 +835,12 @@ class RagService:
             
             files = [
                 {
-                    "library_id": row[0],
-                    "file_name": row[1],
+                    "id": row[0],
+                    "filename": row[1],
                     "file_type": row[2],
                     "category": row[3],
-                    "file_size": row[4],
-                    "created_at": row[5].isoformat() if row[5] else None
+                    "size": row[4],
+                    "uploadedAt": row[5].isoformat() if row[5] else None
                 }
                 for row in rows
             ]
@@ -1004,8 +912,8 @@ class RagService:
             
             cursor = conn.cursor()
             
-            # Soft delete - set deleted_at timestamp
-            query = "UPDATE content_library_item SET deleted_at = NOW() WHERE id = %s AND brand_id = %s"
+            # Soft delete - set is_deleted flag
+            query = "UPDATE content_library_item SET is_deleted = TRUE WHERE id = %s AND brand_id = %s"
             cursor.execute(query, (library_id, brand_id))
             
             if cursor.rowcount == 0:

@@ -78,8 +78,14 @@ public class PostService {
                         .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND_WITH_ID + request.getCampaignId()));
             }
 
+            // Get platform-specific content or fallback to common content
+            String postContent = request.getContent();
+            if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(pageId)) {
+                postContent = request.getPlatformContent().get(pageId);
+            }
+
             Post post = Post.builder()
-                    .content(request.getContent())
+                    .content(postContent)
                     .status(initialStatus)
                     .scheduledTime(scheduledTime)
                     .campaign(campaign)

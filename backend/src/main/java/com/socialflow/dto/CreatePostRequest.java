@@ -3,6 +3,7 @@ package com.socialflow.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -21,4 +22,7 @@ public class CreatePostRequest {
 
     // Optional campaign reference
     private UUID campaignId;
+
+    // Platform-specific content override (pageId -> custom content)
+    private Map<UUID, String> platformContent;
 }

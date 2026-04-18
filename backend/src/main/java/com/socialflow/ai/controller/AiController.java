@@ -328,10 +328,9 @@ public class AiController {
         try {
             log.info("→ List all models");
             
-            ProviderModelsResponse response = aiServiceClient.listAllModels();
+            Object response = aiServiceClient.listAllModels();
             
-            log.info("✓ List models successful | Total: {} | Free: {}", 
-                     response.getModelCount(), response.getFreeTierCount());
+            log.info("✓ List models successful");
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -339,6 +338,52 @@ public class AiController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "success", false,
                 "error", "Failed to list models: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * List all available image models
+     * GET /api/ai/image-models
+     */
+    @GetMapping("/image-models")
+    public ResponseEntity<?> listImageModels() {
+        try {
+            log.info("→ List all image models");
+            
+            Object response = aiServiceClient.listImageModels();
+            
+            log.info("✓ List image models successful");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("✗ List image models error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to list image models: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * List all available embedding models for RAG
+     * GET /api/ai/rag-models
+     */
+    @GetMapping("/rag-models")
+    public ResponseEntity<?> listRagModels() {
+        try {
+            log.info("→ List all RAG embedding models");
+            
+            Object response = aiServiceClient.listEmbeddingModels();
+            
+            log.info("✓ List RAG embedding models successful");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("✗ List RAG embedding models error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to list RAG embedding models: " + e.getMessage()
             ));
         }
     }
@@ -395,7 +440,7 @@ public class AiController {
     @DeleteMapping("/rag/delete/{itemId}")
     public ResponseEntity<RagDeleteResponse> deleteFromRag(
             @PathVariable String itemId,
-            @RequestParam String brandId) {
+            @RequestParam(name = "brand_id") String brandId) {
         try {
             if (brandId == null || brandId.isEmpty()) {
                 return ResponseEntity.badRequest().body(RagDeleteResponse.builder()
@@ -431,7 +476,7 @@ public class AiController {
      * GET /api/ai/rag/status
      */
     @GetMapping("/rag/status")
-    public ResponseEntity<RagStatusResponse> getRagStatus(@RequestParam String brandId) {
+    public ResponseEntity<RagStatusResponse> getRagStatus(@RequestParam(name = "brand_id") String brandId) {
         try {
             if (brandId == null || brandId.isEmpty()) {
                 return ResponseEntity.badRequest().body(RagStatusResponse.builder()
@@ -469,7 +514,7 @@ public class AiController {
      */
     @GetMapping("/rag/library")
     public ResponseEntity<RagLibraryResponse> listRagLibrary(
-            @RequestParam String brandId,
+            @RequestParam(name = "brand_id") String brandId,
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
         try {
@@ -608,8 +653,10 @@ public class AiController {
      */
     @PostMapping("/rag/upload")
     public ResponseEntity<RagUploadResponse> uploadToRag(
-            @RequestParam String brandId,
+            @RequestParam(name = "brand_id") String brandId,
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String provider,
+            @RequestParam(required = false) String model,
             @RequestParam MultipartFile file) {
         try {
             if (brandId == null || brandId.isEmpty()) {
@@ -629,10 +676,10 @@ public class AiController {
             String fileName = file.getOriginalFilename();
             byte[] fileContent = file.getBytes();
             
-            log.info("→ Upload to RAG | Brand: {} | File: {} | Size: {} bytes | Category: {}", 
-                     brandId, fileName, fileContent.length, category);
+            log.info("→ Upload to RAG | Brand: {} | File: {} | Size: {} bytes | Category: {} | Provider: {} | Model: {}", 
+                     brandId, fileName, fileContent.length, category, provider, model);
             
-            RagUploadResponse response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName);
+            RagUploadResponse response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName, provider, model);
             
             if (response != null && response.isSuccessful()) {
                 log.info("✓ Upload to RAG successful | Library ID: {} | Chunks: {}", 

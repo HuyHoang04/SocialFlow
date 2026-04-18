@@ -261,29 +261,86 @@ public class AiServiceClient {
      * List available models for all providers
      * GET /models
      */
-    public ProviderModelsResponse listAllModels() {
+    public Object listAllModels() {
         try {
             log.info("Calling Python AI Service: GET /models");
             
             String url = pythonServiceUrl + "/models";
             
-            ResponseEntity<ProviderModelsResponse> response = restTemplate.exchange(
+            ResponseEntity<Object> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 new HttpEntity<>(getHeaders()),
-                ProviderModelsResponse.class
+                Object.class
             );
             
-            log.info("✓ List models successful | Total: {}", 
-                     response.getBody() != null ? response.getBody().getModelCount() : 0);
+            log.info("✓ List models successful");
             return response.getBody();
             
         } catch (RestClientException e) {
             log.error("✗ List models failed: {}", e.getMessage());
-            return ProviderModelsResponse.builder()
-                .success(false)
-                .error("Failed to call Python service: " + e.getMessage())
-                .build();
+            return Map.of(
+                "success", false,
+                "error", "Failed to call Python service: " + e.getMessage()
+            );
+        }
+    }
+    
+    /**
+     * List available image models for all providers
+     * GET /image-models
+     */
+    public Object listImageModels() {
+        try {
+            log.info("Calling Python AI Service: GET /image-models");
+            
+            String url = pythonServiceUrl + "/image-models";
+            
+            ResponseEntity<Object> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(getHeaders()),
+                Object.class
+            );
+            
+            log.info("✓ List image models successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ List image models failed: {}", e.getMessage());
+            return Map.of(
+                "success", false,
+                "error", "Failed to call Python service: " + e.getMessage()
+            );
+        }
+    }
+    
+    /**
+     * List available embedding models for RAG
+     * GET /embedding-models
+     */
+    public Object listEmbeddingModels() {
+        try {
+            log.info("Calling Python AI Service: GET /embedding-models");
+            
+            String url = pythonServiceUrl + "/embedding-models";
+            
+            ResponseEntity<Object> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(getHeaders()),
+                Object.class
+            );
+            
+            log.info("✓ List embedding models successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ List embedding models failed: {}", e.getMessage());
+            return Map.of(
+                "success", false,
+                "error", "Failed to call Python service: " + e.getMessage()
+            );
         }
     }
     
@@ -291,23 +348,33 @@ public class AiServiceClient {
     
     /**
      * Upload file to RAG content library
-     * POST /rag/upload
-     * Multipart form data: brand_id, category (optional), file
+     * POST /rag/upload?brand_id=...&category=...&provider=...&model=...
+     * Multipart form data: file
      */
-    public RagUploadResponse uploadToRag(String brandId, String category, byte[] fileContent, String fileName) {
+    public RagUploadResponse uploadToRag(String brandId, String category, byte[] fileContent, String fileName, String provider, String model) {
         try {
-            log.info("Calling Python AI Service: POST /rag/upload | Brand: {} | File: {} | Size: {} bytes", 
-                     brandId, fileName, fileContent.length);
+            log.info("Calling Python AI Service: POST /rag/upload | Brand: {} | File: {} | Size: {} bytes | Provider: {} | Model: {}", 
+                     brandId, fileName, fileContent.length, provider, model);
             
-            String url = pythonServiceUrl + "/rag/upload";
-            
-            // Build multipart form data
-            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-            body.add("brand_id", brandId);
+            // Build URL with all query parameters
+            String url = pythonServiceUrl + "/rag/upload?brand_id=" + brandId;
             
             if (category != null && !category.isEmpty()) {
-                body.add("category", category);
+                url += "&category=" + category;
             }
+            
+            if (provider != null && !provider.isEmpty()) {
+                url += "&provider=" + provider;
+            }
+            
+            if (model != null && !model.isEmpty()) {
+                url += "&model=" + model;
+            }
+            
+            log.info("Request URL: {}", url);
+            
+            // Build multipart form data (only file)
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             
             // Add file with ByteArrayResource
             body.add("file", new ByteArrayResource(fileContent) {

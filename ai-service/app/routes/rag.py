@@ -38,6 +38,8 @@ def get_ai_service() -> AIService:
 async def upload_to_library(
     brand_id: str,
     category: Optional[str] = None,
+    provider: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
     file: UploadFile = File(...),
     library_service: ContentLibraryService = Depends(get_library_service),
     rag_service: RagService = Depends(get_rag_service)
@@ -68,6 +70,8 @@ async def upload_to_library(
             file_content=file_content,
             file_name=file.filename,
             category=category,
+            provider=provider,
+            model=model,
             library_service=library_service
         )
         

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS content_library_item (
     brand_id UUID NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_type VARCHAR(50) NOT NULL CHECK (file_type IN ('IMAGE', 'PDF', 'TEXT', 'DOCUMENT', 'AUDIO')),
-    category VARCHAR(50) NOT NULL CHECK (category IN ('BRAND_GUIDELINES', 'POST_TEMPLATES', 'CUSTOMER_FEEDBACK', 'FAQ', 'COMPETITOR_ANALYSIS', 'MEDIA_ASSETS', 'OTHER')),
+    category VARCHAR(50) CHECK (category IN ('BRAND_GUIDELINES', 'POST_TEMPLATES', 'CUSTOMER_FEEDBACK', 'FAQ', 'COMPETITOR_ANALYSIS', 'MEDIA_ASSETS', 'OTHER')),
     file_size BIGINT,
     storage_url VARCHAR(2048),
     extracted_text TEXT,

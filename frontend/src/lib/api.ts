@@ -1,4 +1,6 @@
 const API_BASE = '/api';
+const NEXT_PUBLIC_UNPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNPLASH_ACCESS_KEY || '';
+const NEXT_PUBLIC_UNSPLASH_SECRET_KEY = process.env.NEXT_PUBLIC_UNSPLASH_SECRET_KEY || '';
 
 function getToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -80,7 +82,7 @@ export const api = {
     getPosts: () => request('/posts'),
     getPost: (id: string) => request(`/posts/${id}`),
     getPostsByPage: (pageId: string) => request(`/pages/${pageId}/posts`),
-    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[]; scheduledTime?: string; campaignId?: string }) =>
+    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>
         request('/posts', { method: 'POST', body: JSON.stringify(data) }),
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
@@ -141,6 +143,7 @@ export const api = {
     // AI Models
     getModels: () => request('/ai/models'),
     getImageModels: () => request('/ai/image-models'),
+    getRagModels: () => request('/ai/rag-models'),
     refreshModels: () => request('/ai/refresh-models', { method: 'POST' }),
 
     // Text Generation
@@ -186,19 +189,46 @@ export const api = {
         count?: number;
     }) => request('/ai/generate-image', { method: 'POST', body: JSON.stringify(data) }),
 
+    // Stock Photos Search (Unsplash API)
+    searchStockPhotos: async (query: string, count: number = 6) => {
+        const unsplashKey = NEXT_PUBLIC_UNPLASH_ACCESS_KEY;
+        console.log('🔑 Unsplash Key loaded:', unsplashKey ? `${unsplashKey.slice(0, 8)}...` : 'EMPTY');
+        const response = await fetch(
+            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&client_id=${unsplashKey}`
+        );
+        console.log('📊 Response status:', response.status, response.statusText);
+        if (!response.ok) throw new Error(`Failed to search stock photos (${response.status})`);
+        const data = await response.json();
+        return data.results.map((photo: any) => ({
+            id: photo.id,
+            url: photo.urls.regular,
+            thumbUrl: photo.urls.thumb,
+            alt: photo.alt_description,
+            photographer: photo.user.name,
+            downloadLink: photo.links.download_location
+        }));
+    },
+
     // ============= RAG ENDPOINTS (Retrieval-Augmented Generation) =============
 
     // RAG Status
-    ragGetStatus: (brandId: string) => 
-        request(`/ai/rag/status?brand_id=${brandId}`),
+    ragGetStatus: (brandId: string) => {
+        console.log('📊 API: ragGetStatus called | brandId:', brandId);
+        const url = `/ai/rag/status?brand_id=${brandId}`;
+        console.log('🔗 Request URL:', url);
+        return request(url);
+    },
 
     // Content Library - Upload
-    ragUploadFile: async (brandId: string, file: File, category?: string) => {
+    ragUploadFile: async (brandId: string, file: File, category?: string, provider?: string, model?: string) => {
+        console.log('📤 API: ragUploadFile called | brandId:', brandId, 'file:', file.name, 'category:', category, 'provider:', provider, 'model:', model);
         const token = getToken();
         const formData = new FormData();
         formData.append('brand_id', brandId);
         formData.append('file', file);
         if (category) formData.append('category', category);
+        if (provider) formData.append('provider', provider);
+        if (model) formData.append('model', model);
 
         const res = await fetch(`${API_BASE}/ai/rag/upload`, {
             method: 'POST',
@@ -207,17 +237,23 @@ export const api = {
         });
         if (!res.ok) {
             const err = await res.text();
+            console.error('✗ Upload failed:', err);
             throw new Error(err || res.statusText);
         }
-        return res.json();
+        const result = await res.json();
+        console.log('✓ Upload successful:', result);
+        return result;
     },
 
     // Content Library - List files
     ragListLibrary: (brandId: string, limit?: number, offset?: number) => {
+        console.log('📚 API: ragListLibrary called | brandId:', brandId, 'limit:', limit, 'offset:', offset);
         const params = new URLSearchParams({ brand_id: brandId });
         if (limit) params.append('limit', limit.toString());
         if (offset) params.append('offset', offset.toString());
-        return request(`/ai/rag/library?${params}`);
+        const url = `/ai/rag/library?${params}`;
+        console.log('🔗 Request URL:', url);
+        return request(url);
     },
 
     // Content Library - Search
@@ -230,8 +266,12 @@ export const api = {
     }) => request('/ai/rag/search', { method: 'POST', body: JSON.stringify(data) }),
 
     // Content Library - Delete file
-    ragDeleteFile: (brandId: string, libraryId: string) =>
-        request(`/ai/rag/library/${brandId}/${libraryId}`, { method: 'DELETE' }),
+    ragDeleteFile: (brandId: string, libraryId: string) => {
+        console.log('🗑️ API: ragDeleteFile called | brandId:', brandId, 'libraryId:', libraryId);
+        const url = `/ai/rag/delete/${libraryId}?brand_id=${brandId}`;
+        console.log('🔗 Request URL:', url);
+        return request(url, { method: 'DELETE' });
+    },
 
     // RAG + Content Generation
     ragGenerateContent: (data: {

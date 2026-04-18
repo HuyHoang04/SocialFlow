@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconLink, IconLogOut, IconZap,
-    IconChevronLeft, IconChevronRight,
+    IconChevronLeft, IconChevronRight, IconFileText,
 } from './Icons';
 
 interface SidebarProps {
@@ -38,6 +38,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { href: '/create', icon: <IconPenSquare size={20} />, label: 'Create Post' },
         { href: '/assets', icon: <IconImage size={20} />, label: 'Media Assets' },
         { href: '/campaigns', icon: <IconTarget size={20} />, label: 'Campaigns' },
+        { href: '/rag-library', icon: <IconFileText size={20} />, label: 'Content Library' },
         { href: '/accounts', icon: <IconLink size={20} />, label: 'Accounts' },
     ];
 
