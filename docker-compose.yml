@@ -28,11 +28,32 @@ services:
       SPRING_DATASOURCE_USERNAME: socialflow
       SPRING_DATASOURCE_PASSWORD: socialflow
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      PYTHON_SERVICE_URL: http://ai-service:5000
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: socialflow-ai-service
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://socialflow:socialflow@postgres:5432/socialflow
+      FLASK_ENV: production
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
