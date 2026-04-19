@@ -57,7 +57,31 @@ public class MediaController {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || (!contentType.startsWith("image/") && !contentType.startsWith("video/"))) {
+        log.info("Upload attempt - FileName: {}, ContentType: {}, Size: {}", file.getOriginalFilename(), contentType, file.getSize());
+        
+        // If content-type is missing, try to infer from filename
+        if (contentType == null || contentType.isEmpty()) {
+            String originalName = file.getOriginalFilename();
+            if (originalName != null && (originalName.endsWith(".jpg") || originalName.endsWith(".jpeg"))) {
+                contentType = "image/jpeg";
+            } else if (originalName != null && originalName.endsWith(".png")) {
+                contentType = "image/png";
+            } else if (originalName != null && originalName.endsWith(".gif")) {
+                contentType = "image/gif";
+            } else if (originalName != null && originalName.endsWith(".webp")) {
+                contentType = "image/webp";
+            } else if (originalName != null && originalName.endsWith(".mp4")) {
+                contentType = "video/mp4";
+            } else if (originalName != null && originalName.endsWith(".mov")) {
+                contentType = "video/quicktime";
+            } else {
+                contentType = "image/jpeg"; // Default to JPEG for AI-generated images
+            }
+            log.info("Content-type inferred from filename: {}", contentType);
+        }
+        
+        if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) {
+            log.error("Invalid file type: {}", contentType);
             throw new RuntimeException(ErrorMessages.INVALID_FILE_TYPE);
         }
 

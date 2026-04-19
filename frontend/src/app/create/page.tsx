@@ -618,8 +618,22 @@ export default function CreatePostPage() {
     const addImageToMedia = async (imageUrl: string, alt: string = 'Generated/Stock Image') => {
         try {
             const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
             const blob = await response.blob();
-            const file = new File([blob], `image-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            // Determine correct MIME type from blob or URL
+            let mimeType = blob.type || 'image/jpeg';
+            if (!mimeType || mimeType === '') {
+                if (imageUrl.endsWith('.png')) mimeType = 'image/png';
+                else if (imageUrl.endsWith('.gif')) mimeType = 'image/gif';
+                else if (imageUrl.endsWith('.webp')) mimeType = 'image/webp';
+                else mimeType = 'image/jpeg';
+            }
+            
+            const filename = `image-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`;
+            const file = new File([blob], filename, { type: mimeType });
             
             // Use existing upload handler
             setUploading(true);
