@@ -7,7 +7,7 @@ import AppShell from '@/components/AppShell';
 import {
     PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX,
 } from '@/components/Icons';
-import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews } from '@automattic/social-previews';
+import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews, BlueskyPostPreview, LinkedInPostPreview, ThreadsPostPreview } from '@automattic/social-previews';
 import '@automattic/social-previews/style.css';
 import '@/styles/create-page.css';
 
@@ -56,7 +56,7 @@ function PlatformPreview({
             {platformLower === 'facebook' && (
                 <div style={{ padding: '16px 0' }}>
                     <FacebookPostPreview
-                        url="#"
+                        url=""
                         title={caption || 'New Post'}
                         customText={caption}
                         image={currentMedia?.url}
@@ -69,7 +69,7 @@ function PlatformPreview({
             {platformLower === 'twitter' && (
                 <div style={{ padding: '16px 0' }}>
                     <TwitterPostPreview
-                        url="#"
+                        url=""
                         title={caption || 'Tweet'}
                         text={caption}
                         name={pageInfo.pageName}
@@ -89,7 +89,7 @@ function PlatformPreview({
             {platformLower === 'instagram' && (
                 <div style={{ padding: '16px 0' }}>
                     <InstagramPreviews
-                        url="#"
+                        url=""
                         name={pageInfo.pageName}
                         profileImage="https://via.placeholder.com/40?text=PP"
                         caption={caption}
@@ -119,6 +119,71 @@ function PlatformPreview({
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>{pageInfo.pageName}</div>
                         <p style={{ margin: 0, lineHeight: 1.4 }}>{caption || 'Your TikTok caption...'}</p>
                     </div>
+                </div>
+            )}
+
+            {platformLower === 'bluesky' && (
+                <div style={{ padding: '16px 0' }}>
+                    <BlueskyPostPreview
+                        url=""
+                        title={caption || 'Bluesky Post'}
+                        customText={caption}
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                        user={{
+                            displayName: pageInfo.pageName,
+                            avatarUrl: "https://via.placeholder.com/48?text=BS",
+                            address: `@${pageInfo.pageName.toLowerCase().replace(/\s+/g, '')}`
+                        }}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'linkedin' && (
+                <div style={{ padding: '16px 0' }}>
+                    <LinkedInPostPreview
+                        url="#"
+                        title={caption || 'LinkedIn Post'}
+                        description={caption}
+                        name={pageInfo.pageName}
+                        profileImage="https://via.placeholder.com/48?text=LI"
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'threads' && (
+                <div style={{ padding: '16px 0' }}>
+                    <ThreadsPostPreview
+                        url=""
+                        title={caption || 'Threads Post'}
+                        name={pageInfo.pageName}
+                        profileImage="https://via.placeholder.com/48?text=TH"
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                    />
+                </div>
+            )}
+
+            {/* Fallback for unsupported platforms */}
+            {!['facebook', 'twitter', 'instagram', 'tiktok', 'bluesky', 'linkedin', 'threads'].includes(platformLower) && (
+                <div style={{ 
+                    padding: '16px', 
+                    background: 'var(--bg-glass)', 
+                    borderRadius: 'var(--radius)', 
+                    border: '1px solid var(--border)',
+                    textAlign: 'center',
+                    color: 'var(--text-muted)'
+                }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>📱</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Platform Preview</div>
+                    <p style={{ margin: 0, fontSize: 11, lineHeight: 1.4 }}>
+                        Preview not available for <strong>{platform}</strong>
+                    </p>
+                    <p style={{ margin: '8px 0 0 0', fontSize: 11, color: 'var(--accent)' }}>
+                        Caption: {caption || '(no caption)'}
+                    </p>
                 </div>
             )}
 
