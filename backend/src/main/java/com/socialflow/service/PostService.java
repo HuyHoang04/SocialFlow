@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -75,7 +76,7 @@ public class PostService {
             LocalDateTime scheduledTime = null;
             PostStatus initialStatus = PostStatus.DRAFT;
             if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
-                scheduledTime = LocalDateTime.parse(request.getScheduledTime());
+                scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
                 if (scheduledTime.isAfter(LocalDateTime.now())) {
                     initialStatus = PostStatus.SCHEDULED;
                 }
@@ -119,6 +120,7 @@ public class PostService {
                             .fileSize(media.getFileSize())
                             .url(media.getUrl())
                             .sortOrder(media.getSortOrder())
+                            .uploader(media.getUploader())
                             .post(post)
                             .build();
                     mediaRepository.save(copy);

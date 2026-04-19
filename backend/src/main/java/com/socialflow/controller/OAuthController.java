@@ -46,9 +46,17 @@ public class OAuthController {
 
     @GetMapping("/linkedin/callback")
     public void linkedinCallback(
-            @RequestParam String code,
-            @RequestParam String state,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            @RequestParam(name = "error_description", required = false) String errorDescription,
             HttpServletResponse response) throws IOException {
+        if (error != null) {
+            String redirectUrl = oauthService.getFrontendUrl() + "/accounts?error=" + error
+                    + (errorDescription != null ? "&error_description=" + java.net.URLEncoder.encode(errorDescription, "UTF-8") : "");
+            response.sendRedirect(redirectUrl);
+            return;
+        }
         String redirectUrl = oauthService.handleLinkedInCallback(code, state);
         response.sendRedirect(redirectUrl);
     }

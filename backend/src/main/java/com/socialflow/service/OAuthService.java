@@ -62,6 +62,8 @@ public class OAuthService {
     @Value("${oauth.threads.redirect-uri:${app.base-url}/api/oauth/threads/callback}")
     private String threadsRedirectUri;
 
+    public String getFrontendUrl() { return frontendUrl; }
+
     // ==================== Get OAuth URL ====================
 
     public String getOAuthUrl(PlatformType platform, UUID brandId) {
@@ -84,7 +86,7 @@ public class OAuthService {
                     + "response_type=code"
                     + "&client_id=" + liClientId
                     + "&redirect_uri=" + encode(liRedirectUri)
-                    + "&scope=w_member_social%20r_organization_admin%20w_organization_social"
+                    + "&scope=openid%20profile%20email%20w_member_social"
                     + "&state=" + state;
             case THREADS -> "https://threads.net/oauth/authorize?"
                     + "client_id=" + threadsClientId
@@ -226,7 +228,7 @@ public class OAuthService {
                         .build());
         connection.setAccountName(name);
         connection.setAccessToken(accessToken);
-        connection.setScopes("w_member_social, r_organization_admin, w_organization_social");
+        connection.setScopes("openid, profile, email, w_member_social");
         long liExpiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 5184000;
         connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(liExpiresIn));
         connection = connectionRepository.save(connection);
@@ -242,6 +244,50 @@ public class OAuthService {
         personalPage.setPageName(name + " (Personal)");
         personalPage.setPageAccessToken(accessToken);
         pageRepository.save(personalPage);
+
+        // Fetch organization pages the user admins (requires w_organization_social)
+        try {
+            JsonNode orgAcls = liApi.get()
+                    .uri("/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&count=10")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("X-Restli-Protocol-Version", "2.0.0")
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (orgAcls != null && orgAcls.has("elements")) {
+                for (JsonNode element : orgAcls.get("elements")) {
+                    String orgTarget = element.get("organizationTarget").asText();
+                    // orgTarget = "urn:li:organization:12345"
+                    String orgId = orgTarget.replace("urn:li:organization:", "");
+
+                    JsonNode orgResp = liApi.get()
+                            .uri("/v2/organizations/" + orgId + "?projection=(id,localizedName,logoV2)")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .header("X-Restli-Protocol-Version", "2.0.0")
+                            .retrieve()
+                            .bodyToMono(JsonNode.class)
+                            .block();
+
+                    String orgName = orgResp != null && orgResp.has("localizedName")
+                            ? orgResp.get("localizedName").asText() : "Company Page";
+
+                    SocialPage orgPage = pageRepository
+                            .findByConnectionIdAndPlatformPageId(savedConn.getId(), orgTarget)
+                            .orElse(SocialPage.builder()
+                                    .platformPageId(orgTarget)
+                                    .platform(PlatformType.LINKEDIN)
+                                    .connection(savedConn)
+                                    .build());
+                    orgPage.setPageName(orgName + " (Company)");
+                    orgPage.setPageAccessToken(accessToken);
+                    pageRepository.save(orgPage);
+                    log.info("LinkedIn org page upserted: {} ({})", orgName, orgTarget);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch LinkedIn org pages: {}", e.getMessage());
+        }
 
         log.info("LinkedIn upserted: {} ({})", name, sub);
         return frontendUrl + "/accounts?connected=linkedin";
