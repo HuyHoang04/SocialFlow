@@ -178,9 +178,14 @@ export default function DashboardPage() {
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {(p.status === 'DRAFT' || p.status === 'SCHEDULED') && (
-                        <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
-                          <IconSend size={14} /> Publish
-                        </button>
+                        <>
+                          <Link href={`/create?postId=${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
+                            <IconPenSquare size={14} /> Edit
+                          </Link>
+                          <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
+                            <IconSend size={14} /> Publish
+                          </button>
+                        </>
                       )}
                       <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
                         View

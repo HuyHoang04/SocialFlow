@@ -44,15 +44,24 @@ public class PostService {
     }
 
     @Transactional
-    public List<PostResponse> createPost(CreatePostRequest request) {
-        // Load media files if provided
+    public List<PostResponse> createPost(CreatePostRequest request, User currentUser) {
+        // Create media records from filenames (save from cache to DB)
         List<PostMedia> mediaFiles = new ArrayList<>();
-        if (request.getMediaIds() != null && !request.getMediaIds().isEmpty()) {
-            for (int i = 0; i < request.getMediaIds().size(); i++) {
-                UUID mediaId = request.getMediaIds().get(i);
-                PostMedia media = mediaRepository.findById(mediaId)
-                        .orElseThrow(() -> new RuntimeException(ErrorMessages.MEDIA_NOT_FOUND + mediaId));
-                media.setSortOrder(i);
+        if (request.getMediaFilenames() != null && !request.getMediaFilenames().isEmpty()) {
+            for (int i = 0; i < request.getMediaFilenames().size(); i++) {
+                String filename = request.getMediaFilenames().get(i);
+                
+                // Create media record with current user (files were already saved to disk during upload)
+                PostMedia media = PostMedia.builder()
+                        .filename(filename)
+                        .originalName(filename)  // Can be improved with metadata later
+                        .contentType("image/jpeg")  // Should be passed from frontend
+                        .fileSize(0L)  // Should be tracked from upload
+                        .url("/api/media/" + filename)
+                        .sortOrder(i)
+                        .uploader(currentUser)
+                        .build();
+                media = mediaRepository.save(media);
                 mediaFiles.add(media);
             }
         }
@@ -121,6 +130,75 @@ public class PostService {
         }
 
         return responses;
+    }
+
+    @Transactional
+    public PostResponse updatePost(UUID postId, CreatePostRequest request, User currentUser) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
+
+        // Update content (use platform-specific if available, else fallback to common)
+        String postContent = request.getContent();
+        if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(post.getPage().getId())) {
+            postContent = request.getPlatformContent().get(post.getPage().getId());
+        }
+        post.setContent(postContent);
+
+        // Update scheduled time if provided
+        if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
+            LocalDateTime scheduledTime = LocalDateTime.parse(request.getScheduledTime());
+            post.setScheduledTime(scheduledTime);
+            if (scheduledTime.isAfter(LocalDateTime.now())) {
+                post.setStatus(PostStatus.SCHEDULED);
+            } else {
+                post.setStatus(PostStatus.DRAFT);
+            }
+        } else {
+            post.setScheduledTime(null);
+            post.setStatus(PostStatus.DRAFT);
+        }
+
+        // Update campaign if provided
+        if (request.getCampaignId() != null) {
+            Campaign campaign = campaignRepository.findById(request.getCampaignId())
+                    .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND_WITH_ID + request.getCampaignId()));
+            post.setCampaign(campaign);
+        } else {
+            post.setCampaign(null);
+        }
+
+        // Update media files if provided
+        if (request.getMediaFilenames() != null) {
+            // Delete existing media
+            List<PostMedia> existingMedia = new ArrayList<>(post.getMediaFiles());
+            for (PostMedia media : existingMedia) {
+                post.getMediaFiles().remove(media);
+                mediaRepository.delete(media);
+            }
+
+            // Create new media records from filenames
+            if (!request.getMediaFilenames().isEmpty()) {
+                for (int i = 0; i < request.getMediaFilenames().size(); i++) {
+                    String filename = request.getMediaFilenames().get(i);
+                    
+                    PostMedia media = PostMedia.builder()
+                            .filename(filename)
+                            .originalName(filename)
+                            .contentType("image/jpeg")
+                            .fileSize(0L)
+                            .url("/api/media/" + filename)
+                            .sortOrder(i)
+                            .post(post)
+                            .uploader(currentUser)
+                            .build();
+                    media = mediaRepository.save(media);
+                    post.getMediaFiles().add(media);
+                }
+            }
+        }
+
+        post = postRepository.save(post);
+        return toResponse(post);
     }
 
     @Transactional

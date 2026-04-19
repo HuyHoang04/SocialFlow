@@ -82,8 +82,10 @@ export const api = {
     getPosts: () => request('/posts'),
     getPost: (id: string) => request(`/posts/${id}`),
     getPostsByPage: (pageId: string) => request(`/pages/${pageId}/posts`),
-    createPost: (data: { content: string; pageIds: string[]; mediaIds?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>
+    createPost: (data: { content: string; pageIds: string[]; mediaFilenames?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>
         request('/posts', { method: 'POST', body: JSON.stringify(data) }),
+    updatePost: (id: string, data: { content: string; pageIds: string[]; mediaFilenames?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>
+        request(`/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
 

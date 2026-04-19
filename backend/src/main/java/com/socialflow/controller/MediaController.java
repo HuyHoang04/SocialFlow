@@ -48,6 +48,7 @@ public class MediaController {
     /**
      * Upload a media file (image or video).
      * Returns the saved PostMedia metadata.
+     * Media is saved locally but not persisted to database until linked to a post.
      */
     @PostMapping("/upload")
     public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal User user) throws IOException {
@@ -68,30 +69,25 @@ public class MediaController {
         }
         String filename = UUID.randomUUID() + extension;
 
-        // Save file
+        // Save file to disk
         Path filePath = uploadPath.resolve(filename);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Uploaded file: {} ({}, {} bytes)", filename, contentType, file.getSize());
+        } catch (IOException e) {
+            log.error("Failed to save file: {}", filename, e);
+            throw new RuntimeException("Failed to save file to disk", e);
+        }
 
-        // Save metadata (not yet linked to a post)
-        PostMedia media = PostMedia.builder()
-                .filename(filename)
-                .originalName(originalName != null ? originalName : filename)
-                .contentType(contentType)
-                .fileSize(file.getSize())
-                .url("/api/media/" + filename)
-                .sortOrder(0)
-                .uploader(user)
-                .build();
-        media = mediaRepository.save(media);
-
-        log.info("Uploaded: {} ({}, {} bytes)", filename, contentType, file.getSize());
-
+        // Return metadata without saving to database
+        // Database entry will be created when the post is published
         return Map.of(
-                "id", media.getId().toString(),
-                "url", media.getUrl(),
-                "contentType", media.getContentType(),
-                "originalName", media.getOriginalName(),
-                "fileSize", media.getFileSize()
+                "id", UUID.randomUUID().toString(),
+                "filename", filename,
+                "url", "/api/media/" + filename,
+                "contentType", contentType,
+                "originalName", originalName != null ? originalName : filename,
+                "fileSize", file.getSize()
         );
     }
 

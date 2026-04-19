@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
@@ -21,6 +21,7 @@ interface PageItem {
 
 interface UploadedMedia {
     id: string;
+    filename: string;
     url: string;
     contentType: string;
     originalName: string;
@@ -217,6 +218,8 @@ function PlatformPreview({
 
 export default function CreatePostPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const postId = searchParams.get('postId');
     const { selectedBrand: brand } = useBrand();
     const [pages, setPages] = useState<PageItem[]>([]);
     const [selectedPages, setSelectedPages] = useState<string[]>([]);
@@ -225,6 +228,8 @@ export default function CreatePostPage() {
     const [publishing, setPublishing] = useState(false);
     const [error, setError] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
+    const [isEditingPost, setIsEditingPost] = useState(false);
+    const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
     // Campaigns state
     const [campaigns, setCampaigns] = useState<{ id: string, name: string }[]>([]);
@@ -348,6 +353,41 @@ export default function CreatePostPage() {
             }).catch(() => setImageModels([]))
         ]).finally(() => setLoading(false));
     }, [brand]);
+
+    // Load post data if editing
+    useEffect(() => {
+        if (!postId || !brand) return;
+        
+        setLoading(true);
+        api.getPost(postId)
+            .then((post: any) => {
+                setContent(post.content);
+                setEditingPostId(postId);
+                setIsEditingPost(true);
+                if (post.mediaFiles && post.mediaFiles.length > 0) {
+                    setMediaFiles(post.mediaFiles.map((m: any) => ({
+                        id: m.id,
+                        filename: m.url.split('/').pop() || '',  // Extract filename from URL
+                        url: m.url,
+                        contentType: m.contentType,
+                        originalName: m.originalName,
+                        fileSize: 0  // Not provided by API
+                    })));
+                }
+                if (post.page) {
+                    setSelectedPages([post.page.id]);
+                    setSelectedPageForPreview(post.page.id);
+                }
+                if (post.campaign) {
+                    setSelectedCampaign(post.campaign.id);
+                }
+                if (post.scheduledTime) {
+                    setScheduledTime(post.scheduledTime);
+                }
+            })
+            .catch((err: any) => setError(err instanceof Error ? err.message : 'Failed to load post'))
+            .finally(() => setLoading(false));
+    }, [postId, brand]);
 
     // Auto-replicate content when pages are selected
     useEffect(() => {
@@ -699,18 +739,31 @@ export default function CreatePostPage() {
         setError('');
         setPublishing(true);
         try {
-            const posts = await api.createPost({
+            const postData = {
                 content,
                 pageIds: selectedPages,
-                mediaIds: mediaFiles.map(m => m.id),
+                mediaFilenames: mediaFiles.map(m => m.filename),
                 scheduledTime: ISOStringTime,
                 campaignId: selectedCampaign || undefined,
                 platformContent // Include platform-specific content
-            });
+            };
 
-            // If not scheduled, publish immediately
-            if (!ISOStringTime) {
-                await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+            if (isEditingPost && editingPostId) {
+                // Update existing draft
+                await api.updatePost(editingPostId, postData);
+                
+                // If not scheduled, publish immediately
+                if (!ISOStringTime) {
+                    await api.publishPost(editingPostId);
+                }
+            } else {
+                // Create new post
+                const posts = await api.createPost(postData);
+                
+                // If not scheduled, publish immediately
+                if (!ISOStringTime) {
+                    await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+                }
             }
             router.push('/dashboard');
         } catch (err: unknown) {
@@ -725,13 +778,19 @@ export default function CreatePostPage() {
         if (selectedPages.length === 0) return setError('Please select at least one page');
         setError('');
         try {
-            await api.createPost({
+            const postData = {
                 content,
                 pageIds: selectedPages,
-                mediaIds: mediaFiles.map(m => m.id),
+                mediaFilenames: mediaFiles.map(m => m.filename),
                 campaignId: selectedCampaign || undefined,
                 platformContent // Include platform-specific content
-            });
+            };
+
+            if (isEditingPost && editingPostId) {
+                await api.updatePost(editingPostId, postData);
+            } else {
+                await api.createPost(postData);
+            }
             router.push('/dashboard');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Save failed');
@@ -749,14 +808,14 @@ export default function CreatePostPage() {
             <div className="create-page-container">
                 {/* Header with title and action buttons */}
                 <div className="create-header">
-                    <h1 className="create-title">Create Post</h1>
+                    <h1 className="create-title">{isEditingPost ? 'Edit Draft' : 'Create Post'}</h1>
                     <div className="create-actions">
                         <button 
                             className="btn-action save" 
                             onClick={handleSaveDraft}
                             disabled={publishing || !content.trim() || selectedPages.length === 0}
                         >
-                            <IconSave size={14} /> Save Draft
+                            <IconSave size={14} /> {isEditingPost ? 'Update Draft' : 'Save Draft'}
                         </button>
                         <button 
                             className="btn-action publish" 

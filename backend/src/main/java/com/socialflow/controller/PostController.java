@@ -36,8 +36,13 @@ public class PostController {
     }
 
     @PostMapping("/posts")
-    public ResponseEntity<List<PostResponse>> createPost(@Valid @RequestBody CreatePostRequest request) {
-        return ResponseEntity.ok(postService.createPost(request));
+    public ResponseEntity<List<PostResponse>> createPost(@Valid @RequestBody CreatePostRequest request, @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(postService.createPost(request, user));
+    }
+
+    @PutMapping("/posts/{id}")
+    public ResponseEntity<PostResponse> updatePost(@PathVariable UUID id, @Valid @RequestBody CreatePostRequest request, @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(postService.updatePost(id, request, user));
     }
 
     @PostMapping("/posts/{id}/publish")
