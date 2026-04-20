@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/webhook/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/media/**").permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
