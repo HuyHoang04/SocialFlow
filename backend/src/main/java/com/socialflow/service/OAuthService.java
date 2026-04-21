@@ -374,7 +374,30 @@ public class OAuthService {
     public Map<String, Object> handleFacebookToken(String accessToken, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
-        return upsertFacebookConnection(brand, accessToken, 0);
+
+        // Exchange short-lived JS SDK token for long-lived token (~60 days)
+        String longLivedToken = accessToken;
+        long expiresIn = 0;
+        try {
+            WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
+            JsonNode resp = fb.get()
+                    .uri(uri -> uri.path("/oauth/access_token")
+                            .queryParam("grant_type", "fb_exchange_token")
+                            .queryParam("client_id", fbClientId)
+                            .queryParam("client_secret", fbClientSecret)
+                            .queryParam("fb_exchange_token", accessToken)
+                            .build())
+                    .retrieve().bodyToMono(JsonNode.class).block();
+            if (resp != null && resp.has("access_token")) {
+                longLivedToken = resp.get("access_token").asText();
+                expiresIn = resp.has("expires_in") ? resp.get("expires_in").asLong() : 5183944;
+                log.info("Exchanged FB short-lived token for long-lived token (expires in {}s)", expiresIn);
+            }
+        } catch (Exception e) {
+            log.warn("Could not exchange FB long-lived token: {}", e.getMessage());
+        }
+
+        return upsertFacebookConnection(brand, longLivedToken, expiresIn);
     }
 
     public Map<String, Object> handleBlueskyConnect(String handle, String appPassword, UUID brandId) {

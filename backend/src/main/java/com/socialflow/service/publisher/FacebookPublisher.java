@@ -153,11 +153,14 @@ public class FacebookPublisher {
         List<PlatformCommentDto> results = new ArrayList<>();
         try {
             WebClient client = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
-            
+            // Use user token (has pages_read_engagement) as primary; fallback to page token
+            String userToken = page.getConnection().getAccessToken();
+            String token = (userToken != null && !userToken.isBlank()) ? userToken : page.getPageAccessToken();
+
             // 1. Fetch recent posts
             JsonNode feedNode = client.get()
                     .uri(uriBuilder -> uriBuilder.path("/{pageId}/feed")
-                            .queryParam("access_token", page.getPageAccessToken())
+                            .queryParam("access_token", token)
                             .queryParam("limit", 10)
                             .queryParam("fields", "id")
                             .build(page.getPlatformPageId()))
@@ -168,12 +171,12 @@ public class FacebookPublisher {
             if (feedNode != null && feedNode.has("data")) {
                 for (JsonNode postNode : feedNode.get("data")) {
                     String postId = postNode.get("id").asText();
-                    
+
                     // 2. Fetch comments for each post
                     String commentsUrl = String.format(
                             "https://graph.facebook.com/v18.0/%s/comments?access_token=%s&fields=%s",
                             postId,
-                            page.getPageAccessToken(),
+                            token,
                             "id,message,from,created_time,comments%7Bid,message,from,created_time%7D"
                     );
                     JsonNode commentsNode = client.get()
