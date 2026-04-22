@@ -72,7 +72,7 @@ public class OAuthService {
             case FACEBOOK -> "https://www.facebook.com/v18.0/dialog/oauth?"
                     + "client_id=" + fbClientId
                     + "&redirect_uri=" + encode(fbRedirectUri)
-                    + "&scope=pages_manage_posts,pages_read_engagement,pages_show_list"
+                    + "&scope=pages_manage_posts,pages_read_engagement,pages_show_list,pages_messaging"
                     + "&state=" + state
                     + "&response_type=code";
             case TWITTER -> "https://twitter.com/i/oauth2/authorize?"

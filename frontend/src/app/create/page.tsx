@@ -1,4 +1,5 @@
 'use client';
+import { Suspense } from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -216,7 +217,7 @@ function PlatformPreview({
     );
 }
 
-export default function CreatePostPage() {
+function CreatePostContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const postId = searchParams.get('postId');
@@ -1854,5 +1855,13 @@ export default function CreatePostPage() {
                 )}
             </div>
         </AppShell>
+    );
+}
+
+export default function CreatePostPage() {
+    return (
+        <Suspense fallback={<div className="loading-center"><div className="spinner" /></div>}>
+            <CreatePostContent />
+        </Suspense>
     );
 }
