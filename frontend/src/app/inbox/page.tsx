@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
@@ -19,17 +19,28 @@ interface InboxMessage {
     pageName: string;
     platform: string;
     parentMessageId?: string | null;
+    messageType?: 'COMMENT' | 'DIRECT_MESSAGE' | null;
+    conversationId?: string | null;
 }
+
+interface DmConversation {
+    conversationId: string;
+    messages: InboxMessage[];
+    preview: InboxMessage;
+    hasUnread: boolean;
+}
+
+type ActiveTab = 'comments' | 'messages';
 
 export default function InboxPage() {
     const { selectedBrand: brand } = useBrand();
     const [messages, setMessages] = useState<InboxMessage[]>([]);
-    const [selectedMessage, setSelectedMessage] = useState<InboxMessage | null>(null);
+    const [activeTab, setActiveTab] = useState<ActiveTab>('comments');
+    const [selectedComment, setSelectedComment] = useState<InboxMessage | null>(null);
+    const [selectedConversation, setSelectedConversation] = useState<DmConversation | null>(null);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState('');
-
-    // Reply state
     const [replyContent, setReplyContent] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
 
@@ -39,8 +50,8 @@ export default function InboxPage() {
         try {
             const data = await api.getInbox(brand.id);
             setMessages(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load inbox');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to load inbox');
         } finally {
             setLoading(false);
         }
@@ -48,15 +59,29 @@ export default function InboxPage() {
 
     useEffect(() => { loadInbox(); }, [loadInbox]);
 
-    // Separate effect to update selectedMessage when messages change
+    // Refresh selectedConversation when messages update
     useEffect(() => {
-        if (selectedMessage && messages.length > 0) {
-            const refreshed = messages.find((m: InboxMessage) => m.id === selectedMessage.id);
-            if (refreshed && JSON.stringify(refreshed) !== JSON.stringify(selectedMessage)) {
-                setSelectedMessage(refreshed);
+        if (selectedConversation) {
+            const updated = messages.filter(
+                m => (m.conversationId || m.platformPostId) === selectedConversation.conversationId
+            ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            if (updated.length > 0) {
+                const preview = [...updated].sort((a, b) =>
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                ).find(m => !m.isFromMe) || updated[updated.length - 1];
+                setSelectedConversation({
+                    conversationId: selectedConversation.conversationId,
+                    messages: updated,
+                    preview,
+                    hasUnread: updated.some(m => !m.isRead && !m.isFromMe),
+                });
             }
         }
-    }, [messages, selectedMessage]);
+        if (selectedComment) {
+            const refreshed = messages.find(m => m.id === selectedComment.id);
+            if (refreshed) setSelectedComment(refreshed);
+        }
+    }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSync = async () => {
         if (!brand) return;
@@ -65,56 +90,112 @@ export default function InboxPage() {
         try {
             await api.syncInbox(brand.id);
             await loadInbox();
-        } catch (err: any) {
-            setError(err.message || 'Failed to sync inbox');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to sync inbox');
         } finally {
             setSyncing(false);
         }
     };
 
-    const handleSelectMessage = async (msg: InboxMessage) => {
-        setSelectedMessage(msg);
+    // ── Derived data ────────────────────────────────────────────
+
+    const topLevelComments = useMemo(
+        () => messages.filter(m => (!m.messageType || m.messageType === 'COMMENT') && !m.parentMessageId),
+        [messages]
+    );
+
+    const getReplies = (parentPlatformId: string) =>
+        messages
+            .filter(m => m.parentMessageId === parentPlatformId)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    const dmConversations = useMemo<DmConversation[]>(() => {
+        const dms = messages.filter(m => m.messageType === 'DIRECT_MESSAGE');
+        const grouped = new Map<string, InboxMessage[]>();
+        for (const msg of dms) {
+            const key = msg.conversationId || msg.platformPostId;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(msg);
+        }
+        return Array.from(grouped.entries())
+            .map(([convId, msgs]) => {
+                const sorted = [...msgs].sort(
+                    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                );
+                const preview = sorted.find(m => !m.isFromMe) || sorted[0];
+                return {
+                    conversationId: convId,
+                    messages: msgs.sort(
+                        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                    ),
+                    preview,
+                    hasUnread: msgs.some(m => !m.isRead && !m.isFromMe),
+                };
+            })
+            .sort((a, b) =>
+                new Date(b.preview.createdAt).getTime() - new Date(a.preview.createdAt).getTime()
+            );
+    }, [messages]);
+
+    const unreadComments = topLevelComments.filter(m => !m.isRead).length;
+    const unreadDMs = dmConversations.filter(c => c.hasUnread).length;
+
+    // ── Handlers ────────────────────────────────────────────────
+
+    const handleSelectComment = async (msg: InboxMessage) => {
+        setSelectedComment(msg);
         setReplyContent('');
         if (!msg.isRead) {
             try {
                 await api.markInboxMessageRead(msg.id);
                 setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isRead: true } : m));
-                setSelectedMessage({ ...msg, isRead: true });
-            } catch (err) {
-                console.error("Failed to mark read", err);
-            }
+            } catch { /* non-critical */ }
+        }
+    };
+
+    const handleSelectConversation = async (conv: DmConversation) => {
+        setSelectedConversation(conv);
+        setReplyContent('');
+        // Mark all unread messages in this conversation as read
+        const unread = conv.messages.filter(m => !m.isRead && !m.isFromMe);
+        for (const m of unread) {
+            try {
+                await api.markInboxMessageRead(m.id);
+            } catch { /* non-critical */ }
+        }
+        if (unread.length > 0) {
+            setMessages(prev =>
+                prev.map(m => unread.some(u => u.id === m.id) ? { ...m, isRead: true } : m)
+            );
         }
     };
 
     const handleReply = async () => {
-        if (!selectedMessage || !replyContent.trim()) return;
+        if (!replyContent.trim()) return;
+        const targetId = activeTab === 'comments'
+            ? selectedComment?.id
+            : selectedConversation?.messages[0]?.id;
+        if (!targetId) return;
+
         setSendingReply(true);
         try {
-            await api.replyToInboxMessage(selectedMessage.id, replyContent);
+            await api.replyToInboxMessage(targetId, replyContent);
             setReplyContent('');
-            // Reload inbox to explicitly fetch the new reply that Sync pulls in backend
             await loadInbox();
-        } catch (err: any) {
-            alert(err.message || 'Reply failed');
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Reply failed');
         } finally {
             setSendingReply(false);
         }
     };
 
-    const platformIcon = (p: string) => {
-        return <PlatformIcon platform={p} size={16} />;
-    };
+    const replyPlaceholder = activeTab === 'comments'
+        ? `Reply to ${selectedComment?.authorName ?? '...'} as ${selectedComment?.pageName ?? ''}...`
+        : `Reply to ${selectedConversation?.preview?.authorName ?? '...'} as ${selectedConversation?.preview?.pageName ?? ''}...`;
 
-    // Derived states for grouping:
-    // Top-level messages (no parentMessageId)
-    const topLevelMessages = messages.filter(m => !m.parentMessageId);
+    const hasSelection = activeTab === 'comments' ? !!selectedComment : !!selectedConversation;
 
-    // Function to get all replies for a given top-level message
-    const getRepliesForMessage = (parentPlatformId: string) => {
-        return messages
-            .filter(m => m.parentMessageId === parentPlatformId)
-            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    };
+    // ── Render ──────────────────────────────────────────────────
 
     return (
         <AppShell>
@@ -123,143 +204,284 @@ export default function InboxPage() {
                     <h1 className="page-title">Unified Inbox</h1>
                     <p className="page-subtitle">Engage with your audience across all platforms</p>
                 </div>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
-                        {syncing ? <><IconRefreshCw size={16} /> Syncing...</> : <><IconRefreshCw size={16} /> Sync Inbox</>}
-                    </button>
-                </div>
+                <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
+                    <IconRefreshCw size={16} />
+                    {syncing ? ' Syncing...' : ' Sync Inbox'}
+                </button>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24 }}>{error}</div>}
+            {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: 24, height: 'calc(100vh - 200px)' }}>
-                {/* Left Pane: Message List */}
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+                {([
+                    { key: 'comments' as ActiveTab, label: 'Post Comments', unread: unreadComments },
+                    { key: 'messages' as ActiveTab, label: 'Direct Messages', unread: unreadDMs },
+                ] as const).map(tab => (
+                    <button
+                        key={tab.key}
+                        onClick={() => { setActiveTab(tab.key); setSelectedComment(null); setSelectedConversation(null); setReplyContent(''); }}
+                        style={{
+                            padding: '10px 20px',
+                            border: 'none',
+                            borderBottom: activeTab === tab.key ? '2px solid var(--primary)' : '2px solid transparent',
+                            background: 'none',
+                            color: activeTab === tab.key ? 'var(--primary)' : 'var(--text-secondary)',
+                            fontWeight: activeTab === tab.key ? 700 : 500,
+                            fontSize: 14,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                        }}
+                    >
+                        {tab.label}
+                        {tab.unread > 0 && (
+                            <span style={{
+                                background: 'var(--primary)',
+                                color: 'white',
+                                borderRadius: 100,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                minWidth: 18,
+                                textAlign: 'center',
+                            }}>{tab.unread}</span>
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 20, height: 'calc(100vh - 260px)' }}>
+
+                {/* ── Left Pane ── */}
                 <div className="card" style={{ padding: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', fontWeight: 600, background: 'var(--bg-glass)' }}>
-                        Recent Comments & Messages
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13, background: 'var(--bg-glass)', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {activeTab === 'comments' ? `${topLevelComments.length} Comment thread${topLevelComments.length !== 1 ? 's' : ''}` : `${dmConversations.length} Conversation${dmConversations.length !== 1 ? 's' : ''}`}
                     </div>
+
                     {loading && messages.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center' }}><div className="spinner" style={{ margin: 'auto' }} /></div>
-                    ) : topLevelMessages.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                            No messages found. Click Sync to pull new messages.
-                        </div>
-                    ) : (
-                        topLevelMessages.map(msg => (
-                            <div
+                        <div style={{ padding: 32, textAlign: 'center' }}><div className="spinner" style={{ margin: 'auto' }} /></div>
+                    ) : activeTab === 'comments' ? (
+                        topLevelComments.length === 0 ? (
+                            <EmptyState>No comments yet. Click Sync to pull from Facebook.</EmptyState>
+                        ) : topLevelComments.map(msg => (
+                            <MessageRow
                                 key={msg.id}
-                                onClick={() => handleSelectMessage(msg)}
-                                style={{
-                                    padding: '16px',
-                                    borderBottom: '1px solid var(--border)',
-                                    cursor: 'pointer',
-                                    background: selectedMessage?.id === msg.id ? 'var(--bg-card)' : 'transparent',
-                                    borderLeft: `4px solid ${!msg.isRead ? 'var(--primary)' : 'transparent'}`,
-                                    transition: 'background 0.2s',
-                                }}
-                                className="hover-bg"
+                                isSelected={selectedComment?.id === msg.id}
+                                isUnread={!msg.isRead}
+                                onClick={() => handleSelectComment(msg)}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                    <div style={{ fontWeight: !msg.isRead ? 700 : 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: !msg.isRead ? 'var(--primary)' : 'transparent' }} />
-                                        {msg.authorName}
-                                    </div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                        {new Date(msg.createdAt).toLocaleDateString()}
-                                    </div>
-                                </div>
-                                <div style={{ fontSize: 13, color: !msg.isRead ? 'var(--text-primary)' : 'var(--text-secondary)', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                    {msg.content}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                                    <span>{platformIcon(msg.platform)}</span>
-                                    <span>{msg.pageName}</span>
-                                    {msg.isFromMe && <span className="badge" style={{ fontSize: 10, padding: '2px 6px' }}>My Reply</span>}
-                                </div>
-                            </div>
+                                <RowHeader name={msg.authorName} date={msg.createdAt} isUnread={!msg.isRead} />
+                                <RowPreview content={msg.content} isUnread={!msg.isRead} />
+                                <RowMeta platform={msg.platform} pageName={msg.pageName} badge={msg.isFromMe ? 'My Reply' : undefined} extra={`${getReplies(msg.platformMessageId).length} repl${getReplies(msg.platformMessageId).length !== 1 ? 'ies' : 'y'}`} />
+                            </MessageRow>
+                        ))
+                    ) : (
+                        dmConversations.length === 0 ? (
+                            <EmptyState>No messages yet. Sync pulls Messenger DMs (requires pages_messaging permission).</EmptyState>
+                        ) : dmConversations.map(conv => (
+                            <MessageRow
+                                key={conv.conversationId}
+                                isSelected={selectedConversation?.conversationId === conv.conversationId}
+                                isUnread={conv.hasUnread}
+                                onClick={() => handleSelectConversation(conv)}
+                            >
+                                <RowHeader name={conv.preview.authorName} date={conv.preview.createdAt} isUnread={conv.hasUnread} />
+                                <RowPreview content={conv.preview.content} isUnread={conv.hasUnread} />
+                                <RowMeta platform={conv.preview.platform} pageName={conv.preview.pageName} extra={`${conv.messages.length} message${conv.messages.length !== 1 ? 's' : ''}`} />
+                            </MessageRow>
                         ))
                     )}
                 </div>
 
-                {/* Right Pane: Thread/Reply View */}
+                {/* ── Right Pane ── */}
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-                    {selectedMessage ? (
+                    {!hasSelection ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: 12 }}>
+                            <IconInbox size={48} color="var(--text-muted)" />
+                            <div style={{ fontSize: 15 }}>Select a {activeTab === 'comments' ? 'comment' : 'conversation'} to view</div>
+                        </div>
+                    ) : (
                         <>
-                            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <h2 style={{ fontSize: 18, marginBottom: 4 }}>Conversation with {selectedMessage.authorName}</h2>
-                                    <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                        {platformIcon(selectedMessage.platform)} {selectedMessage.pageName} · Comment on Post ID: {selectedMessage.platformPostId}
-                                    </p>
-                                </div>
+                            {/* Header */}
+                            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-glass)' }}>
+                                {activeTab === 'comments' && selectedComment ? (
+                                    <>
+                                        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>
+                                            Conversation with {selectedComment.authorName}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <PlatformIcon platform={selectedComment.platform} size={14} />
+                                            {selectedComment.pageName}
+                                            <span style={{ opacity: 0.5 }}>·</span>
+                                            Post: {selectedComment.platformPostId}
+                                        </div>
+                                    </>
+                                ) : selectedConversation ? (
+                                    <>
+                                        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ background: 'linear-gradient(135deg,#1877f2,#42a5f5)', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: 'white', fontWeight: 700 }}>DM</span>
+                                            {selectedConversation.preview.authorName}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <PlatformIcon platform={selectedConversation.preview.platform} size={14} />
+                                            {selectedConversation.preview.pageName}
+                                            <span style={{ opacity: 0.5 }}>·</span>
+                                            {selectedConversation.messages.length} messages
+                                        </div>
+                                    </>
+                                ) : null}
                             </div>
 
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {/* Original Message */}
-                                <div style={{ display: 'flex', gap: 16 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 18, flexShrink: 0 }}>
-                                        {selectedMessage.authorName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div style={{ background: 'var(--bg-glass)', padding: '16px', borderRadius: '0 12px 12px 12px', maxWidth: '80%' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, gap: 16 }}>
-                                            <strong style={{ fontSize: 14 }}>{selectedMessage.authorName}</strong>
-                                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{new Date(selectedMessage.createdAt).toLocaleString()}</span>
-                                        </div>
-                                        <p style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                                            {selectedMessage.content}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Replies Thread */}
-                                {getRepliesForMessage(selectedMessage.platformMessageId).map(reply => (
-                                    <div key={reply.id} style={{ display: 'flex', gap: 16, flexDirection: reply.isFromMe ? 'row-reverse' : 'row' }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: reply.isFromMe ? 'var(--secondary)' : 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 14, flexShrink: 0 }}>
-                                            {reply.authorName.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div style={{ background: reply.isFromMe ? 'var(--primary-glow)' : 'var(--bg-glass)', border: reply.isFromMe ? '1px solid var(--primary)' : '1px solid transparent', padding: '12px 16px', borderRadius: reply.isFromMe ? '12px 0 12px 12px' : '0 12px 12px 12px', maxWidth: '80%' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, gap: 16 }}>
-                                                <strong style={{ fontSize: 13 }}>{reply.authorName}</strong>
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(reply.createdAt).toLocaleString()}</span>
-                                            </div>
-                                            <p style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                                                {reply.content}
-                                            </p>
-                                            {reply.isFromMe && <div style={{ fontSize: 10, color: 'var(--primary)', marginTop: 4, fontWeight: 600 }}>Sent by SocialFlow</div>}
-                                        </div>
-                                    </div>
+                            {/* Thread */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                {activeTab === 'comments' && selectedComment ? (
+                                    <>
+                                        <Bubble msg={selectedComment} />
+                                        {getReplies(selectedComment.platformMessageId).map(r => (
+                                            <Bubble key={r.id} msg={r} />
+                                        ))}
+                                    </>
+                                ) : selectedConversation?.messages.map(m => (
+                                    <Bubble key={m.id} msg={m} />
                                 ))}
                             </div>
 
-                            {/* Reply Box */}
-                            <div style={{ padding: '20px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                            {/* Reply box */}
+                            <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
                                 <textarea
                                     className="form-textarea"
                                     rows={3}
-                                    placeholder={`Reply to ${selectedMessage.authorName} as ${selectedMessage.pageName}...`}
+                                    placeholder={replyPlaceholder}
                                     value={replyContent}
                                     onChange={e => setReplyContent(e.target.value)}
-                                    style={{ marginBottom: 16, resize: 'none' }}
+                                    onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleReply(); }}
+                                    style={{ marginBottom: 12, resize: 'none' }}
                                 />
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={handleReply}
-                                        disabled={!replyContent.trim() || sendingReply}
-                                    >
-                                        {sendingReply ? 'Sending...' : <><IconSend size={16} /> Send Reply</>}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ctrl+Enter to send</span>
+                                    <button className="btn btn-primary" onClick={handleReply} disabled={!replyContent.trim() || sendingReply}>
+                                        {sendingReply ? 'Sending...' : <><IconSend size={14} /> Send Reply</>}
                                     </button>
                                 </div>
                             </div>
                         </>
-                    ) : (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                            <div style={{ marginBottom: 16 }}><IconInbox size={48} color="var(--text-muted)" /></div>
-                            <div style={{ fontSize: 16 }}>Select a message to view the conversation</div>
-                        </div>
                     )}
                 </div>
             </div>
         </AppShell>
+    );
+}
+
+// ── Small reusable components ─────────────────────────────────
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+    return (
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6 }}>
+            {children}
+        </div>
+    );
+}
+
+function MessageRow({ children, isSelected, isUnread, onClick }: {
+    children: React.ReactNode; isSelected: boolean; isUnread: boolean; onClick: () => void;
+}) {
+    return (
+        <div
+            onClick={onClick}
+            style={{
+                padding: '14px 16px',
+                borderBottom: '1px solid var(--border)',
+                cursor: 'pointer',
+                background: isSelected ? 'var(--bg-card)' : 'transparent',
+                borderLeft: `3px solid ${isUnread ? 'var(--primary)' : 'transparent'}`,
+            }}
+            className="hover-bg"
+        >
+            {children}
+        </div>
+    );
+}
+
+function RowHeader({ name, date, isUnread }: { name: string; date: string; isUnread: boolean }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ fontWeight: isUnread ? 700 : 600, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                {isUnread && <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />}
+                {name}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {new Date(date).toLocaleDateString('vi-VN')}
+            </div>
+        </div>
+    );
+}
+
+function RowPreview({ content, isUnread }: { content: string; isUnread: boolean }) {
+    return (
+        <div style={{
+            fontSize: 13,
+            color: isUnread ? 'var(--text-primary)' : 'var(--text-secondary)',
+            marginBottom: 8,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            lineHeight: 1.5,
+        }}>
+            {content}
+        </div>
+    );
+}
+
+function RowMeta({ platform, pageName, badge, extra }: { platform: string; pageName: string; badge?: string; extra?: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+            <PlatformIcon platform={platform} size={13} />
+            <span>{pageName}</span>
+            {extra && <><span style={{ opacity: 0.4 }}>·</span><span>{extra}</span></>}
+            {badge && (
+                <span style={{ marginLeft: 'auto', background: 'rgba(99,102,241,0.15)', color: 'var(--primary)', borderRadius: 100, padding: '1px 7px', fontSize: 10, fontWeight: 600 }}>
+                    {badge}
+                </span>
+            )}
+        </div>
+    );
+}
+
+function Bubble({ msg }: { msg: InboxMessage }) {
+    const isMe = msg.isFromMe;
+    return (
+        <div style={{ display: 'flex', gap: 12, flexDirection: isMe ? 'row-reverse' : 'row' }}>
+            <div style={{
+                width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                background: isMe ? 'var(--secondary)' : 'var(--primary)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 14,
+            }}>
+                {msg.authorName.charAt(0).toUpperCase()}
+            </div>
+            <div style={{
+                background: isMe ? 'var(--primary-glow)' : 'var(--bg-glass)',
+                border: isMe ? '1px solid var(--primary)' : '1px solid transparent',
+                padding: '10px 14px',
+                borderRadius: isMe ? '12px 0 12px 12px' : '0 12px 12px 12px',
+                maxWidth: '75%',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
+                    <strong style={{ fontSize: 13 }}>{msg.authorName}</strong>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {new Date(msg.createdAt).toLocaleString('vi-VN')}
+                    </span>
+                </div>
+                <p style={{ fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: 0 }}>{msg.content}</p>
+                {isMe && (
+                    <div style={{ fontSize: 10, color: 'var(--primary)', marginTop: 4, fontWeight: 600 }}>
+                        Sent by SocialFlow
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }

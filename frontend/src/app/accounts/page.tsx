@@ -17,7 +17,7 @@ declare global {
     }
 }
 
-const FB_APP_ID = '1867627970477000';
+const FB_APP_ID = '949895587790556';
 
 interface Connection {
     id: string; platform: string; accountName: string; accountId: string;
@@ -137,13 +137,16 @@ function AccountsContent() {
     // ========== Connect handlers ==========
 
     const connectFacebook = () => {
-        if (!brand || !window.FB) return;
+        if (!brand) return;
+        if (!window.FB) {
+            alert('Facebook SDK chưa tải xong. Vui lòng chờ vài giây rồi thử lại.');
+            return;
+        }
         setConnecting('facebook');
 
         window.FB.login((response) => {
             if (response.authResponse) {
                 const accessToken = response.authResponse.accessToken;
-                // Send token to backend
                 api.facebookConnect({ accessToken, brandId: brand.id })
                     .then(() => {
                         setSuccessMsg('Facebook');
@@ -156,7 +159,7 @@ function AccountsContent() {
             } else {
                 setConnecting(null);
             }
-        }, { scope: 'pages_manage_posts,pages_read_engagement,pages_show_list' });
+        }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging' });
     };
 
     const connectPlatformRedirect = async (platform: string) => {

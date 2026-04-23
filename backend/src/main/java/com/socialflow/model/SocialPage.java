@@ -38,4 +38,12 @@ public class SocialPage {
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Post> posts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PageAnalytics> pageAnalytics = new ArrayList<>();
+
+    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<InboxMessage> inboxMessages = new ArrayList<>();
 }

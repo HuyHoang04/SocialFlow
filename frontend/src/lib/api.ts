@@ -46,8 +46,14 @@ async function request(path: string, options: RequestInit = {}) {
         throw new Error('Unauthorized');
     }
     if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || res.statusText);
+        const text = await res.text();
+        try {
+            const json = JSON.parse(text);
+            throw new Error(json.message || json.error || text || res.statusText);
+        } catch (e) {
+            if (e instanceof SyntaxError) throw new Error(text || res.statusText);
+            throw e;
+        }
     }
     if (res.status === 204) return null;
     const text = await res.text();
@@ -108,8 +114,9 @@ export const api = {
             body: formData,
         });
         if (!res.ok) {
-            const err = await res.text();
-            throw new Error(err || res.statusText);
+            const t = await res.text();
+            try { const j = JSON.parse(t); throw new Error(j.message || j.error || t || res.statusText); }
+            catch (e) { if (e instanceof SyntaxError) throw new Error(t || res.statusText); throw e; }
         }
         return res.json();
     },
@@ -238,9 +245,10 @@ export const api = {
             body: formData,
         });
         if (!res.ok) {
-            const err = await res.text();
-            console.error('✗ Upload failed:', err);
-            throw new Error(err || res.statusText);
+            const t = await res.text();
+            console.error('✗ Upload failed:', t);
+            try { const j = JSON.parse(t); throw new Error(j.message || j.error || t || res.statusText); }
+            catch (e) { if (e instanceof SyntaxError) throw new Error(t || res.statusText); throw e; }
         }
         const result = await res.json();
         console.log('✓ Upload successful:', result);

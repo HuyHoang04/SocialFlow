@@ -1,5 +1,6 @@
 package com.socialflow.dto;
 
+import com.socialflow.model.enums.MessageType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -12,6 +13,12 @@ public class PlatformCommentDto {
     private String platformPostId;
     private String content;
     private String authorName;
+    private String authorId;
     private String parentMessageId;
     private LocalDateTime createdAt;
+    private MessageType messageType;
+    private String conversationId;
+
+    @Builder.Default
+    private Integer likeCount = 0;
 }

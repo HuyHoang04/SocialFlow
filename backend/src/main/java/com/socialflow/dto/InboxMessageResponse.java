@@ -1,5 +1,6 @@
 package com.socialflow.dto;
 
+import com.socialflow.model.enums.MessageType;
 import com.socialflow.model.enums.PlatformType;
 import lombok.Builder;
 import lombok.Data;
@@ -20,8 +21,11 @@ public class InboxMessageResponse {
     private LocalDateTime createdAt;
     private Boolean isRead;
     private Boolean isFromMe;
-    
-    // Context about where the message came from
+    private MessageType messageType;
+    private String conversationId;
+
+    private Integer likeCount;
+
     private UUID pageId;
     private String pageName;
     private PlatformType platform;
