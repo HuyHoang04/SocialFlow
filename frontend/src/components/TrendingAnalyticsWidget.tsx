@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { useBrand } from '@/lib/brand-context';
 import styles from '@/styles/ai-suggestions.module.css';
 
 interface NewsItem {
@@ -65,27 +66,34 @@ export default function TrendingAnalyticsWidget({
   categoryId,
   autoLoad = true,
 }: TrendingAnalyticsWidgetProps) {
+  const { selectedBrand } = useBrand();
+  
   const [loading, setLoading] = useState(autoLoad);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<TrendingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState(categoryId || '');
   const itemsPerPage = 10;
 
   // Auto-load trending data from cache on component mount
   useEffect(() => {
-    if (autoLoad) {
+    if (autoLoad && selectedBrand) {
       handleLoadTrending();
     }
-  }, [autoLoad, geo, categoryId]);
+  }, [autoLoad, geo, categoryId, selectedBrand]);
 
   const handleLoadTrending = async () => {
+    if (!selectedBrand) {
+      setError('No brand selected');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const response = await api.getTrendingSearches({
+        brand_id: selectedBrand.id,
         geo,
         category_id: categoryId,
         brand_name: brandName,
@@ -108,14 +116,20 @@ export default function TrendingAnalyticsWidget({
   };
 
   const handleRefreshTrending = async () => {
+    if (!selectedBrand) {
+      setError('No brand selected');
+      return;
+    }
+
     setRefreshing(true);
     setError(null);
     setCurrentPage(1);
 
     try {
       const response = await api.refreshTrendingSearches({
+        brand_id: selectedBrand.id,
         geo,
-        category_id: selectedCategory || undefined,
+        category_id: categoryId,
         brand_name: brandName,
       });
 
@@ -193,8 +207,8 @@ export default function TrendingAnalyticsWidget({
         <div>
           <h2>✨ Google Trends ({geo})</h2>
           <p className={styles.subtitle}>
-            {data?.trending_searches?.length > 0 
-              ? `${data.trending_searches.length} trending searches • ${getCategoryLabel(selectedCategory)}`
+            {data && data.trending_searches && data.trending_searches.length > 0 
+              ? `${data.trending_searches.length} trending searches • ${getCategoryLabel(categoryId)}`
               : 'No data - Click refresh'}
           </p>
         </div>
@@ -206,20 +220,9 @@ export default function TrendingAnalyticsWidget({
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>📭</div>
           <div className={styles.emptyText}>No trending data available</div>
-          
-          {/* Category Selector */}
-          <div className={styles.categorySelector}>
-            <label className={styles.categoryLabel}>Select Category:</label>
-            <select 
-              value={selectedCategory} 
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className={styles.categorySelect}
-            >
-              {TREND_CATEGORIES.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
-          </div>
+          <p className={styles.emptyHint}>
+            Go to <a href="/analytics/trending-config" style={{color: '#667eea', textDecoration: 'underline'}}>Config</a> to set up your preferences
+          </p>
 
           <button
             onClick={handleRefreshTrending}
@@ -231,29 +234,18 @@ export default function TrendingAnalyticsWidget({
         </div>
       ) : (
         <div className={styles.resultsContainer}>
-          {/* Category Selector for Refresh */}
+          {/* Refresh Button */}
           <div className={styles.refreshSection}>
-            <div className={styles.categorySelector}>
-              <label className={styles.categoryLabel}>Select Category:</label>
-              <select 
-                value={selectedCategory} 
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className={styles.categorySelect}
-              >
-                {TREND_CATEGORIES.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.label}</option>
-                ))}
-              </select>
-            </div>
-            
             <button
               onClick={handleRefreshTrending}
               disabled={refreshing}
               className={styles.secondaryButton}
-              style={{ marginTop: 0 }}
             >
               {refreshing ? '⏳ Refreshing...' : '🔄 Refresh Trends'}
             </button>
+            <a href="/analytics/trending-config" className={styles.configLink}>
+              ⚙️ Configure
+            </a>
           </div>
 
           {/* Trending Table */}

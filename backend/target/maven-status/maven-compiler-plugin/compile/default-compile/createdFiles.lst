@@ -3,7 +3,9 @@ com\socialflow\model\Post$PostBuilder.class
 com\socialflow\service\OAuthService$1.class
 com\socialflow\model\PostAnalytics$PostAnalyticsBuilder.class
 com\socialflow\dto\PostResponse$MediaInfo$MediaInfoBuilder.class
+com\socialflow\model\TrendingConfig$TrendingConfigBuilder.class
 com\socialflow\dto\PostResponse$PageInfo.class
+com\socialflow\service\CommentFetcherService$1.class
 com\socialflow\config\RestTemplateConfig.class
 com\socialflow\controller\OAuthController.class
 com\socialflow\dto\PostResponse$PublishResultResponse.class
@@ -33,9 +35,11 @@ com\socialflow\model\PostMedia$PostMediaBuilder.class
 com\socialflow\repository\SocialPageRepository.class
 com\socialflow\ai\dto\ImageGenerationResponse.class
 com\socialflow\ai\dto\KeywordOptimizationRequest.class
+com\socialflow\dto\TrendingConfigRequest.class
 com\socialflow\model\Post.class
 com\socialflow\dto\LoginResponse.class
 com\socialflow\ai\dto\RagDeleteResponse$RagDeleteResponseBuilder.class
+com\socialflow\service\FacebookTrendingService.class
 com\socialflow\service\publisher\TwitterPublisher.class
 com\socialflow\repository\PostAnalyticsRepository.class
 com\socialflow\security\JwtAuthFilter.class
@@ -44,12 +48,14 @@ com\socialflow\ai\dto\ImageGenerationResponse$ImageGenerationResponseBuilder.cla
 com\socialflow\repository\PostRepository.class
 com\socialflow\ai\dto\ImageGenerationRequest.class
 com\socialflow\repository\PageAnalyticsRepository.class
+com\socialflow\service\CommentFetcherService.class
 com\socialflow\model\PostAnalytics.class
 com\socialflow\model\SocialPage.class
 com\socialflow\dto\LoginRequest.class
 com\socialflow\dto\RegisterRequest.class
 com\socialflow\ai\controller\AiController.class
 com\socialflow\dto\PageAnalyticsResponse$PageAnalyticsResponseBuilder.class
+com\socialflow\dto\TrendingConfigResponse.class
 com\socialflow\ai\dto\RagGenerateContentResponse.class
 com\socialflow\service\publisher\LinkedInPublisher.class
 com\socialflow\controller\PostController.class
@@ -60,6 +66,7 @@ com\socialflow\ai\dto\RagSearchRequest$RagSearchRequestBuilder.class
 com\socialflow\model\enums\PostStatus.class
 com\socialflow\model\SocialPage$SocialPageBuilder.class
 com\socialflow\controller\InboxController.class
+com\socialflow\service\publisher\CommentFetcher.class
 com\socialflow\ai\dto\ContentResponse.class
 com\socialflow\dto\CampaignResponse$CampaignResponseBuilder.class
 com\socialflow\dto\CampaignResponse.class
@@ -68,6 +75,7 @@ com\socialflow\repository\BrandRepository.class
 com\socialflow\service\PostService.class
 com\socialflow\service\AuthService.class
 com\socialflow\ai\dto\ModelInfo.class
+com\socialflow\dto\TrendingConfigResponse$TrendingConfigResponseBuilder.class
 com\socialflow\config\SecurityConfig.class
 com\socialflow\model\User.class
 com\socialflow\dto\PostResponse.class
@@ -93,6 +101,7 @@ com\socialflow\service\publisher\PublisherService.class
 com\socialflow\dto\AnalyticsOverviewResponse$AnalyticsOverviewResponseBuilder.class
 com\socialflow\service\InboxService.class
 com\socialflow\service\TrendingService.class
+com\socialflow\config\OpenApiConfig.class
 com\socialflow\dto\PostResponse$PageInfo$PageInfoBuilder.class
 com\socialflow\controller\AnalyticsController.class
 com\socialflow\model\Embedding$EmbeddingBuilder.class
@@ -108,8 +117,10 @@ com\socialflow\ai\dto\RagSearchRequest.class
 com\socialflow\dto\PageAnalyticsResponse.class
 com\socialflow\ai\service\AiServiceClient$1.class
 com\socialflow\repository\SocialConnectionRepository.class
+com\socialflow\repository\TrendingConfigRepository.class
 com\socialflow\service\publisher\BlueskyPublisher.class
 com\socialflow\controller\InboxController$ReplyRequest.class
+com\socialflow\model\TrendingConfig.class
 com\socialflow\model\InboxMessage.class
 com\socialflow\model\User$UserBuilder.class
 com\socialflow\controller\TrendingController.class
@@ -121,6 +132,7 @@ com\socialflow\service\publisher\ThreadsPublisher.class
 com\socialflow\ai\dto\RagGenerateContentRequest$RagGenerateContentRequestBuilder.class
 com\socialflow\model\SocialConnection.class
 com\socialflow\model\TrendingData.class
+com\socialflow\model\enums\MessageType.class
 com\socialflow\model\PostMedia.class
 com\socialflow\service\BrandService.class
 com\socialflow\ai\dto\EmbeddingRequest.class
@@ -133,6 +145,7 @@ com\socialflow\ai\dto\RewriteRequest.class
 com\socialflow\model\enums\PlatformType.class
 com\socialflow\dto\TrendingResponse$TrendingResponseBuilder.class
 com\socialflow\ai\dto\ModelInfo$ModelInfoBuilder.class
+com\socialflow\service\TrendingConfigService.class
 com\socialflow\dto\CreatePostRequest.class
 com\socialflow\dto\InboxMessageResponse$InboxMessageResponseBuilder.class
 com\socialflow\repository\TrendingDataRepository.class
@@ -147,6 +160,7 @@ com\socialflow\model\Embedding.class
 com\socialflow\model\PublishResult.class
 com\socialflow\ai\dto\RagUploadResponse$RagUploadResponseBuilder.class
 com\socialflow\ai\dto\RagDeleteResponse.class
+com\socialflow\dto\TrendingConfigRequest$TrendingConfigRequestBuilder.class
 com\socialflow\ai\dto\RagGenerateContentResponse$RagGenerateContentResponseBuilder.class
 com\socialflow\controller\Heathcheck.class
 com\socialflow\ai\dto\HealthResponse$HealthResponseBuilder.class

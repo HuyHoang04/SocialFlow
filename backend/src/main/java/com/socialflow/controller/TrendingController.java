@@ -1,132 +1,230 @@
 package com.socialflow.controller;
 
+import com.socialflow.dto.TrendingConfigRequest;
+import com.socialflow.dto.TrendingConfigResponse;
 import com.socialflow.dto.TrendingRequest;
 import com.socialflow.dto.TrendingResponse;
+import com.socialflow.service.FacebookTrendingService;
+import com.socialflow.service.TrendingConfigService;
 import com.socialflow.service.TrendingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
+
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/trending")
+@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Slf4j
 public class TrendingController {
 
     private final TrendingService trendingService;
+    private final FacebookTrendingService facebookTrendingService;
+    private final TrendingConfigService configService;
 
-    /**
-     * Get trending searches (from database cache)
-     * Only returns what's already saved in database
-     * 
-     * @param request TrendingRequest with geo and categoryId
-     * @return TrendingResponse with cached trending data
-     */
+    // ============= GOOGLE TRENDS =============
+
     @PostMapping("/search")
     public ResponseEntity<TrendingResponse> getTrendingSearches(@Valid @RequestBody TrendingRequest request) {
         try {
-            log.info("Fetching trending from cache for geo={}, categoryId={}, brand={}", 
-                    request.getGeo(), request.getCategoryId(), request.getBrandName());
+            validateBrandId(request.getBrandId());
+            log.info("Fetching Google trending from cache: brandId={}, geo={}, categoryId={}", 
+                    request.getBrandId(), request.getGeo(), request.getCategoryId());
             
-            // Get from database (cache)
-            List<Map<String, Object>> trendingSearches = trendingService.getTrendingFromCache(
-                    request.getGeo(),
-                    request.getCategoryId()
-            );
+            List<Map<String, Object>> data = trendingService.getTrendingFromCache(
+                    request.getBrandId(), request.getGeo(), request.getCategoryId());
             
-            boolean success = !trendingSearches.isEmpty();
-            
-            TrendingResponse response = TrendingResponse.builder()
-                    .success(success)
-                    .trendingSearches(trendingSearches)
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .trendingSearches(data)
                     .geo(request.getGeo())
                     .categoryId(request.getCategoryId())
-                    .build();
-            
-            return ResponseEntity.ok(response);
-            
+                    .build());
         } catch (Exception e) {
-            log.error("Failed to fetch trending searches", e);
-            return ResponseEntity.status(500).body(TrendingResponse.builder()
+            log.error("Error fetching Google trending", e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
                     .success(false)
                     .error(e.getMessage())
-                    .geo(request.getGeo())
-                    .categoryId(request.getCategoryId())
                     .build());
         }
     }
 
-    /**
-     * Refresh trending searches (call SerpAPI and update database)
-     * This is called explicitly by user when they want new data
-     * 
-     * @param request TrendingRequest with geo and categoryId
-     * @return TrendingResponse with fresh data from API
-     */
     @PostMapping("/search/refresh")
     public ResponseEntity<TrendingResponse> refreshTrendingSearches(@Valid @RequestBody TrendingRequest request) {
         try {
-            log.info("Refreshing trending from API for geo={}, categoryId={}, brand={}", 
-                    request.getGeo(), request.getCategoryId(), request.getBrandName());
+            validateBrandId(request.getBrandId());
+            log.info("Refreshing Google trending from API: brandId={}, geo={}, categoryId={}", 
+                    request.getBrandId(), request.getGeo(), request.getCategoryId());
             
-            // Call API and save to database
-            List<Map<String, Object>> trendingSearches = trendingService.getTrendingFromAPI(
-                    request.getGeo(),
-                    request.getCategoryId()
-            );
+            List<Map<String, Object>> data = trendingService.getTrendingFromAPI(
+                    request.getBrandId(), request.getGeo(), request.getCategoryId());
             
-            boolean success = !trendingSearches.isEmpty();
-            
-            TrendingResponse response = TrendingResponse.builder()
-                    .success(success)
-                    .trendingSearches(trendingSearches)
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .trendingSearches(data)
                     .geo(request.getGeo())
                     .categoryId(request.getCategoryId())
-                    .build();
-            
-            return ResponseEntity.ok(response);
-            
+                    .build());
         } catch (Exception e) {
-            log.error("Failed to refresh trending searches", e);
-            return ResponseEntity.status(500).body(TrendingResponse.builder()
+            log.error("Error refreshing Google trending", e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
                     .success(false)
                     .error(e.getMessage())
-                    .geo(request.getGeo())
-                    .categoryId(request.getCategoryId())
                     .build());
         }
     }
 
-    /**
-     * Get trending with default geo (VN)
-     */
     @PostMapping("/search/default")
     public ResponseEntity<TrendingResponse> getTrendingDefault() {
-        return getTrendingSearches(TrendingRequest.builder()
-                .geo("VN")
-                .build());
+        return getTrendingSearches(TrendingRequest.builder().geo("VN").build());
     }
 
-    /**
-     * Refresh trending with default geo (VN)
-     */
     @PostMapping("/search/refresh/default")
     public ResponseEntity<TrendingResponse> refreshTrendingDefault() {
-        return refreshTrendingSearches(TrendingRequest.builder()
-                .geo("VN")
-                .build());
+        return refreshTrendingSearches(TrendingRequest.builder().geo("VN").build());
     }
 
-    /**
-     * Cleanup old trending data (older than 7 days)
-     */
+    // ============= FACEBOOK TRENDS =============
+
+    @PostMapping("/facebook/search")
+    public ResponseEntity<TrendingResponse> searchFacebook(@Valid @RequestBody TrendingRequest request) {
+        try {
+            validateBrandId(request.getBrandId());
+            validateSearchKeyword(request.getSearchKeyword());
+            log.info("Fetching Facebook trending from cache: brandId={}, geo={}, keyword={}", 
+                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
+            
+            List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromCache(
+                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
+            
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .trendingSearches(data)
+                    .geo(request.getGeo())
+                    .build());
+        } catch (Exception e) {
+            log.error("Error fetching Facebook trending", e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
+                    .success(false)
+                    .error(e.getMessage())
+                    .build());
+        }
+    }
+
+    @PostMapping("/facebook/search/refresh")
+    public ResponseEntity<TrendingResponse> refreshFacebook(@Valid @RequestBody TrendingRequest request) {
+        try {
+            validateBrandId(request.getBrandId());
+            validateSearchKeyword(request.getSearchKeyword());
+            log.info("Refreshing Facebook trending from API: brandId={}, geo={}, keyword={}", 
+                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
+            
+            List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromAPI(
+                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
+            
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .trendingSearches(data)
+                    .geo(request.getGeo())
+                    .build());
+        } catch (Exception e) {
+            log.error("Error refreshing Facebook trending", e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
+                    .success(false)
+                    .error(e.getMessage())
+                    .build());
+        }
+    }
+
+    // ============= CONFIG MANAGEMENT =============
+
+    @PostMapping("/config")
+    public ResponseEntity<TrendingConfigResponse> saveConfig(@Valid @RequestBody TrendingConfigRequest request) {
+        try {
+            validateBrandId(request.getBrandId());
+            log.info("Saving trending config: brandId={}, geo={}, source={}", 
+                    request.getBrandId(), request.getGeo(), request.getSource());
+            
+            TrendingConfigResponse response = configService.saveConfig(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error saving config", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/config/{brandId}/{geo}/{source}")
+    public ResponseEntity<TrendingConfigResponse> getConfig(
+            @PathVariable UUID brandId,
+            @PathVariable String geo,
+            @PathVariable String source) {
+        try {
+            log.info("Retrieving config: brandId={}, geo={}, source={}", brandId, geo, source);
+            TrendingConfigResponse response = configService.getConfig(brandId, geo, source);
+            return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error retrieving config", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/config/{brandId}/{geo}")
+    public ResponseEntity<List<TrendingConfigResponse>> getConfigsByGeo(
+            @PathVariable UUID brandId,
+            @PathVariable String geo) {
+        try {
+            log.info("Retrieving configs: brandId={}, geo={}", brandId, geo);
+            List<TrendingConfigResponse> responses = configService.getConfigsByGeo(brandId, geo);
+            return ResponseEntity.ok(responses);
+        } catch (Exception e) {
+            log.error("Error retrieving configs", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/config/{id}")
+    public ResponseEntity<Void> deleteConfig(@PathVariable Long id) {
+        try {
+            log.info("Deleting config: id={}", id);
+            configService.deleteConfig(id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("Error deleting config", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // ============= MAINTENANCE =============
+
     @PostMapping("/cleanup")
     public ResponseEntity<String> cleanup() {
-        trendingService.cleanupOldData();
-        return ResponseEntity.ok("Cleanup completed");
+        try {
+            log.info("Starting trending data cleanup");
+            trendingService.cleanupOldData();
+            return ResponseEntity.ok("Cleanup completed");
+        } catch (Exception e) {
+            log.error("Error during cleanup", e);
+            return ResponseEntity.badRequest().body("Cleanup failed: " + e.getMessage());
+        }
+    }
+
+    // ============= VALIDATION HELPERS =============
+
+    private void validateBrandId(UUID brandId) {
+        if (brandId == null) {
+            throw new IllegalArgumentException("Brand ID is required");
+        }
+    }
+
+    private void validateSearchKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            throw new IllegalArgumentException("Search keyword is required");
+        }
     }
 }

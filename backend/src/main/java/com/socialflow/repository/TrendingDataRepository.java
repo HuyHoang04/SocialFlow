@@ -2,26 +2,32 @@ package com.socialflow.repository;
 
 import com.socialflow.model.TrendingData;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface TrendingDataRepository extends JpaRepository<TrendingData, Long> {
     
     /**
-     * Find latest trending data for geo and optional category
+     * Find latest trending by brand, geo, source, and category (Google Trends)
      */
-    Optional<TrendingData> findFirstByGeoAndCategoryIdOrderByFetchedAtDesc(String geo, String categoryId);
+    Optional<TrendingData> findFirstByBrandIdAndGeoAndSourceAndCategoryIdOrderByFetchedAtDesc(
+            UUID brandId, String geo, String source, String categoryId);
     
     /**
-     * Find latest trending data by geo only (all categories)
+     * Find latest trending by brand, geo and source only (all categories)
      */
-    Optional<TrendingData> findFirstByGeoAndCategoryIdIsNullOrderByFetchedAtDesc(String geo);
+    Optional<TrendingData> findFirstByBrandIdAndGeoAndSourceAndCategoryIdIsNullOrderByFetchedAtDesc(
+            UUID brandId, String geo, String source);
+    
+    /**
+     * Find latest trending by brand, geo, source, and keyword (Facebook posts)
+     */
+    Optional<TrendingData> findFirstByBrandIdAndGeoAndSourceAndSearchKeywordOrderByFetchedAtDesc(
+            UUID brandId, String geo, String source, String keyword);
     
     /**
      * Delete trending data older than specified time
@@ -29,12 +35,17 @@ public interface TrendingDataRepository extends JpaRepository<TrendingData, Long
     long deleteByFetchedAtBefore(LocalDateTime before);
     
     /**
-     * Delete by geo and categoryId
+     * Delete by brand, geo, source, and categoryId
      */
-    long deleteByGeoAndCategoryId(String geo, String categoryId);
+    long deleteByBrandIdAndGeoAndSourceAndCategoryId(UUID brandId, String geo, String source, String categoryId);
     
     /**
-     * Delete by geo and categoryId is null
+     * Delete by brand, geo and source (all categories)
      */
-    long deleteByGeoAndCategoryIdIsNull(String geo);
+    long deleteByBrandIdAndGeoAndSourceAndCategoryIdIsNull(UUID brandId, String geo, String source);
+    
+    /**
+     * Delete by brand, geo, source, and keyword
+     */
+    long deleteByBrandIdAndGeoAndSourceAndSearchKeyword(UUID brandId, String geo, String source, String keyword);
 }

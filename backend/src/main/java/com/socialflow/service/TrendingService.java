@@ -39,24 +39,26 @@ public class TrendingService {
     /**
      * Get trending searches from cache (database)
      */
-    public List<Map<String, Object>> getTrendingFromCache(String geo, String categoryId) {
+    public List<Map<String, Object>> getTrendingFromCache(UUID brandId, String geo, String categoryId) {
         try {
             Optional<TrendingData> data;
             
             if (categoryId != null && !categoryId.isEmpty()) {
-                data = trendingDataRepository.findFirstByGeoAndCategoryIdOrderByFetchedAtDesc(geo, categoryId);
+                data = trendingDataRepository.findFirstByBrandIdAndGeoAndSourceAndCategoryIdOrderByFetchedAtDesc(
+                        brandId, geo, "google", categoryId);
             } else {
-                data = trendingDataRepository.findFirstByGeoAndCategoryIdIsNullOrderByFetchedAtDesc(geo);
+                data = trendingDataRepository.findFirstByBrandIdAndGeoAndSourceAndCategoryIdIsNullOrderByFetchedAtDesc(
+                        brandId, geo, "google");
             }
             
             if (data.isPresent()) {
                 String jsonString = data.get().getTrendingSearches();
                 List<Map<String, Object>> result = parseTrendingArray(jsonString);
-                log.info("Retrieved {} trending items from cache for geo={}, categoryId={}", 
-                        result.size(), geo, categoryId);
+                log.info("Retrieved {} trending items from cache for brandId={}, geo={}, categoryId={}", 
+                        result.size(), brandId, geo, categoryId);
                 return result;
             } else {
-                log.info("No cached trending data for geo={}, categoryId={}", geo, categoryId);
+                log.info("No cached trending data for brandId={}, geo={}, categoryId={}", brandId, geo, categoryId);
                 return new ArrayList<>();
             }
                     
@@ -70,9 +72,9 @@ public class TrendingService {
      * Get trending searches from Google Trends API and save full JSON array to database
      */
     @Transactional
-    public List<Map<String, Object>> getTrendingFromAPI(String geo, String categoryId) {
+    public List<Map<String, Object>> getTrendingFromAPI(UUID brandId, String geo, String categoryId) {
         try {
-            log.info("Calling SerpAPI for geo={}, categoryId={}", geo, categoryId);
+            log.info("Calling SerpAPI for brandId={}, geo={}, categoryId={}", brandId, geo, categoryId);
             
             // Build URL with query parameters
             UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(SERPAPI_URL)
@@ -109,24 +111,26 @@ public class TrendingService {
                 JsonArray trendingArray = results.getAsJsonArray("trending_searches");
                 String jsonString = trendingArray.toString();
                 
-                // Delete old data for this geo/category
+                // Delete old data for this brand/geo/category
                 if (categoryId != null && !categoryId.isEmpty()) {
-                    trendingDataRepository.deleteByGeoAndCategoryId(geo, categoryId);
+                    trendingDataRepository.deleteByBrandIdAndGeoAndSourceAndCategoryId(brandId, geo, "google", categoryId);
                 } else {
-                    trendingDataRepository.deleteByGeoAndCategoryIdIsNull(geo);
+                    trendingDataRepository.deleteByBrandIdAndGeoAndSourceAndCategoryIdIsNull(brandId, geo, "google");
                 }
                 
                 // Save new data - 1 row with full JSON array
                 TrendingData entity = TrendingData.builder()
+                        .brandId(brandId)
                         .geo(geo)
+                        .source("google")
                         .categoryId(categoryId)
                         .trendingSearches(jsonString)
                         .fetchedAt(LocalDateTime.now())
                         .build();
                 
                 trendingDataRepository.save(entity);
-                log.info("Saved trending data to database for geo={}, categoryId={}, items={}", 
-                        geo, categoryId, trendingArray.size());
+                log.info("Saved trending data to database for brandId={}, geo={}, categoryId={}, items={}", 
+                        brandId, geo, categoryId, trendingArray.size());
                 
                 // Parse and return
                 return parseTrendingArray(jsonString);

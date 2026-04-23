@@ -312,6 +312,7 @@ export const api = {
 
     // Get trending searches (from database cache - default)
     getTrendingSearches: (data: {
+        brand_id?: string;
         geo?: string;
         category_id?: string;
         brand_name?: string;
@@ -322,6 +323,7 @@ export const api = {
 
     // Refresh trending searches (call SerpAPI and update database)
     refreshTrendingSearches: (data: {
+        brand_id?: string;
         geo?: string;
         category_id?: string;
         brand_name?: string;
@@ -332,4 +334,34 @@ export const api = {
 
     // Cleanup old trending data
     cleanupTrendingData: () => request('/trending/cleanup', { method: 'POST' }),
+
+    // Trending Config
+    saveTrendingConfig: (data: {
+        geo: string;
+        source: string;
+        categoryId?: string;
+        searchKeyword?: string;
+    }) => request('/trending/config', { method: 'POST', body: JSON.stringify(data) }),
+
+    getTrendingConfig: (geo: string, source: string) =>
+        request(`/trending/config/${geo}/${source}`),
+
+    getTrendingConfigByGeo: (geo: string) =>
+        request(`/trending/config/${geo}`),
+
+    deleteTrendingConfig: (id: number) =>
+        request(`/trending/config/${id}`, { method: 'DELETE' }),
+
+    // Facebook Trending
+    searchFacebookTrending: (data: {
+        geo?: string;
+        search_keyword: string;
+        brand_name?: string;
+    }) => request('/trending/facebook/search', { method: 'POST', body: JSON.stringify(data) }),
+
+    refreshFacebookTrending: (data: {
+        geo?: string;
+        search_keyword: string;
+        brand_name?: string;
+    }) => request('/trending/facebook/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 };

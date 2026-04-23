@@ -85,6 +85,12 @@
   margin-bottom: 20px;
 }
 
+.emptyHint {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
 /* Buttons */
 .primaryButton {
   padding: 12px 24px;
@@ -464,7 +470,7 @@
 /* Refresh Section */
 .refreshSection {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
@@ -481,6 +487,31 @@
 .refreshSection .secondaryButton {
   margin-top: 0;
   white-space: nowrap;
+  width: auto;
+  flex: 1;
+}
+
+.configLink {
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  color: #667eea;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.configLink:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
+  transform: translateY(-2px);
 }
 
 /* Pagination */
