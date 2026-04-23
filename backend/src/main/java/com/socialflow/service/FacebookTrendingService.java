@@ -31,7 +31,7 @@ public class FacebookTrendingService {
     @Value("${app.rapidapi-key}")
     private String rapidApiKey;
 
-    @Value("${app.rapidapi-host}")
+    @Value("${app.rapidapi-host-facebook}")
     private String rapidApiHost;
 
     public FacebookTrendingService(TrendingDataRepository trendingDataRepository,
