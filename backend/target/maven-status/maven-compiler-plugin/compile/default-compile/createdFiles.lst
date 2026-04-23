@@ -11,6 +11,7 @@ com\socialflow\model\Campaign$CampaignBuilder.class
 com\socialflow\ai\dto\HealthResponse.class
 com\socialflow\ai\dto\RewriteResponse.class
 com\socialflow\dto\CampaignRequest.class
+com\socialflow\controller\GlobalExceptionHandler.class
 com\socialflow\model\PageAnalytics.class
 com\socialflow\model\Brand$BrandBuilder.class
 com\socialflow\ai\dto\ContentRequest.class
@@ -22,6 +23,7 @@ com\socialflow\service\CampaignService.class
 com\socialflow\service\publisher\FacebookPublisher.class
 com\socialflow\ai\dto\ContentResponse$ContentResponseBuilder.class
 com\socialflow\dto\CreateBrandRequest.class
+com\socialflow\dto\TrendingResponse.class
 com\socialflow\service\FacebookAnalyticsService.class
 com\socialflow\repository\PostMediaRepository.class
 com\socialflow\repository\PublishResultRepository.class
@@ -72,6 +74,7 @@ com\socialflow\dto\PostResponse.class
 com\socialflow\ai\dto\EmbeddingRequest$EmbeddingRequestBuilder.class
 com\socialflow\controller\BrandController.class
 com\socialflow\controller\ConnectionController.class
+com\socialflow\model\TrendingData$TrendingDataBuilder.class
 com\socialflow\controller\AuthController.class
 com\socialflow\repository\CampaignRepository.class
 com\socialflow\dto\PlatformCommentDto$PlatformCommentDtoBuilder.class
@@ -85,9 +88,11 @@ com\socialflow\ai\service\AiServiceClient.class
 com\socialflow\ai\dto\KeywordOptimizationRequest$KeywordOptimizationRequestBuilder.class
 com\socialflow\dto\PostResponse$PostResponseBuilder.class
 com\socialflow\ai\dto\KeywordOptimizationResponse$KeywordOptimizationResponseBuilder.class
+com\socialflow\dto\TrendingRequest$TrendingRequestBuilder.class
 com\socialflow\service\publisher\PublisherService.class
 com\socialflow\dto\AnalyticsOverviewResponse$AnalyticsOverviewResponseBuilder.class
 com\socialflow\service\InboxService.class
+com\socialflow\service\TrendingService.class
 com\socialflow\dto\PostResponse$PageInfo$PageInfoBuilder.class
 com\socialflow\controller\AnalyticsController.class
 com\socialflow\model\Embedding$EmbeddingBuilder.class
@@ -107,7 +112,7 @@ com\socialflow\service\publisher\BlueskyPublisher.class
 com\socialflow\controller\InboxController$ReplyRequest.class
 com\socialflow\model\InboxMessage.class
 com\socialflow\model\User$UserBuilder.class
-com\socialflow\service\publisher\PublisherService$1.class
+com\socialflow\controller\TrendingController.class
 com\socialflow\dto\PlatformCommentDto.class
 com\socialflow\ai\dto\EmbeddingResponse.class
 com\socialflow\SocialFlowApplication.class
@@ -115,6 +120,7 @@ com\socialflow\controller\WebhookController.class
 com\socialflow\service\publisher\ThreadsPublisher.class
 com\socialflow\ai\dto\RagGenerateContentRequest$RagGenerateContentRequestBuilder.class
 com\socialflow\model\SocialConnection.class
+com\socialflow\model\TrendingData.class
 com\socialflow\model\PostMedia.class
 com\socialflow\service\BrandService.class
 com\socialflow\ai\dto\EmbeddingRequest.class
@@ -125,10 +131,13 @@ com\socialflow\ai\dto\RagStatusResponse$RagStatusResponseBuilder.class
 com\socialflow\ai\dto\ContentRequest$ContentRequestBuilder.class
 com\socialflow\ai\dto\RewriteRequest.class
 com\socialflow\model\enums\PlatformType.class
+com\socialflow\dto\TrendingResponse$TrendingResponseBuilder.class
 com\socialflow\ai\dto\ModelInfo$ModelInfoBuilder.class
 com\socialflow\dto\CreatePostRequest.class
 com\socialflow\dto\InboxMessageResponse$InboxMessageResponseBuilder.class
+com\socialflow\repository\TrendingDataRepository.class
 com\socialflow\ai\dto\RagLibraryResponse$RagLibraryResponseBuilder.class
+com\socialflow\dto\TrendingRequest.class
 com\socialflow\repository\UserRepository.class
 com\socialflow\config\CorsConfig.class
 com\socialflow\ai\dto\RagSearchResponse.class

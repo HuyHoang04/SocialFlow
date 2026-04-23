@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
+import TrendingAnalyticsWidget from '@/components/TrendingAnalyticsWidget';
 import {
     IconBarChart, IconRefreshCw, IconClock, IconTrendingUp, IconFileText,
     IconHeart, IconMessageCircle, IconShare, IconEye, IconRadio,
@@ -60,7 +61,7 @@ interface AnalyticsOverview {
     pages: PageAnalytics[];
 }
 
-type TabType = 'overview' | 'posts' | 'pages';
+type TabType = 'overview' | 'posts' | 'pages' | 'trends';
 
 export default function AnalyticsPage() {
     const { selectedBrand: brand } = useBrand();
@@ -155,7 +156,7 @@ export default function AnalyticsPage() {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', gap: 0, marginBottom: 28, borderBottom: '1px solid var(--border)' }}>
-                    {(['overview', 'posts', 'pages'] as TabType[]).map(tab => (
+                    {(['overview', 'posts', 'pages', 'trends'] as TabType[]).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -176,7 +177,9 @@ export default function AnalyticsPage() {
                                 ? <><IconTrendingUp size={15} /> Overview</>
                                 : tab === 'posts'
                                 ? <><IconFileText size={15} /> Posts</>
-                                : <><IconGlobe size={15} /> Pages</>}
+                                : tab === 'pages'
+                                ? <><IconGlobe size={15} /> Pages</>
+                                : <><IconTrendingUp size={15} /> Trends</>}
                         </button>
                     ))}
                 </div>
@@ -189,8 +192,10 @@ export default function AnalyticsPage() {
                     <OverviewTab overview={overview} formatNumber={formatNumber} formatDate={formatDate} />
                 ) : activeTab === 'posts' ? (
                     <PostsTab posts={postAnalytics} formatNumber={formatNumber} formatDate={formatDate} />
-                ) : (
+                ) : activeTab === 'pages' ? (
                     <PagesTab pages={overview?.pages || []} formatNumber={formatNumber} formatDate={formatDate} />
+                ) : (
+                    <TrendingAnalyticsWidget geo="VN" autoLoad={true} />
                 )}
             </div>
         </AppShell>

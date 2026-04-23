@@ -299,4 +299,29 @@ export const api = {
         tone?: string;
         image_model?: string;
     }) => request('/ai/rag/generate-content-with-images', { method: 'POST', body: JSON.stringify(data) }),
+
+    // ============= TRENDING ENDPOINTS =============
+
+    // Get trending searches (from database cache - default)
+    getTrendingSearches: (data: {
+        geo?: string;
+        category_id?: string;
+        brand_name?: string;
+    }) => request('/trending/search', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Get trending with default geo (VN) from cache
+    getTrendingDefault: () => request('/trending/search/default', { method: 'POST' }),
+
+    // Refresh trending searches (call SerpAPI and update database)
+    refreshTrendingSearches: (data: {
+        geo?: string;
+        category_id?: string;
+        brand_name?: string;
+    }) => request('/trending/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Refresh with default geo (VN)
+    refreshTrendingDefault: () => request('/trending/search/refresh/default', { method: 'POST' }),
+
+    // Cleanup old trending data
+    cleanupTrendingData: () => request('/trending/cleanup', { method: 'POST' }),
 };
