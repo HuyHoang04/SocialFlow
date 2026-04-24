@@ -10,6 +10,7 @@ import {
     IconActivity, IconCheckCircle, IconTrophy, IconUsers, IconUserPlus,
     IconMousePointer, IconGlobe, SkeletonCard,
 } from '@/components/Icons';
+import styles from './analytics.module.css';
 
 interface PageAnalytics {
     id: string;
@@ -61,16 +62,20 @@ interface AnalyticsOverview {
     pages: PageAnalytics[];
 }
 
-type TabType = 'overview' | 'posts' | 'pages' | 'trends';
-
 export default function AnalyticsPage() {
     const { selectedBrand: brand } = useBrand();
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
     const [postAnalytics, setPostAnalytics] = useState<PostAnalytics[]>([]);
     const [syncing, setSyncing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [lastSynced, setLastSynced] = useState<string | null>(null);
+    const [trendingOpen, setTrendingOpen] = useState(false);
+
+    // Posts table state
+    const [sortBy, setSortBy] = useState<keyof Pick<PostAnalytics, 'likes' | 'comments' | 'shares' | 'impressions' | 'reach' | 'engagementRate'>>('engagementRate');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+    const [search, setSearch] = useState('');
+    const [showAllPosts, setShowAllPosts] = useState(false);
 
     const loadAnalytics = useCallback(async (brandId: string) => {
         if (!brandId) return;
@@ -108,438 +113,357 @@ export default function AnalyticsPage() {
         }
     };
 
-    const formatNumber = (n: number) => {
+    const fmt = (n: number) => {
         if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
         if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-        return n.toString();
+        return n?.toString() ?? '0';
     };
 
-    const formatDate = (d: string | null) => {
+    const fmtDate = (d: string | null) => {
         if (!d) return '—';
         return new Date(d).toLocaleDateString('vi-VN', {
             day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
         });
     };
 
+    // Sorted + filtered posts
+    const filteredPosts = postAnalytics
+        .filter(p => !search || p.postContent?.toLowerCase().includes(search.toLowerCase()) || p.pageName?.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => sortDir === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]);
+    const visiblePosts = showAllPosts ? filteredPosts : filteredPosts.slice(0, 10);
+
+    const handleSort = (col: typeof sortBy) => {
+        if (col === sortBy) {
+            setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        } else {
+            setSortBy(col);
+            setSortDir('desc');
+        }
+    };
+
+    const hasData = overview && (overview.totalPosts > 0 || overview.topPosts.length > 0);
+
+    // Best post for engagement bar scale
+    const maxEngagement = postAnalytics.length > 0
+        ? Math.max(...postAnalytics.map(p => p.likes + p.comments + p.shares))
+        : 1;
+
     return (
         <AppShell>
-            <div style={{ padding: '32px', maxWidth: 1200, margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+            <div className={styles.page}>
+
+                {/* ── Page Header ── */}
+                <div className={styles.pageHeader}>
                     <div>
-                        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <IconBarChart size={28} /> Analytics
+                        <h1 className={styles.pageTitle}>
+                            <IconBarChart size={26} /> Analytics
                         </h1>
-                        <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                            Facebook page &amp; post performance
+                        <p className={styles.pageSubtitle}>
+                            {brand ? `${brand.name} — Facebook performance` : 'Select a brand to view analytics'}
+                            {lastSynced && <span className={styles.lastSynced}> · Last synced {lastSynced}</span>}
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleSync}
-                            disabled={syncing || !brand}
-                        >
-                            {syncing
-                                ? <><IconClock size={16} /> Syncing...</>
-                                : <><IconRefreshCw size={16} /> Sync Data</>}
-                        </button>
-                    </div>
+                    <button
+                        className={styles.syncBtn}
+                        onClick={handleSync}
+                        disabled={syncing || !brand}
+                    >
+                        {syncing
+                            ? <><IconClock size={15} /> Syncing…</>
+                            : <><IconRefreshCw size={15} /> Sync Data</>}
+                    </button>
                 </div>
 
-                {lastSynced && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
-                        Last synced: {lastSynced}
-                    </div>
-                )}
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: 0, marginBottom: 28, borderBottom: '1px solid var(--border)' }}>
-                    {(['overview', 'posts', 'pages', 'trends'] as TabType[]).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: '10px 24px',
-                                background: 'none',
-                                border: 'none',
-                                borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
-                                color: activeTab === tab ? 'var(--accent-light)' : 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                fontWeight: activeTab === tab ? 600 : 400,
-                                fontSize: 15,
-                                textTransform: 'capitalize',
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            {tab === 'overview'
-                                ? <><IconTrendingUp size={15} /> Overview</>
-                                : tab === 'posts'
-                                ? <><IconFileText size={15} /> Posts</>
-                                : tab === 'pages'
-                                ? <><IconGlobe size={15} /> Pages</>
-                                : <><IconTrendingUp size={15} /> Trends</>}
-                        </button>
-                    ))}
-                </div>
-
+                {/* ── Loading skeleton ── */}
                 {loading ? (
-                    <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                    <div className={styles.skeletonGrid}>
                         <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
                     </div>
-                ) : activeTab === 'overview' ? (
-                    <OverviewTab overview={overview} formatNumber={formatNumber} formatDate={formatDate} />
-                ) : activeTab === 'posts' ? (
-                    <PostsTab posts={postAnalytics} formatNumber={formatNumber} formatDate={formatDate} />
-                ) : activeTab === 'pages' ? (
-                    <PagesTab pages={overview?.pages || []} formatNumber={formatNumber} formatDate={formatDate} />
+                ) : !hasData ? (
+                    <div className={styles.emptyState}>
+                        <IconBarChart size={52} color="var(--text-muted)" />
+                        <h3>No analytics data yet</h3>
+                        <p>Click <strong>Sync Data</strong> to fetch analytics from your Facebook pages.</p>
+                    </div>
                 ) : (
-                    <TrendingAnalyticsWidget geo="VN" autoLoad={true} />
+                    <>
+                        {/* ── KPI Row ── */}
+                        <div className={styles.kpiRow}>
+                            <KpiCard
+                                icon={<IconUsers size={20} />}
+                                label="Total Followers"
+                                value={fmt(overview!.pages.reduce((s, p) => s + p.followers, 0))}
+                                color="#6c5ce7"
+                            />
+                            <KpiCard
+                                icon={<IconActivity size={20} />}
+                                label="Avg Engagement"
+                                value={overview!.avgEngagementRate + '%'}
+                                color="#fd79a8"
+                            />
+                            <KpiCard
+                                icon={<IconRadio size={20} />}
+                                label="Total Reach"
+                                value={fmt(overview!.totalReach)}
+                                color="#00b894"
+                            />
+                            <KpiCard
+                                icon={<IconUserPlus size={20} />}
+                                label="New Followers"
+                                value={fmt(overview!.pages.reduce((s, p) => s + p.newFollowers, 0))}
+                                color="#0984e3"
+                            />
+                            <KpiCard
+                                icon={<IconEye size={20} />}
+                                label="Impressions"
+                                value={fmt(overview!.totalImpressions)}
+                                color="#a29bfe"
+                            />
+                            <KpiCard
+                                icon={<IconCheckCircle size={20} />}
+                                label="Published Posts"
+                                value={String(overview!.totalPublished)}
+                                color="#55efc4"
+                            />
+                        </div>
+
+                        {/* ── Engagement summary row ── */}
+                        <div className={styles.engageSummary}>
+                            <EngageStat icon={<IconHeart size={16} />} label="Total Likes" value={fmt(overview!.totalLikes)} color="#e17055" />
+                            <div className={styles.engageDivider} />
+                            <EngageStat icon={<IconMessageCircle size={16} />} label="Comments" value={fmt(overview!.totalComments)} color="#0984e3" />
+                            <div className={styles.engageDivider} />
+                            <EngageStat icon={<IconShare size={16} />} label="Shares" value={fmt(overview!.totalShares)} color="#fdcb6e" />
+                        </div>
+
+                        {/* ── 2-col: Top Posts + Pages ── */}
+                        <div className={styles.twoCol}>
+                            {/* Top posts leaderboard */}
+                            <div className={styles.card}>
+                                <h2 className={styles.cardTitle}>
+                                    <IconTrophy size={18} color="#fdcb6e" /> Top Posts by Engagement
+                                </h2>
+                                {overview!.topPosts.length === 0 ? (
+                                    <p className={styles.empty}>No posts synced yet.</p>
+                                ) : (
+                                    <div className={styles.leaderboard}>
+                                        {overview!.topPosts.slice(0, 5).map((post, idx) => {
+                                            const total = post.likes + post.comments + post.shares;
+                                            const pct = maxEngagement > 0 ? (total / maxEngagement) * 100 : 0;
+                                            return (
+                                                <div key={post.id} className={styles.leaderRow}>
+                                                    <span className={`${styles.rank} ${idx === 0 ? styles.rankGold : ''}`}>#{idx + 1}</span>
+                                                    <div className={styles.leaderContent}>
+                                                        <div className={styles.leaderText}>
+                                                            {post.postContent?.slice(0, 80) || '(no content)'}
+                                                            {(post.postContent?.length ?? 0) > 80 && '…'}
+                                                        </div>
+                                                        <div className={styles.barWrap}>
+                                                            <div className={styles.bar} style={{ width: `${pct}%` }} />
+                                                            <span className={styles.barLabel}>
+                                                                {post.likes > 0 && `♥${fmt(post.likes)} `}
+                                                                {post.comments > 0 && `💬${fmt(post.comments)} `}
+                                                                {post.shares > 0 && `↗${fmt(post.shares)}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <span className={styles.engRate}>{post.engagementRate}%</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Pages summary */}
+                            {overview!.pages.length > 0 && (
+                                <div className={styles.card}>
+                                    <h2 className={styles.cardTitle}>
+                                        <IconGlobe size={18} /> Pages
+                                    </h2>
+                                    <div className={styles.pagesList}>
+                                        {overview!.pages.map(pg => (
+                                            <div key={pg.id} className={styles.pageItem}>
+                                                <div className={styles.pageBadge}>f</div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div className={styles.pageName}>{pg.pageName}</div>
+                                                    <div className={styles.pageMeta}>Updated {fmtDate(pg.fetchedAt)}</div>
+                                                </div>
+                                                <div className={styles.pageStats}>
+                                                    <span title="Followers"><IconUsers size={12} /> {fmt(pg.followers)}</span>
+                                                    <span title="Avg Engagement"><IconActivity size={12} /> {pg.avgEngagementRate}%</span>
+                                                    <span title="New Followers"><IconUserPlus size={12} /> +{fmt(pg.newFollowers)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Posts Table ── */}
+                        {postAnalytics.length > 0 && (
+                            <div className={styles.card}>
+                                <div className={styles.tableHeader}>
+                                    <h2 className={styles.cardTitle} style={{ margin: 0 }}>
+                                        <IconFileText size={18} /> All Posts
+                                        <span className={styles.countBadge}>{postAnalytics.length}</span>
+                                    </h2>
+                                    <div className={styles.searchWrap}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                        </svg>
+                                        <input
+                                            className={styles.searchInput}
+                                            placeholder="Search posts…"
+                                            value={search}
+                                            onChange={e => setSearch(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className={styles.tableWrap}>
+                                    <table className={styles.table}>
+                                        <thead>
+                                            <tr>
+                                                <th className={styles.th}>Post</th>
+                                                <th className={styles.th}>Page</th>
+                                                <th className={styles.th}>Date</th>
+                                                {([
+                                                    ['likes', 'Likes'],
+                                                    ['comments', 'Comments'],
+                                                    ['shares', 'Shares'],
+                                                    ['impressions', 'Impressions'],
+                                                    ['reach', 'Reach'],
+                                                    ['engagementRate', 'Eng.%'],
+                                                ] as const).map(([col, label]) => (
+                                                    <th
+                                                        key={col}
+                                                        className={`${styles.th} ${styles.thSortable} ${sortBy === col ? styles.thActive : ''}`}
+                                                        onClick={() => handleSort(col as typeof sortBy)}
+                                                    >
+                                                        {label}
+                                                        <span className={styles.sortArrow}>
+                                                            {sortBy === col ? (sortDir === 'desc' ? '↓' : '↑') : '↕'}
+                                                        </span>
+                                                    </th>
+                                                ))}
+                                                <th className={styles.th} />
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {visiblePosts.map(post => (
+                                                <tr key={post.id} className={styles.tr}>
+                                                    <td className={`${styles.td} ${styles.tdContent}`}>
+                                                        {post.postContent?.slice(0, 80) || '(no content)'}
+                                                        {(post.postContent?.length ?? 0) > 80 && '…'}
+                                                    </td>
+                                                    <td className={styles.td}>{post.pageName}</td>
+                                                    <td className={`${styles.td} ${styles.tdMuted}`}>{fmtDate(post.publishedAt)}</td>
+                                                    <td className={styles.td}><Num val={post.likes} color="#e17055" /></td>
+                                                    <td className={styles.td}><Num val={post.comments} color="#0984e3" /></td>
+                                                    <td className={styles.td}><Num val={post.shares} color="#fdcb6e" /></td>
+                                                    <td className={styles.td}><Num val={post.impressions} /></td>
+                                                    <td className={styles.td}><Num val={post.reach} /></td>
+                                                    <td className={styles.td}>
+                                                        <span className={styles.engBadge}>{post.engagementRate}%</span>
+                                                    </td>
+                                                    <td className={styles.td}>
+                                                        {post.platformPostUrl && (
+                                                            <a href={post.platformPostUrl} target="_blank" rel="noreferrer" className={styles.postLink} title="View on Facebook">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                                                    <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                                                                </svg>
+                                                            </a>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {filteredPosts.length > 10 && (
+                                    <div className={styles.loadMoreWrap}>
+                                        <button
+                                            className={styles.loadMoreBtn}
+                                            onClick={() => setShowAllPosts(v => !v)}
+                                        >
+                                            {showAllPosts
+                                                ? 'Show less'
+                                                : `Show all ${filteredPosts.length} posts`}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {filteredPosts.length === 0 && search && (
+                                    <div className={styles.empty}>No posts match &quot;{search}&quot;</div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Trending (collapsible) ── */}
+                        <div className={styles.card} style={{ padding: 0 }}>
+                            <button
+                                className={styles.trendingToggle}
+                                onClick={() => setTrendingOpen(v => !v)}
+                            >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <IconTrendingUp size={18} /> Trending Now
+                                </span>
+                                <svg
+                                    width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                                    style={{ transform: trendingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                >
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+                            {trendingOpen && (
+                                <div style={{ padding: '0 24px 24px' }}>
+                                    <TrendingAnalyticsWidget />
+                                </div>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
         </AppShell>
     );
 }
 
-/* ─── OVERVIEW TAB ─── */
-function OverviewTab({ overview, formatNumber, formatDate }: {
-    overview: AnalyticsOverview | null;
-    formatNumber: (n: number) => string;
-    formatDate: (d: string | null) => string;
-}) {
-    if (!overview || (overview.totalPosts === 0 && overview.topPosts.length === 0)) {
-        return (
-            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ marginBottom: 16 }}><IconBarChart size={48} color="var(--text-muted)" /></div>
-                <h3 style={{ margin: '0 0 8px' }}>No analytics data yet</h3>
-                <p style={{ color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto' }}>
-                    Click <strong>&quot;Sync Data&quot;</strong> to fetch analytics from your Facebook pages.
-                    Make sure you have published posts first.
-                </p>
-            </div>
-        );
-    }
+/* ── Small helper components ── */
 
-    const stats = [
-        { label: 'Total Posts', value: overview.totalPosts, icon: <IconFileText size={22} />, color: '#6c5ce7' },
-        { label: 'Published', value: overview.totalPublished, icon: <IconCheckCircle size={22} />, color: '#00b894' },
-        { label: 'Total Likes', value: overview.totalLikes, icon: <IconHeart size={22} />, color: '#e17055' },
-        { label: 'Comments', value: overview.totalComments, icon: <IconMessageCircle size={22} />, color: '#0984e3' },
-        { label: 'Shares', value: overview.totalShares, icon: <IconShare size={22} />, color: '#fdcb6e' },
-        { label: 'Impressions', value: overview.totalImpressions, icon: <IconEye size={22} />, color: '#a29bfe' },
-        { label: 'Reach', value: overview.totalReach, icon: <IconRadio size={22} />, color: '#55efc4' },
-        { label: 'Avg Engagement', value: overview.avgEngagementRate, icon: <IconActivity size={22} />, color: '#fd79a8', suffix: '%' },
-    ];
-
+function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
     return (
-        <div>
-            {/* Stats Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                gap: 16,
-                marginBottom: 32,
-            }}>
-                {stats.map(s => (
-                    <div key={s.label} className="card stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
-                        <div className="stat-card-icon" style={{ background: `${s.color}22`, color: s.color }}>
-                            {s.icon}
-                        </div>
-                        <div>
-                            <div className="stat-card-label">{s.label}</div>
-                            <div className="stat-card-value" style={{ color: s.color }}>
-                                {typeof s.value === 'number' && !s.suffix
-                                    ? formatNumber(s.value)
-                                    : s.value + (s.suffix || '')}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Engagement Bar Chart */}
-            {overview.topPosts.length > 0 && (
-                <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-                    <h3 style={{ margin: '0 0 20px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconTrophy size={20} color="#fdcb6e" /> Top Posts by Engagement
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {overview.topPosts.slice(0, 5).map((post, idx) => {
-                            const total = post.likes + post.comments + post.shares;
-                            const maxTotal = overview.topPosts[0]
-                                ? overview.topPosts[0].likes + overview.topPosts[0].comments + overview.topPosts[0].shares
-                                : 1;
-                            const barWidth = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-
-                            return (
-                                <div key={post.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <span style={{
-                                        width: 24, textAlign: 'center',
-                                        fontWeight: 700, color: idx === 0 ? '#fdcb6e' : 'var(--text-secondary)',
-                                        fontSize: 14,
-                                    }}>
-                                        #{idx + 1}
-                                    </span>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{
-                                            fontSize: 13, color: 'var(--text-primary)',
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                            marginBottom: 4,
-                                        }}>
-                                            {post.postContent}
-                                        </div>
-                                        <div style={{ position: 'relative', height: 20, borderRadius: 10, background: 'var(--bg-glass)' }}>
-                                            <div style={{
-                                                position: 'absolute', top: 0, left: 0,
-                                                height: '100%', borderRadius: 10,
-                                                width: `${barWidth}%`,
-                                                background: 'linear-gradient(90deg, #6c5ce7, #a29bfe)',
-                                                transition: 'width 0.5s ease',
-                                            }} />
-                                            <div style={{
-                                                position: 'absolute', top: 0, left: 8,
-                                                height: '100%', display: 'flex', alignItems: 'center',
-                                                fontSize: 11, fontWeight: 600, color: '#fff',
-                                            }}>
-                                                {total > 0 && `♥${post.likes} 💬${post.comments} ↗${post.shares}`}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 50, textAlign: 'right' }}>
-                                        {post.engagementRate}%
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* Pages Summary */}
-            {overview.pages.length > 0 && (
-                <div className="card" style={{ padding: 24 }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconGlobe size={20} /> Pages Overview
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                        {overview.pages.map(pg => (
-                            <div key={pg.id} style={{
-                                padding: 16, borderRadius: 12,
-                                background: 'var(--bg-glass)', border: '1px solid var(--border)',
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                                    <span style={{
-                                        width: 36, height: 36, borderRadius: 8,
-                                        background: 'linear-gradient(135deg, #1877f2, #42a5f5)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 18,
-                                    }}>f</span>
-                                    <div>
-                                        <div style={{ fontWeight: 600, fontSize: 14 }}>{pg.pageName}</div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{pg.brandName}</div>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                    <MiniStat label="Followers" value={formatNumber(pg.followers)} />
-                                    <MiniStat label="Page Likes" value={formatNumber(pg.totalPageLikes)} />
-                                    <MiniStat label="Impressions" value={formatNumber(pg.pageImpressions)} />
-                                    <MiniStat label="Engaged Users" value={formatNumber(pg.pageEngagedUsers)} />
-                                    <MiniStat label="Posts" value={String(pg.postsCount)} />
-                                    <MiniStat label="Avg Eng. Rate" value={pg.avgEngagementRate + '%'} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-    return (
-        <div style={{ padding: '6px 0' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{value}</div>
-        </div>
-    );
-}
-
-/* ─── POSTS TAB ─── */
-function PostsTab({ posts, formatNumber, formatDate }: {
-    posts: PostAnalytics[];
-    formatNumber: (n: number) => string;
-    formatDate: (d: string | null) => string;
-}) {
-    const [sortBy, setSortBy] = useState<'likes' | 'comments' | 'shares' | 'impressions' | 'reach' | 'engagementRate'>('likes');
-
-    const sorted = [...posts].sort((a, b) => b[sortBy] - a[sortBy]);
-
-    if (posts.length === 0) {
-        return (
-            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ marginBottom: 16 }}><IconFileText size={48} color="var(--text-muted)" /></div>
-                <h3 style={{ margin: '0 0 8px' }}>No post analytics</h3>
-                <p style={{ color: 'var(--text-secondary)' }}>
-                    Sync your data first to see post performance metrics.
-                </p>
-            </div>
-        );
-    }
-
-    return (
-        <div>
-            {/* Sort bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Sort by:</span>
-                {(['likes', 'comments', 'shares', 'impressions', 'reach', 'engagementRate'] as const).map(key => (
-                    <button
-                        key={key}
-                        onClick={() => setSortBy(key)}
-                        style={{
-                            padding: '4px 14px',
-                            borderRadius: 20,
-                            border: sortBy === key ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            background: sortBy === key ? 'var(--accent-glow)' : 'transparent',
-                            color: sortBy === key ? 'var(--accent-light)' : 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            fontWeight: sortBy === key ? 600 : 400,
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        {key === 'engagementRate' ? 'Engagement %' : key.charAt(0).toUpperCase() + key.slice(1)}
-                    </button>
-                ))}
-            </div>
-
-            {/* Post cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {sorted.map(post => (
-                    <div key={post.id} className="card" style={{ padding: 20 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4, lineHeight: 1.5 }}>
-                                    {post.postContent}
-                                </div>
-                                <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-                                    <span>{post.pageName}</span>
-                                    <span>{formatDate(post.publishedAt)}</span>
-                                    {post.platformPostUrl && (
-                                        <a
-                                            href={post.platformPostUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            style={{ color: 'var(--accent-light)' }}
-                                        >
-                                            View on Facebook →
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                            gap: 12,
-                            padding: '12px 0 0',
-                            borderTop: '1px solid var(--border)',
-                        }}>
-                            <MetricCard icon={<IconHeart size={18} />} label="Likes" value={formatNumber(post.likes)} color="#e17055" />
-                            <MetricCard icon={<IconMessageCircle size={18} />} label="Comments" value={formatNumber(post.comments)} color="#0984e3" />
-                            <MetricCard icon={<IconShare size={18} />} label="Shares" value={formatNumber(post.shares)} color="#fdcb6e" />
-                            <MetricCard icon={<IconEye size={18} />} label="Impressions" value={formatNumber(post.impressions)} color="#a29bfe" />
-                            <MetricCard icon={<IconRadio size={18} />} label="Reach" value={formatNumber(post.reach)} color="#55efc4" />
-                            <MetricCard icon={<IconActivity size={18} />} label="Engagement" value={post.engagementRate + '%'} color="#fd79a8" />
-                        </div>
-                    </div>
-                ))}
+        <div className={styles.kpiCard}>
+            <div className={styles.kpiIcon} style={{ background: `${color}20`, color }}>{icon}</div>
+            <div>
+                <div className={styles.kpiLabel}>{label}</div>
+                <div className={styles.kpiValue} style={{ color }}>{value}</div>
             </div>
         </div>
     );
 }
 
-function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function EngageStat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className={styles.engageStat}>
             <span style={{ color, display: 'flex' }}>{icon}</span>
             <div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color }}>{value}</div>
+                <div className={styles.engageLabel}>{label}</div>
+                <div className={styles.engageValue} style={{ color }}>{value}</div>
             </div>
         </div>
     );
 }
 
-/* ─── PAGES TAB ─── */
-function PagesTab({ pages, formatNumber, formatDate }: {
-    pages: PageAnalytics[];
-    formatNumber: (n: number) => string;
-    formatDate: (d: string | null) => string;
-}) {
-    if (pages.length === 0) {
-        return (
-            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
-                <div style={{ marginBottom: 16 }}><IconGlobe size={48} color="var(--text-muted)" /></div>
-                <h3 style={{ margin: '0 0 8px' }}>No page analytics</h3>
-                <p style={{ color: 'var(--text-secondary)' }}>
-                    Sync your data to see page-level metrics.
-                </p>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {pages.map(pg => (
-                <div key={pg.id} className="card" style={{ padding: 24 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-                        <div style={{
-                            width: 48, height: 48, borderRadius: 12,
-                            background: 'linear-gradient(135deg, #1877f2, #42a5f5)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 24, fontWeight: 700, color: '#fff',
-                        }}>f</div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: 18 }}>{pg.pageName}</h3>
-                            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                {pg.brandName} · Facebook · Updated {formatDate(pg.fetchedAt)}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                        gap: 16,
-                    }}>
-                        <PageMetric icon={<IconUsers size={16} />} label="Followers" value={formatNumber(pg.followers)} color="#6c5ce7" />
-                        <PageMetric icon={<IconHeart size={16} />} label="Page Likes" value={formatNumber(pg.totalPageLikes)} color="#e17055" />
-                        <PageMetric icon={<IconEye size={16} />} label="Impressions" value={formatNumber(pg.pageImpressions)} color="#a29bfe" />
-                        <PageMetric icon={<IconMousePointer size={16} />} label="Engaged Users" value={formatNumber(pg.pageEngagedUsers)} color="#00b894" />
-                        <PageMetric icon={<IconGlobe size={16} />} label="Page Views" value={formatNumber(pg.pageViews)} color="#0984e3" />
-                        <PageMetric icon={<IconUserPlus size={16} />} label="New Followers" value={formatNumber(pg.newFollowers)} color="#55efc4" />
-                        <PageMetric icon={<IconFileText size={16} />} label="Total Posts" value={String(pg.postsCount)} color="#fdcb6e" />
-                        <PageMetric icon={<IconActivity size={16} />} label="Avg Engagement" value={pg.avgEngagementRate + '%'} color="#fd79a8" />
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function PageMetric({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-    return (
-        <div style={{
-            padding: 14, borderRadius: 10,
-            background: 'var(--bg-glass)', border: '1px solid var(--border)',
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ color, display: 'flex' }}>{icon}</span>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</span>
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
-        </div>
-    );
+function Num({ val, color }: { val: number; color?: string }) {
+    const fmt = (n: number) => {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+        if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+        return n?.toString() ?? '0';
+    };
+    return <span style={{ fontWeight: 600, color: color ?? 'var(--text-primary)' }}>{fmt(val)}</span>;
 }

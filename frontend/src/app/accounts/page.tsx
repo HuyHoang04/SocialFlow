@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 
+const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '949895587790556';
+console.log(FB_APP_ID);
 /* global FB */
 declare global {
     interface Window {
@@ -17,7 +19,7 @@ declare global {
     }
 }
 
-const FB_APP_ID = '949895587790556';
+
 
 interface Connection {
     id: string; platform: string; accountName: string; accountId: string;
