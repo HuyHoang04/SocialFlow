@@ -14,17 +14,21 @@ import java.util.UUID;
 public class TrendingRequest {
     @JsonProperty("brand_id")
     private UUID brandId;  // Required: which brand's trending data
-    
-    @JsonProperty("geo")
+
+    @JsonProperty("source")
     @Builder.Default
-    private String geo = "VN"; // Default to Vietnam
-    
+    private String source = "google"; // 'google' | 'facebook'
+
+    // Legacy fields kept for backward compat / default endpoints
+    @JsonProperty("geo")
+    private String geo;
+
     @JsonProperty("category_id")
-    private String categoryId; // Optional: 1-20 for Google Trends
-    
+    private String categoryId;
+
     @JsonProperty("search_keyword")
-    private String searchKeyword; // For Facebook posts search
-    
+    private String searchKeyword;
+
     @JsonProperty("brand_name")
-    private String brandName; // For logging/tracking
+    private String brandName;
 }

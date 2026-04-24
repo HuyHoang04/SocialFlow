@@ -30,53 +30,77 @@ public class TrendingController {
 
     // ============= GOOGLE TRENDS =============
 
+    /** Fetch Google trending from cache using saved config for this brand. */
     @PostMapping("/search")
     public ResponseEntity<TrendingResponse> getTrendingSearches(@Valid @RequestBody TrendingRequest request) {
         try {
             validateBrandId(request.getBrandId());
-            log.info("Fetching Google trending from cache: brandId={}, geo={}, categoryId={}", 
-                    request.getBrandId(), request.getGeo(), request.getCategoryId());
-            
+
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "google");
+            if (config == null) {
+                log.warn("No Google config found for brandId={}", request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No Google Trends config found. Please click ⚙️ Configure to set up first.")
+                        .build());
+            }
+
+            log.info("Fetching Google trending from cache: brandId={}, geo={}, categoryId={}",
+                    request.getBrandId(), config.getGeo(), config.getCategoryId());
+
             List<Map<String, Object>> data = trendingService.getTrendingFromCache(
-                    request.getBrandId(), request.getGeo(), request.getCategoryId());
-            
+                    request.getBrandId(), config.getGeo(), config.getCategoryId());
+
             return ResponseEntity.ok(TrendingResponse.builder()
                     .success(!data.isEmpty())
+                    .configFound(true)
                     .trendingSearches(data)
-                    .geo(request.getGeo())
-                    .categoryId(request.getCategoryId())
+                    .geo(config.getGeo())
+                    .categoryId(config.getCategoryId())
                     .build());
+
         } catch (Exception e) {
             log.error("Error fetching Google trending", e);
             return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false)
-                    .error(e.getMessage())
-                    .build());
+                    .success(false).error(e.getMessage()).build());
         }
     }
 
+    /** Refresh Google trending from SerpAPI using saved config. */
     @PostMapping("/search/refresh")
     public ResponseEntity<TrendingResponse> refreshTrendingSearches(@Valid @RequestBody TrendingRequest request) {
         try {
             validateBrandId(request.getBrandId());
-            log.info("Refreshing Google trending from API: brandId={}, geo={}, categoryId={}", 
-                    request.getBrandId(), request.getGeo(), request.getCategoryId());
-            
+
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "google");
+            if (config == null) {
+                log.warn("No Google config found for brandId={}", request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No Google Trends config found. Please click ⚙️ Configure to set up first.")
+                        .build());
+            }
+
+            log.info("Refreshing Google trending from API: brandId={}, geo={}, categoryId={}",
+                    request.getBrandId(), config.getGeo(), config.getCategoryId());
+
             List<Map<String, Object>> data = trendingService.getTrendingFromAPI(
-                    request.getBrandId(), request.getGeo(), request.getCategoryId());
-            
+                    request.getBrandId(), config.getGeo(), config.getCategoryId());
+
             return ResponseEntity.ok(TrendingResponse.builder()
                     .success(!data.isEmpty())
+                    .configFound(true)
                     .trendingSearches(data)
-                    .geo(request.getGeo())
-                    .categoryId(request.getCategoryId())
+                    .geo(config.getGeo())
+                    .categoryId(config.getCategoryId())
                     .build());
+
         } catch (Exception e) {
             log.error("Error refreshing Google trending", e);
             return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false)
-                    .error(e.getMessage())
-                    .build());
+                    .success(false).error(e.getMessage()).build());
         }
     }
 
@@ -92,65 +116,88 @@ public class TrendingController {
 
     // ============= FACEBOOK TRENDS =============
 
+    /** Fetch Facebook trending from cache using saved config (keyword + geo). */
     @PostMapping("/facebook/search")
     public ResponseEntity<TrendingResponse> searchFacebook(@Valid @RequestBody TrendingRequest request) {
         try {
             validateBrandId(request.getBrandId());
-            validateSearchKeyword(request.getSearchKeyword());
-            log.info("Fetching Facebook trending from cache: brandId={}, geo={}, keyword={}", 
-                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
-            
+
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "facebook");
+            if (config == null || config.getSearchKeyword() == null || config.getSearchKeyword().isBlank()) {
+                log.warn("No Facebook config (or missing keyword) for brandId={}", request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No Facebook config found. Please click ⚙️ Configure and enter a search keyword.")
+                        .build());
+            }
+
+            log.info("Fetching Facebook trending from cache: brandId={}, geo={}, keyword={}",
+                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
+
             List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromCache(
-                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
-            
+                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
+
             return ResponseEntity.ok(TrendingResponse.builder()
                     .success(!data.isEmpty())
+                    .configFound(true)
                     .trendingSearches(data)
-                    .geo(request.getGeo())
+                    .geo(config.getGeo())
                     .build());
+
         } catch (Exception e) {
             log.error("Error fetching Facebook trending", e);
             return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false)
-                    .error(e.getMessage())
-                    .build());
+                    .success(false).error(e.getMessage()).build());
         }
     }
 
+    /** Refresh Facebook trending from API using saved config (keyword + geo). */
     @PostMapping("/facebook/search/refresh")
     public ResponseEntity<TrendingResponse> refreshFacebook(@Valid @RequestBody TrendingRequest request) {
         try {
             validateBrandId(request.getBrandId());
-            validateSearchKeyword(request.getSearchKeyword());
-            log.info("Refreshing Facebook trending from API: brandId={}, geo={}, keyword={}", 
-                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
-            
+
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "facebook");
+            if (config == null || config.getSearchKeyword() == null || config.getSearchKeyword().isBlank()) {
+                log.warn("No Facebook config (or missing keyword) for brandId={}", request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No Facebook config found. Please click ⚙️ Configure and enter a search keyword.")
+                        .build());
+            }
+
+            log.info("Refreshing Facebook trending from API: brandId={}, geo={}, keyword={}",
+                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
+
             List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromAPI(
-                    request.getBrandId(), request.getGeo(), request.getSearchKeyword());
-            
+                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
+
             return ResponseEntity.ok(TrendingResponse.builder()
                     .success(!data.isEmpty())
+                    .configFound(true)
                     .trendingSearches(data)
-                    .geo(request.getGeo())
+                    .geo(config.getGeo())
                     .build());
+
         } catch (Exception e) {
             log.error("Error refreshing Facebook trending", e);
             return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false)
-                    .error(e.getMessage())
-                    .build());
+                    .success(false).error(e.getMessage()).build());
         }
     }
 
     // ============= CONFIG MANAGEMENT =============
 
+    /** Save / upsert config for a brand+source (one per source). */
     @PostMapping("/config")
     public ResponseEntity<TrendingConfigResponse> saveConfig(@Valid @RequestBody TrendingConfigRequest request) {
         try {
             validateBrandId(request.getBrandId());
-            log.info("Saving trending config: brandId={}, geo={}, source={}", 
-                    request.getBrandId(), request.getGeo(), request.getSource());
-            
+            log.info("Saving trending config: brandId={}, source={}, geo={}",
+                    request.getBrandId(), request.getSource(), request.getGeo());
+
             TrendingConfigResponse response = configService.saveConfig(request);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -159,14 +206,14 @@ public class TrendingController {
         }
     }
 
-    @GetMapping("/config/{brandId}/{geo}/{source}")
+    /** Get config for a specific brand + source (upsert key). */
+    @GetMapping("/config/{brandId}/{source}")
     public ResponseEntity<TrendingConfigResponse> getConfig(
             @PathVariable UUID brandId,
-            @PathVariable String geo,
             @PathVariable String source) {
         try {
-            log.info("Retrieving config: brandId={}, geo={}, source={}", brandId, geo, source);
-            TrendingConfigResponse response = configService.getConfig(brandId, geo, source);
+            log.info("Retrieving config: brandId={}, source={}", brandId, source);
+            TrendingConfigResponse response = configService.getConfigByBrandAndSource(brandId, source);
             return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("Error retrieving config", e);
@@ -174,13 +221,13 @@ public class TrendingController {
         }
     }
 
-    @GetMapping("/config/{brandId}/{geo}")
-    public ResponseEntity<List<TrendingConfigResponse>> getConfigsByGeo(
-            @PathVariable UUID brandId,
-            @PathVariable String geo) {
+    /** Get all configs for a brand (one per source). */
+    @GetMapping("/config/{brandId}")
+    public ResponseEntity<List<TrendingConfigResponse>> getConfigsByBrand(
+            @PathVariable UUID brandId) {
         try {
-            log.info("Retrieving configs: brandId={}, geo={}", brandId, geo);
-            List<TrendingConfigResponse> responses = configService.getConfigsByGeo(brandId, geo);
+            log.info("Retrieving all configs for brandId={}", brandId);
+            List<TrendingConfigResponse> responses = configService.getConfigsByBrand(brandId);
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
             log.error("Error retrieving configs", e);
@@ -188,10 +235,11 @@ public class TrendingController {
         }
     }
 
+    /** Delete config by id. */
     @DeleteMapping("/config/{id}")
     public ResponseEntity<Void> deleteConfig(@PathVariable Long id) {
         try {
-            log.info("Deleting config: id={}", id);
+            log.info("Deleting config id={}", id);
             configService.deleteConfig(id);
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
@@ -214,17 +262,11 @@ public class TrendingController {
         }
     }
 
-    // ============= VALIDATION HELPERS =============
+    // ============= HELPERS =============
 
     private void validateBrandId(UUID brandId) {
         if (brandId == null) {
             throw new IllegalArgumentException("Brand ID is required");
-        }
-    }
-
-    private void validateSearchKeyword(String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            throw new IllegalArgumentException("Search keyword is required");
         }
     }
 }

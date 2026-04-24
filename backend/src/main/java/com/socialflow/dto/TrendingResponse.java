@@ -15,18 +15,23 @@ import java.util.Map;
 @AllArgsConstructor
 public class TrendingResponse {
     private boolean success;
-    
+
     @JsonProperty("trending_searches")
     private List<Map<String, Object>> trendingSearches;
-    
+
     @JsonProperty("geo")
     private String geo;
-    
+
     @JsonProperty("category_id")
     private String categoryId;
-    
+
+    /** False when no config has been saved for this brand+source yet. */
+    @JsonProperty("config_found")
+    @Builder.Default
+    private boolean configFound = true;
+
     @JsonProperty("raw_response")
-    private JsonObject rawResponse; // Full response from SerpAPI for debugging
-    
+    private JsonObject rawResponse;
+
     private String error;
 }

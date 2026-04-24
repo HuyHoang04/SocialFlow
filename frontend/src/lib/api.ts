@@ -310,58 +310,45 @@ export const api = {
 
     // ============= TRENDING ENDPOINTS =============
 
-    // Get trending searches (from database cache - default)
-    getTrendingSearches: (data: {
-        brand_id?: string;
-        geo?: string;
-        category_id?: string;
-        brand_name?: string;
-    }) => request('/trending/search', { method: 'POST', body: JSON.stringify(data) }),
+    // Fetch Google trending from cache (uses saved config for this brand — no need to send geo/category)
+    getTrendingSearches: (data: { brand_id: string }) =>
+        request('/trending/search', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Get trending with default geo (VN) from cache
-    getTrendingDefault: () => request('/trending/search/default', { method: 'POST' }),
+    // Refresh Google trending from SerpAPI (uses saved config)
+    refreshTrendingSearches: (data: { brand_id: string }) =>
+        request('/trending/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Refresh trending searches (call SerpAPI and update database)
-    refreshTrendingSearches: (data: {
-        brand_id?: string;
-        geo?: string;
-        category_id?: string;
-        brand_name?: string;
-    }) => request('/trending/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
+    // Fetch Facebook trending from cache (uses saved config — keyword resolved server-side)
+    searchFacebookTrending: (data: { brand_id: string }) =>
+        request('/trending/facebook/search', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Refresh with default geo (VN)
-    refreshTrendingDefault: () => request('/trending/search/refresh/default', { method: 'POST' }),
+    // Refresh Facebook trending from API (uses saved config)
+    refreshFacebookTrending: (data: { brand_id: string }) =>
+        request('/trending/facebook/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 
     // Cleanup old trending data
     cleanupTrendingData: () => request('/trending/cleanup', { method: 'POST' }),
 
-    // Trending Config
+    // ── Trending Config (upsert: 1 per brand per source) ──────────────────
+
+    /** Save / upsert config for a brand+source. */
     saveTrendingConfig: (data: {
+        brandId: string;
         geo: string;
-        source: string;
-        categoryId?: string;
-        searchKeyword?: string;
+        source: string;         // 'google' | 'facebook'
+        categoryId?: string;    // Google Trends category
+        searchKeyword?: string; // Facebook keyword
     }) => request('/trending/config', { method: 'POST', body: JSON.stringify(data) }),
 
-    getTrendingConfig: (geo: string, source: string) =>
-        request(`/trending/config/${geo}/${source}`),
+    /** Get config for a specific brand + source. */
+    getTrendingConfig: (brandId: string, source: string) =>
+        request(`/trending/config/${brandId}/${source}`),
 
-    getTrendingConfigByGeo: (geo: string) =>
-        request(`/trending/config/${geo}`),
+    /** Get all configs for a brand (one per source). */
+    getTrendingConfigsByBrand: (brandId: string) =>
+        request(`/trending/config/${brandId}`),
 
+    /** Delete a config by id. */
     deleteTrendingConfig: (id: number) =>
         request(`/trending/config/${id}`, { method: 'DELETE' }),
-
-    // Facebook Trending
-    searchFacebookTrending: (data: {
-        geo?: string;
-        search_keyword: string;
-        brand_name?: string;
-    }) => request('/trending/facebook/search', { method: 'POST', body: JSON.stringify(data) }),
-
-    refreshFacebookTrending: (data: {
-        geo?: string;
-        search_keyword: string;
-        brand_name?: string;
-    }) => request('/trending/facebook/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 };

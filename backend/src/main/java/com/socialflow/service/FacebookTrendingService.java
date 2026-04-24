@@ -1,13 +1,16 @@
 package com.socialflow.service;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.socialflow.model.TrendingData;
 import com.socialflow.repository.TrendingDataRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,47 +88,74 @@ public class FacebookTrendingService {
             HttpHeaders headers = new HttpHeaders();
             headers.set("x-rapidapi-key", rapidApiKey);
             headers.set("x-rapidapi-host", rapidApiHost);
-            headers.set("Content-Type", "application/json");
+            headers.set("Accept", "application/json");
+
+            // ⚠️ Must use exchange() — getForEntity() doesn't accept custom headers
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-            
-            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                log.error("Facebook API returned status: {}", response.getStatusCode());
-                return new ArrayList<>();
+            String body = response.getBody();
+
+            // ── Debug: log truncated raw response to see the actual structure ──────
+            log.info("Facebook API raw response (first 500 chars): {}",
+                    body != null && body.length() > 500 ? body.substring(0, 500) + "..." : body);
+
+            // The root element can be an object or a plain array depending on API version
+            com.google.gson.JsonElement root = JsonParser.parseString(body);
+
+            JsonArray postsArray = null;
+
+            if (root.isJsonArray()) {
+                // Root is directly an array
+                postsArray = root.getAsJsonArray();
+                log.info("Facebook API returned a root-level JSON array, size={}", postsArray.size());
+
+            } else if (root.isJsonObject()) {
+                JsonObject results = root.getAsJsonObject();
+
+                if (results.has("error")) {
+                    log.error("Facebook API error: {}", results.get("error").getAsString());
+                    return new ArrayList<>();
+                }
+
+                // Try common field names used by various RapidAPI Facebook scrapers
+                for (String field : new String[]{"data", "results", "posts", "items", "feeds"}) {
+                    if (results.has(field) && results.get(field).isJsonArray()) {
+                        postsArray = results.getAsJsonArray(field);
+                        log.info("Facebook API: found posts under field='{}', size={}", field, postsArray.size());
+                        break;
+                    }
+                }
+
+                if (postsArray == null) {
+                    log.warn("Facebook API: no known array field found. Top-level keys: {}", results.keySet());
+                }
             }
-            
-            JsonObject results = JsonParser.parseString(response.getBody()).getAsJsonObject();
-            
-            if (results.has("error")) {
-                log.error("Facebook API error: {}", results.get("error").getAsString());
-                return new ArrayList<>();
-            }
-            
-            if (results.has("data")) {
-                JsonArray postsArray = results.getAsJsonArray("data");
+
+            if (postsArray != null && postsArray.size() > 0) {
                 String jsonString = postsArray.toString();
-                
-                // Delete old data for this brandId/geo/source/keyword
+
                 trendingDataRepository.deleteByBrandIdAndGeoAndSourceAndSearchKeyword(brandId, geo, SOURCE, keyword);
-                
-                // Save new data - reuse trending_data table
-                TrendingData entity = TrendingData.builder()
+
+                TrendingData trendingData = TrendingData.builder()
                         .brandId(brandId)
                         .geo(geo)
                         .source(SOURCE)
                         .searchKeyword(keyword)
-                        .trendingSearches(jsonString)  // Same column name
+                        .trendingSearches(jsonString)
                         .fetchedAt(LocalDateTime.now())
                         .build();
-                
-                trendingDataRepository.save(entity);
-                log.info("Saved {} Facebook posts to database for brandId={}, geo={}, keyword={}", 
+
+                trendingDataRepository.save(trendingData);
+                log.info("Saved {} Facebook posts for brandId={}, geo={}, keyword={}",
                         postsArray.size(), brandId, geo, keyword);
-                
+
                 return parseFacebookPostsArray(jsonString);
             }
-            
+
+            log.warn("Facebook API returned no posts for brandId={}, geo={}, keyword={}", brandId, geo, keyword);
             return new ArrayList<>();
+
             
         } catch (Exception ex) {
             log.error("Exception fetching Facebook trending: {}", ex.getMessage(), ex);
@@ -134,40 +164,107 @@ public class FacebookTrendingService {
     }
 
     /**
-     * Parse Facebook posts JSON array
+     * Parse Facebook posts JSON array using the actual API schema:
+     *   message, url, reactions_count, comments_count, reshare_count,
+     *   image (object with .uri), author (object with .name), timestamp, album_preview
      */
     public List<Map<String, Object>> parseFacebookPostsArray(String jsonString) {
         List<Map<String, Object>> postsList = new ArrayList<>();
-        
+
         try {
             JsonArray array = JsonParser.parseString(jsonString).getAsJsonArray();
-            
+
             for (int i = 0; i < array.size(); i++) {
                 JsonObject post = array.get(i).getAsJsonObject();
                 Map<String, Object> postMap = new HashMap<>();
-                
-                if (post.has("title")) postMap.put("title", post.get("title").getAsString());
-                if (post.has("text")) postMap.put("text", post.get("text").getAsString());
-                if (post.has("image")) postMap.put("image", post.get("image").getAsString());
-                if (post.has("link")) postMap.put("link", post.get("link").getAsString());
-                if (post.has("likes")) postMap.put("likes", post.get("likes").getAsString());
-                if (post.has("comments")) postMap.put("comments", post.get("comments").getAsString());
-                if (post.has("shares")) postMap.put("shares", post.get("shares").getAsString());
-                if (post.has("video")) {
-                    postMap.put("is_short", true);
-                    postMap.put("video", post.get("video").getAsString());
-                } else {
-                    postMap.put("is_short", false);
+
+                // ── Core text ────────────────────────────────────────────────
+                String message = safeStr(post, "message");
+                postMap.put("query", message);   // used by copy button
+                postMap.put("text",  message);   // used by FE display
+                postMap.put("link",  safeStr(post, "url"));
+
+                // ── Image: can be null OR {"uri": "...", "height":…, "width":…} ──
+                String imageUrl = extractImageUri(post);
+                if (!imageUrl.isEmpty()) postMap.put("image", imageUrl);
+
+                // ── Engagement (integer fields) ───────────────────────────────
+                postMap.put("likes",    safeInt(post, "reactions_count"));
+                postMap.put("comments", safeInt(post, "comments_count"));
+                postMap.put("shares",   safeInt(post, "reshare_count"));
+
+                // ── Author ────────────────────────────────────────────────────
+                if (post.has("author") && !post.get("author").isJsonNull()
+                        && post.get("author").isJsonObject()) {
+                    JsonObject author = post.getAsJsonObject("author");
+                    postMap.put("author_name",    safeStr(author, "name"));
+                    postMap.put("author_url",     safeStr(author, "url"));
+                    postMap.put("author_picture", safeStr(author, "profile_picture_url"));
                 }
-                if (post.has("posted_date")) postMap.put("posted_date", post.get("posted_date").getAsString());
-                
+
+                // ── Timestamp → human-readable ────────────────────────────────
+                if (post.has("timestamp") && !post.get("timestamp").isJsonNull()) {
+                    long epochSec = post.get("timestamp").getAsLong();
+                    postMap.put("posted_date",
+                            java.time.Instant.ofEpochSecond(epochSec)
+                                    .atZone(java.time.ZoneOffset.UTC)
+                                    .toLocalDate().toString());
+                }
+
+                // ── Video flag ────────────────────────────────────────────────
+                boolean hasVideo = post.has("video") && !post.get("video").isJsonNull();
+                postMap.put("is_short", hasVideo);
+
                 postsList.add(postMap);
             }
+
         } catch (Exception ex) {
-            log.error("Error parsing Facebook posts: {}", ex.getMessage());
+            log.error("Error parsing Facebook posts: {}", ex.getMessage(), ex);
         }
-        
+
         return postsList;
+    }
+
+    /** Safely extract a string field — returns "" for missing/null/non-primitive fields. */
+    private String safeStr(JsonObject obj, String field) {
+        if (!obj.has(field)) return "";
+        JsonElement el = obj.get(field);
+        if (el.isJsonNull()) return "";
+        if (el.isJsonPrimitive()) return el.getAsString();
+        return ""; // object/array — don't stringify
+    }
+
+    /** Safely extract an int field — returns 0 for missing/null. */
+    private int safeInt(JsonObject obj, String field) {
+        if (!obj.has(field)) return 0;
+        JsonElement el = obj.get(field);
+        if (el.isJsonNull() || !el.isJsonPrimitive()) return 0;
+        try { return el.getAsInt(); } catch (Exception e) { return 0; }
+    }
+
+    /**
+     * Extract an image URL from the post.
+     * Priority: image.uri (direct image object) → album_preview[0].image_file_uri → ""
+     */
+    private String extractImageUri(JsonObject post) {
+        // Direct image field (can be null or an object {uri, height, width, id})
+        if (post.has("image") && !post.get("image").isJsonNull()
+                && post.get("image").isJsonObject()) {
+            JsonObject img = post.getAsJsonObject("image");
+            String uri = safeStr(img, "uri");
+            if (!uri.isEmpty()) return uri;
+        }
+
+        // Fallback: first photo in album_preview
+        if (post.has("album_preview") && !post.get("album_preview").isJsonNull()
+                && post.get("album_preview").isJsonArray()) {
+            JsonArray album = post.getAsJsonArray("album_preview");
+            if (album.size() > 0 && album.get(0).isJsonObject()) {
+                return safeStr(album.get(0).getAsJsonObject(), "image_file_uri");
+            }
+        }
+
+        return "";
     }
 
     /**

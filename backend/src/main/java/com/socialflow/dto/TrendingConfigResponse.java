@@ -20,4 +20,5 @@ public class TrendingConfigResponse {
     private String searchKeyword;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean success;
 }

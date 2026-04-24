@@ -10,19 +10,20 @@ import java.util.UUID;
 
 @Repository
 public interface TrendingConfigRepository extends JpaRepository<TrendingConfig, Long> {
-    
+
     /**
-     * Find config by brand, geo and source
+     * Upsert key: 1 config per brand per source.
+     * Find config by brand and source (geo is just a field, not part of the key).
      */
-    Optional<TrendingConfig> findByBrandIdAndGeoAndSource(UUID brandId, String geo, String source);
-    
+    Optional<TrendingConfig> findByBrandIdAndSource(UUID brandId, String source);
+
     /**
-     * Find all configs by brand and geo
+     * Get all configs for a brand (one per source).
+     */
+    List<TrendingConfig> findByBrandId(UUID brandId);
+
+    /**
+     * Legacy – kept for any existing code that needs it.
      */
     List<TrendingConfig> findByBrandIdAndGeo(UUID brandId, String geo);
-    
-    /**
-     * Find all configs by brand and source
-     */
-    List<TrendingConfig> findByBrandIdAndSource(UUID brandId, String source);
 }

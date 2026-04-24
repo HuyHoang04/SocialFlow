@@ -16,113 +16,97 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class TrendingConfigService {
-    
+
     private final TrendingConfigRepository configRepository;
-    
+
     public TrendingConfigService(TrendingConfigRepository configRepository) {
         this.configRepository = configRepository;
     }
-    
+
     /**
-     * Save or update trending config
+     * Save or update trending config.
+     * Upsert key: (brandId, source) — one config per source per brand.
+     * geo, categoryId, searchKeyword are all updated on upsert.
      */
     @Transactional
     public TrendingConfigResponse saveConfig(TrendingConfigRequest request) {
-        try {
-            if (request.getBrandId() == null) {
-                throw new IllegalArgumentException("Brand ID is required");
-            }
-            
-            Optional<TrendingConfig> existing = 
-                    configRepository.findByBrandIdAndGeoAndSource(request.getBrandId(), request.getGeo(), request.getSource());
-            
-            TrendingConfig config;
-            if (existing.isPresent()) {
-                config = existing.get();
-                config.setCategoryId(request.getCategoryId());
-                config.setSearchKeyword(request.getSearchKeyword());
-            } else {
-                config = TrendingConfig.builder()
-                        .brandId(request.getBrandId())
-                        .geo(request.getGeo())
-                        .source(request.getSource())
-                        .categoryId(request.getCategoryId())
-                        .searchKeyword(request.getSearchKeyword())
-                        .build();
-            }
-            
-            TrendingConfig saved = configRepository.save(config);
-            log.info("Saved config: brandId={}, geo={}, source={}", saved.getBrandId(), saved.getGeo(), saved.getSource());
-            
-            return mapToResponse(saved);
-        } catch (Exception ex) {
-            log.error("Error saving config: {}", ex.getMessage());
-            throw new RuntimeException("Failed to save config: " + ex.getMessage());
+        if (request.getBrandId() == null) {
+            throw new IllegalArgumentException("Brand ID is required");
         }
+        if (request.getSource() == null || request.getSource().isBlank()) {
+            throw new IllegalArgumentException("Source is required");
+        }
+
+        Optional<TrendingConfig> existing =
+                configRepository.findByBrandIdAndSource(request.getBrandId(), request.getSource());
+
+        TrendingConfig config;
+        if (existing.isPresent()) {
+            config = existing.get();
+            config.setGeo(request.getGeo());
+            config.setCategoryId(request.getCategoryId());
+            config.setSearchKeyword(request.getSearchKeyword());
+            log.info("Updating existing config: brandId={}, source={}", request.getBrandId(), request.getSource());
+        } else {
+            config = TrendingConfig.builder()
+                    .brandId(request.getBrandId())
+                    .geo(request.getGeo())
+                    .source(request.getSource())
+                    .categoryId(request.getCategoryId())
+                    .searchKeyword(request.getSearchKeyword())
+                    .build();
+            log.info("Creating new config: brandId={}, source={}", request.getBrandId(), request.getSource());
+        }
+
+        TrendingConfig saved = configRepository.save(config);
+        log.info("Saved config id={} for brandId={}, source={}, geo={}",
+                saved.getId(), saved.getBrandId(), saved.getSource(), saved.getGeo());
+
+        return mapToResponse(saved, true);
     }
-    
+
     /**
-     * Get config by brand, geo and source
+     * Get config for a brand+source (upsert key — at most 1 record).
+     * Returns null if not configured yet.
      */
-    public TrendingConfigResponse getConfig(UUID brandId, String geo, String source) {
-        try {
-            Optional<TrendingConfig> config = configRepository.findByBrandIdAndGeoAndSource(brandId, geo, source);
-            
-            if (config.isPresent()) {
-                log.info("Retrieved config: brandId={}, geo={}, source={}", brandId, geo, source);
-                return mapToResponse(config.get());
-            } else {
-                log.warn("Config not found for brandId={}, geo={}, source={}", brandId, geo, source);
-                return null;
-            }
-        } catch (Exception ex) {
-            log.error("Error retrieving config: {}", ex.getMessage());
-            return null;
-        }
+    public TrendingConfigResponse getConfigByBrandAndSource(UUID brandId, String source) {
+        return configRepository.findByBrandIdAndSource(brandId, source)
+                .map(c -> mapToResponse(c, true))
+                .orElse(null);
     }
-    
+
     /**
-     * Get all configs for a brand and geo
+     * Get all configs for a brand (one per source: google, facebook, ...).
      */
-    public List<TrendingConfigResponse> getConfigsByGeo(UUID brandId, String geo) {
-        try {
-            List<TrendingConfig> configs = configRepository.findByBrandIdAndGeo(brandId, geo);
-            log.info("Retrieved {} configs for brandId={}, geo={}", configs.size(), brandId, geo);
-            
-            return configs.stream()
-                    .map(this::mapToResponse)
-                    .collect(Collectors.toList());
-        } catch (Exception ex) {
-            log.error("Error retrieving configs: {}", ex.getMessage());
-            return List.of();
-        }
+    public List<TrendingConfigResponse> getConfigsByBrand(UUID brandId) {
+        return configRepository.findByBrandId(brandId)
+                .stream()
+                .map(c -> mapToResponse(c, true))
+                .collect(Collectors.toList());
     }
-    
+
     /**
-     * Delete config
+     * Delete config by id.
      */
     @Transactional
     public void deleteConfig(Long id) {
-        try {
-            configRepository.deleteById(id);
-            log.info("Deleted config with id={}", id);
-        } catch (Exception ex) {
-            log.error("Error deleting config: {}", ex.getMessage());
-            throw new RuntimeException("Failed to delete config: " + ex.getMessage());
-        }
+        configRepository.deleteById(id);
+        log.info("Deleted config id={}", id);
     }
-    
-    /**
-     * Map entity to DTO
-     */
-    private TrendingConfigResponse mapToResponse(TrendingConfig config) {
+
+    // ── Internal ────────────────────────────────────────────────────────────
+
+    private TrendingConfigResponse mapToResponse(TrendingConfig config, boolean success) {
         return TrendingConfigResponse.builder()
                 .id(config.getId())
+                .brandId(config.getBrandId())
                 .geo(config.getGeo())
                 .source(config.getSource())
+                .categoryId(config.getCategoryId())
                 .searchKeyword(config.getSearchKeyword())
                 .createdAt(config.getCreatedAt())
                 .updatedAt(config.getUpdatedAt())
+                .success(success)
                 .build();
     }
 }
