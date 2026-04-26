@@ -86,6 +86,7 @@ com\socialflow\model\TrendingData$TrendingDataBuilder.class
 com\socialflow\controller\AuthController.class
 com\socialflow\repository\CampaignRepository.class
 com\socialflow\dto\PlatformCommentDto$PlatformCommentDtoBuilder.class
+com\socialflow\service\PlatformAnalyticsAdapter.class
 com\socialflow\constants\ErrorMessages.class
 com\socialflow\security\JwtUtil.class
 com\socialflow\model\SocialConnection$SocialConnectionBuilder.class
@@ -101,10 +102,13 @@ com\socialflow\service\publisher\PublisherService.class
 com\socialflow\dto\AnalyticsOverviewResponse$AnalyticsOverviewResponseBuilder.class
 com\socialflow\service\InboxService.class
 com\socialflow\service\TrendingService.class
+com\socialflow\service\AnalyticsService.class
 com\socialflow\config\OpenApiConfig.class
+com\socialflow\service\BlueskyAnalyticsAdapter.class
 com\socialflow\dto\PostResponse$PageInfo$PageInfoBuilder.class
 com\socialflow\controller\AnalyticsController.class
 com\socialflow\model\Embedding$EmbeddingBuilder.class
+com\socialflow\service\BlueskyTrendingAdapter.class
 com\socialflow\dto\PostResponse$MediaInfo.class
 com\socialflow\model\InboxMessage$InboxMessageBuilder.class
 com\socialflow\controller\CampaignController.class
@@ -156,6 +160,7 @@ com\socialflow\config\CorsConfig.class
 com\socialflow\ai\dto\RagSearchResponse.class
 com\socialflow\dto\AnalyticsOverviewResponse.class
 com\socialflow\ai\dto\RagLibraryResponse.class
+com\socialflow\service\PlatformTrendingAdapter.class
 com\socialflow\model\Embedding.class
 com\socialflow\model\PublishResult.class
 com\socialflow\ai\dto\RagUploadResponse$RagUploadResponseBuilder.class
