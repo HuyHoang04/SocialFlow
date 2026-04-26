@@ -21,4 +21,9 @@ public interface InboxMessageRepository extends JpaRepository<InboxMessage, UUID
     List<InboxMessage> findByPageIdOrderByCreatedAtDesc(UUID pageId);
 
     List<InboxMessage> findByConversationIdAndPageId(String conversationId, UUID pageId);
+
+    // Find existing DMs by the sender's PSID to resolve their thread conversationId
+    List<InboxMessage> findByAuthorIdAndPageIdAndMessageType(
+            String authorId, UUID pageId,
+            com.socialflow.model.enums.MessageType messageType);
 }

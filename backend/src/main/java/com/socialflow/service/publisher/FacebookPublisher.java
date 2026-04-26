@@ -158,12 +158,12 @@ public class FacebookPublisher implements CommentFetcher {
             // Use page access token for page-level operations (Graph API v18.0+ requirement)
             String token = page.getPageAccessToken();
 
-            // 1. Fetch recent posts
+            // 1. Fetch recent posts AND their comments in a single query (Field Expansion)
             JsonNode feedNode = client.get()
                     .uri(uriBuilder -> uriBuilder.path("/{pageId}/feed")
                             .queryParam("access_token", token)
                             .queryParam("limit", 10)
-                            .queryParam("fields", "id")
+                            .queryParam("fields", "id,comments{id,message,from,created_time,comments{id,message,from,created_time}}")
                             .build(page.getPlatformPageId()))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
@@ -173,23 +173,8 @@ public class FacebookPublisher implements CommentFetcher {
                 for (JsonNode postNode : feedNode.get("data")) {
                     String postId = postNode.get("id").asText();
 
-                    // 2. Fetch comments for each post
-                    String commentsUrl = String.format(
-                            "https://graph.facebook.com/v18.0/%s/comments?access_token=%s&fields=%s",
-                            postId,
-                            token,
-                            "id,message,from,created_time,comments%7Bid,message,from,created_time%7D"
-                    );
-                    JsonNode commentsNode = client.get()
-                            .uri(java.net.URI.create(commentsUrl))
-                            .retrieve()
-                            .bodyToMono(JsonNode.class)
-                            .block();
-
-                    log.info("FB Comments raw response for post {}: {}", postId, commentsNode);
-
-                    if (commentsNode != null && commentsNode.has("data")) {
-                        for (JsonNode commentNode : commentsNode.get("data")) {
+                    if (postNode.has("comments") && postNode.get("comments").has("data")) {
+                        for (JsonNode commentNode : postNode.get("comments").get("data")) {
                             parseFbComment(commentNode, postId, null, results);
                         }
                     }

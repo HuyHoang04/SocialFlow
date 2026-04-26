@@ -1,6 +1,8 @@
 package com.socialflow.controller;
 
 import com.socialflow.constants.ErrorMessages;
+import com.socialflow.service.WebhookEventService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -16,14 +18,20 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/webhook")
+@RequiredArgsConstructor
 @Slf4j
 public class WebhookController {
 
     @Value("${webhook.verify-token:socialflow_webhook_verify_2026}")
     private String verifyToken;
 
+    @Value("${oauth.facebook.client-secret:}")
+    private String facebookAppSecret;
+
     @Value("${oauth.linkedin.client-secret:}")
     private String linkedinClientSecret;
+
+    private final WebhookEventService webhookEventService;
 
     // ==================== FACEBOOK ====================
 
@@ -51,11 +59,36 @@ public class WebhookController {
 
     /**
      * Facebook Webhook Events (POST)
+     * Verifies X-Hub-Signature-256 then delegates to WebhookEventService.
      */
     @PostMapping("/facebook")
-    public ResponseEntity<String> handleFacebookEvent(@RequestBody String payload) {
-        log.info("Facebook webhook event received: {}", payload);
-        // TODO: Process webhook events
+    public ResponseEntity<String> handleFacebookEvent(
+            @RequestBody String payload,
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
+
+        log.info("[Webhook] Facebook event received, payload size={} bytes", payload.length());
+
+        // Verify HMAC-SHA256 signature if secret is configured
+        if (facebookAppSecret != null && !facebookAppSecret.isBlank() && signature != null) {
+            try {
+                String expected = "sha256=" + hmacSha256(payload, facebookAppSecret);
+                if (!expected.equals(signature)) {
+                    log.warn("[Webhook] Invalid Facebook signature! Expected={}", expected);
+                    return ResponseEntity.status(403).body("Invalid signature");
+                }
+            } catch (Exception e) {
+                log.error("[Webhook] Signature verification failed", e);
+            }
+        }
+
+        // Process asynchronously to return 200 to Facebook immediately
+        // (Facebook retries if we don't respond within 20 seconds)
+        try {
+            webhookEventService.processFacebookPayload(payload);
+        } catch (Exception e) {
+            log.error("[Webhook] Error processing Facebook payload", e);
+        }
+
         return ResponseEntity.ok("EVENT_RECEIVED");
     }
 

@@ -539,9 +539,25 @@ public class OAuthService {
                                 .platformPageId(platformPageId).platform(PlatformType.FACEBOOK)
                                 .connection(savedConn).build());
                 socialPage.setPageName(pageNode.get("name").asText());
-                socialPage.setPageAccessToken(pageNode.get("access_token").asText());
+                String pageAccessToken = pageNode.get("access_token").asText();
+                socialPage.setPageAccessToken(pageAccessToken);
                 pageRepository.save(socialPage);
                 pageCount++;
+
+                // Auto-subscribe page to webhook so realtime events are delivered immediately
+                try {
+                    fb.post()
+                        .uri(uri -> uri.path("/" + platformPageId + "/subscribed_apps")
+                            .queryParam("subscribed_fields", "messages,messaging_postbacks,feed,mention")
+                            .queryParam("access_token", pageAccessToken)
+                            .build())
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .subscribe(result -> log.info("Webhook subscribed for page {}: {}", platformPageId, result),
+                                   err -> log.warn("Webhook subscription failed for page {}: {}", platformPageId, err.getMessage()));
+                } catch (Exception e) {
+                    log.warn("Could not subscribe page {} to webhook: {}", platformPageId, e.getMessage());
+                }
             }
         }
 

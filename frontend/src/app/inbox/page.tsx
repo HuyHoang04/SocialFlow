@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
@@ -43,6 +43,8 @@ export default function InboxPage() {
     const [error, setError] = useState('');
     const [replyContent, setReplyContent] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
+    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const eventSourceRef = useRef<EventSource | null>(null);
 
     const loadInbox = useCallback(async () => {
         if (!brand) return;
@@ -58,6 +60,50 @@ export default function InboxPage() {
     }, [brand]);
 
     useEffect(() => { loadInbox(); }, [loadInbox]);
+
+    // ── SSE Realtime subscription ────────────────────────────────
+    useEffect(() => {
+        if (!brand) return;
+
+        // Close any previous connection
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+        }
+
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const url = `${backendUrl}/api/inbox/stream?brandId=${brand.id}`;
+        const es = new EventSource(url);
+        eventSourceRef.current = es;
+        setRealtimeStatus('connecting');
+
+        es.addEventListener('connected', () => {
+            setRealtimeStatus('connected');
+        });
+
+        es.addEventListener('new_message', (event) => {
+            try {
+                const newMsg: InboxMessage = JSON.parse(event.data);
+                setMessages(prev => {
+                    // Avoid duplicate
+                    if (prev.some(m => m.id === newMsg.id)) return prev;
+                    return [newMsg, ...prev];
+                });
+            } catch (e) {
+                console.error('[SSE] Failed to parse new_message', e);
+            }
+        });
+
+        es.onerror = () => {
+            setRealtimeStatus('disconnected');
+            // EventSource auto-reconnects; just update status
+        };
+
+        return () => {
+            es.close();
+            eventSourceRef.current = null;
+            setRealtimeStatus('disconnected');
+        };
+    }, [brand]);
 
     // Refresh selectedConversation when messages update
     useEffect(() => {
@@ -204,10 +250,24 @@ export default function InboxPage() {
                     <h1 className="page-title">Unified Inbox</h1>
                     <p className="page-subtitle">Engage with your audience across all platforms</p>
                 </div>
-                <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
-                    <IconRefreshCw size={16} />
-                    {syncing ? ' Syncing...' : ' Sync Inbox'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Realtime status indicator */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                        <span style={{
+                            width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
+                            background: realtimeStatus === 'connected' ? '#22c55e'
+                                      : realtimeStatus === 'connecting' ? '#f59e0b'
+                                      : '#6b7280',
+                            boxShadow: realtimeStatus === 'connected' ? '0 0 6px #22c55e88' : 'none',
+                            animation: realtimeStatus === 'connected' ? 'pulse 2s infinite' : 'none',
+                        }} />
+                        {realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+                    </div>
+                    <button className="btn btn-secondary" onClick={handleSync} disabled={syncing}>
+                        <IconRefreshCw size={16} />
+                        {syncing ? ' Syncing...' : ' Sync Inbox'}
+                    </button>
+                </div>
             </div>
 
             {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}

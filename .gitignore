@@ -22,3 +22,7 @@ frontend/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node Modules
+node_modules/
+

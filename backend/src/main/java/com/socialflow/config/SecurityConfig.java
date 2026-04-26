@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/oauth/*/callback").permitAll()
                 .requestMatchers("/api/webhook/**").permitAll()
+                .requestMatchers("/api/inbox/stream").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/media/**").permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
