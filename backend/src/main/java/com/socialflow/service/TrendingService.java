@@ -22,7 +22,7 @@ import java.util.*;
  */
 @Service
 @Slf4j
-public class TrendingService {
+public class TrendingService implements PlatformTrendingAdapter {
 
     private final TrendingDataRepository trendingDataRepository;
     private final RestTemplate restTemplate;
@@ -36,9 +36,15 @@ public class TrendingService {
         this.restTemplate = restTemplate;
     }
 
+    @Override
+    public String getSource() {
+        return "google";
+    }
+
     /**
      * Get trending searches from cache (database)
      */
+    @Override
     public List<Map<String, Object>> getTrendingFromCache(UUID brandId, String geo, String categoryId) {
         try {
             Optional<TrendingData> data;
@@ -72,6 +78,7 @@ public class TrendingService {
      * Get trending searches from Google Trends API and save full JSON array to database
      */
     @Transactional
+    @Override
     public List<Map<String, Object>> getTrendingFromAPI(UUID brandId, String geo, String categoryId) {
         try {
             log.info("Calling SerpAPI for brandId={}, geo={}, categoryId={}", brandId, geo, categoryId);

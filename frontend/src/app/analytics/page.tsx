@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
 
     const hasData = overview && (overview.totalPosts > 0 || overview.topPosts.length > 0);
 
-    // Best post for engagement bar scale
+    // Best post for engagement bar scale (using total interactions for visual volume)
     const maxEngagement = postAnalytics.length > 0
         ? Math.max(...postAnalytics.map(p => p.likes + p.comments + p.shares))
         : 1;

@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @Service
 @Slf4j
-public class FacebookTrendingService {
+public class FacebookTrendingService implements PlatformTrendingAdapter {
 
     private final TrendingDataRepository trendingDataRepository;
     private final RestTemplate restTemplate;
@@ -43,10 +43,16 @@ public class FacebookTrendingService {
         this.restTemplate = restTemplate;
     }
 
+    @Override
+    public String getSource() {
+        return SOURCE;
+    }
+
     /**
      * Get Facebook trending from cache (database)
      */
-    public List<Map<String, Object>> getFacebookTrendingFromCache(UUID brandId, String geo, String keyword) {
+    @Override
+    public List<Map<String, Object>> getTrendingFromCache(UUID brandId, String geo, String keyword) {
         try {
             Optional<TrendingData> data = trendingDataRepository
                     .findFirstByBrandIdAndGeoAndSourceAndSearchKeywordOrderByFetchedAtDesc(brandId, geo, SOURCE, keyword);
@@ -71,7 +77,8 @@ public class FacebookTrendingService {
      * Fetch Facebook trending posts from API and save as JSON
      */
     @Transactional
-    public List<Map<String, Object>> getFacebookTrendingFromAPI(UUID brandId, String geo, String keyword) {
+    @Override
+    public List<Map<String, Object>> getTrendingFromAPI(UUID brandId, String geo, String keyword) {
         try {
             log.info("Calling Facebook API for brandId={}, geo={}, keyword={}", brandId, geo, keyword);
             

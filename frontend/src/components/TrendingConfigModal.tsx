@@ -8,7 +8,7 @@ import styles from '@/styles/trending-config-modal.module.css';
 interface TrendingConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab?: 'google' | 'facebook';
+  defaultTab?: 'google' | 'facebook' | 'bluesky';
   /** Called after a successful save so the parent can re-fetch trending data. */
   onSaved?: () => void;
 }
@@ -44,10 +44,11 @@ export default function TrendingConfigModal({
   onSaved,
 }: TrendingConfigModalProps) {
   const { selectedBrand } = useBrand();
-  const [activeTab, setActiveTab] = useState<'google' | 'facebook'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'google' | 'facebook' | 'bluesky'>(defaultTab);
   const [geo, setGeo] = useState('VN');
   const [googleCategory, setGoogleCategory] = useState('');
   const [facebookKeyword, setFacebookKeyword] = useState('');
+  const [blueskyKeyword, setBlueskyKeyword] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [message, setMessage] = useState('');
@@ -70,8 +71,10 @@ export default function TrendingConfigModal({
           setGeo(config.geo || 'VN');
           if (activeTab === 'google') {
             setGoogleCategory(config.categoryId || '');
-          } else {
+          } else if (activeTab === 'facebook') {
             setFacebookKeyword(config.searchKeyword || '');
+          } else {
+            setBlueskyKeyword(config.searchKeyword || '');
           }
         }
       } catch {
@@ -108,7 +111,7 @@ export default function TrendingConfigModal({
         geo,
         source: activeTab,
         categoryId: activeTab === 'google' ? googleCategory : undefined,
-        searchKeyword: activeTab === 'facebook' ? facebookKeyword.trim() : undefined,
+        searchKeyword: activeTab === 'facebook' ? facebookKeyword.trim() : activeTab === 'bluesky' ? blueskyKeyword.trim() : undefined,
       });
 
       if (response?.success || response?.id) {
@@ -150,6 +153,12 @@ export default function TrendingConfigModal({
           >
             👥 Facebook Posts
           </button>
+          <button
+            className={`${styles.tab} ${activeTab === 'bluesky' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('bluesky')}
+          >
+            🦋 Bluesky Trends
+          </button>
         </div>
 
         <div className={styles.content}>
@@ -176,7 +185,7 @@ export default function TrendingConfigModal({
                     ))}
                   </select>
                 </div>
-              ) : (
+              ) : activeTab === 'facebook' ? (
                 <div className={styles.field}>
                   <label>Search Keyword</label>
                   <input
@@ -187,6 +196,19 @@ export default function TrendingConfigModal({
                   />
                   <small style={{ color: '#888', marginTop: 4, display: 'block' }}>
                     This keyword will be used every time Facebook trending is fetched.
+                  </small>
+                </div>
+              ) : (
+                <div className={styles.field}>
+                  <label>Search Keyword (Optional)</label>
+                  <input
+                    type="text"
+                    value={blueskyKeyword}
+                    onChange={(e) => setBlueskyKeyword(e.target.value)}
+                    placeholder="Leave blank for global trends"
+                  />
+                  <small style={{ color: '#888', marginTop: 4, display: 'block' }}>
+                    Leave this blank to fetch global trends via Bluesky public API. If you specify a keyword, it will be used to search for posts.
                   </small>
                 </div>
               )}

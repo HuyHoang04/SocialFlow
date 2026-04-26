@@ -12,4 +12,6 @@ public interface SocialConnectionRepository extends JpaRepository<SocialConnecti
 
     // For upsert: find existing connection by brand + platform + accountId
     Optional<SocialConnection> findByBrandIdAndPlatformAndAccountId(UUID brandId, PlatformType platform, String accountId);
+
+    boolean existsByBrandIdAndPlatform(UUID brandId, PlatformType platform);
 }

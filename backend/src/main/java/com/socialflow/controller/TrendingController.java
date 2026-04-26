@@ -4,7 +4,7 @@ import com.socialflow.dto.TrendingConfigRequest;
 import com.socialflow.dto.TrendingConfigResponse;
 import com.socialflow.dto.TrendingRequest;
 import com.socialflow.dto.TrendingResponse;
-import com.socialflow.service.FacebookTrendingService;
+import com.socialflow.service.PlatformTrendingAdapter;
 import com.socialflow.service.TrendingConfigService;
 import com.socialflow.service.TrendingService;
 import jakarta.validation.Valid;
@@ -24,168 +24,172 @@ import java.util.UUID;
 @Slf4j
 public class TrendingController {
 
-    private final TrendingService trendingService;
-    private final FacebookTrendingService facebookTrendingService;
+    private final List<PlatformTrendingAdapter> adapters;
     private final TrendingConfigService configService;
+    private final TrendingService trendingService;
+    private final com.socialflow.repository.SocialConnectionRepository connectionRepository;
 
-    // ============= GOOGLE TRENDS =============
+    private PlatformTrendingAdapter getAdapter(String source) {
+        return adapters.stream()
+                .filter(a -> a.getSource().equalsIgnoreCase(source))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown trending source: " + source));
+    }
 
-    /** Fetch Google trending from cache using saved config for this brand. */
+    /** Fetch trending from cache using saved config for this brand. */
+    @PostMapping("/{source}/search")
+    public ResponseEntity<TrendingResponse> search(@PathVariable String source, @Valid @RequestBody TrendingRequest request) {
+        try {
+            validateBrandId(request.getBrandId());
+            
+            // Check if user has connection for social platforms
+            if ("facebook".equalsIgnoreCase(source) || "bluesky".equalsIgnoreCase(source)) {
+                com.socialflow.model.enums.PlatformType platform = "facebook".equalsIgnoreCase(source) 
+                        ? com.socialflow.model.enums.PlatformType.FACEBOOK 
+                        : com.socialflow.model.enums.PlatformType.BLUESKY;
+                
+                boolean hasConnection = connectionRepository.existsByBrandIdAndPlatform(request.getBrandId(), platform);
+                if (!hasConnection) {
+                    return ResponseEntity.ok(TrendingResponse.builder()
+                            .success(false)
+                            .error("You need to connect your " + source + " account first.")
+                            .build());
+                }
+            }
+
+            PlatformTrendingAdapter adapter = getAdapter(source);
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), source);
+            if (config == null) {
+                // For Bluesky we might not need config, but we still require users to have one if they use the UI,
+                // or we can fallback to default. Let's assume config is required.
+                log.warn("No {} config found for brandId={}", source, request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No " + source + " config found. Please click ⚙️ Configure to set up first.")
+                        .build());
+            }
+
+            String keywordOrCategory = "google".equalsIgnoreCase(source) ? config.getCategoryId() : config.getSearchKeyword();
+            if (!"google".equalsIgnoreCase(source) && !"bluesky".equalsIgnoreCase(source) && (keywordOrCategory == null || keywordOrCategory.isBlank())) {
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No keyword configured for " + source + ".")
+                        .build());
+            }
+
+            if (keywordOrCategory == null) {
+                keywordOrCategory = "";
+            }
+
+            log.info("Fetching {} trending from cache: brandId={}, geo={}, keywordOrCategory={}",
+                    source, request.getBrandId(), config.getGeo(), keywordOrCategory);
+
+            List<Map<String, Object>> data = adapter.getTrendingFromCache(
+                    request.getBrandId(), config.getGeo(), keywordOrCategory);
+
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .configFound(true)
+                    .trendingSearches(data)
+                    .geo(config.getGeo())
+                    .categoryId(config.getCategoryId())
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Error fetching {} trending", source, e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
+                    .success(false).error(e.getMessage()).build());
+        }
+    }
+
+    /** Refresh trending from API using saved config. */
+    @PostMapping("/{source}/search/refresh")
+    public ResponseEntity<TrendingResponse> refresh(@PathVariable String source, @Valid @RequestBody TrendingRequest request) {
+        try {
+            validateBrandId(request.getBrandId());
+            
+            // Check if user has connection for social platforms
+            if ("facebook".equalsIgnoreCase(source) || "bluesky".equalsIgnoreCase(source)) {
+                com.socialflow.model.enums.PlatformType platform = "facebook".equalsIgnoreCase(source) 
+                        ? com.socialflow.model.enums.PlatformType.FACEBOOK 
+                        : com.socialflow.model.enums.PlatformType.BLUESKY;
+                
+                boolean hasConnection = connectionRepository.existsByBrandIdAndPlatform(request.getBrandId(), platform);
+                if (!hasConnection) {
+                    return ResponseEntity.ok(TrendingResponse.builder()
+                            .success(false)
+                            .error("You need to connect your " + source + " account first.")
+                            .build());
+                }
+            }
+
+            PlatformTrendingAdapter adapter = getAdapter(source);
+            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), source);
+            if (config == null) {
+                log.warn("No {} config found for brandId={}", source, request.getBrandId());
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No " + source + " config found. Please click ⚙️ Configure to set up first.")
+                        .build());
+            }
+
+            String keywordOrCategory = "google".equalsIgnoreCase(source) ? config.getCategoryId() : config.getSearchKeyword();
+            if (!"google".equalsIgnoreCase(source) && !"bluesky".equalsIgnoreCase(source) && (keywordOrCategory == null || keywordOrCategory.isBlank())) {
+                return ResponseEntity.ok(TrendingResponse.builder()
+                        .success(false)
+                        .configFound(false)
+                        .error("No keyword configured for " + source + ".")
+                        .build());
+            }
+
+            if (keywordOrCategory == null) {
+                keywordOrCategory = "";
+            }
+
+            log.info("Refreshing {} trending from API: brandId={}, geo={}, keywordOrCategory={}",
+                    source, request.getBrandId(), config.getGeo(), keywordOrCategory);
+
+            List<Map<String, Object>> data = adapter.getTrendingFromAPI(
+                    request.getBrandId(), config.getGeo(), keywordOrCategory);
+
+            return ResponseEntity.ok(TrendingResponse.builder()
+                    .success(!data.isEmpty())
+                    .configFound(true)
+                    .trendingSearches(data)
+                    .geo(config.getGeo())
+                    .categoryId(config.getCategoryId())
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Error refreshing {} trending", source, e);
+            return ResponseEntity.badRequest().body(TrendingResponse.builder()
+                    .success(false).error(e.getMessage()).build());
+        }
+    }
+
+    // Keep backwards compatibility for frontend temporarily if needed, 
+    // but the instruction says to refactor and update frontend.
     @PostMapping("/search")
-    public ResponseEntity<TrendingResponse> getTrendingSearches(@Valid @RequestBody TrendingRequest request) {
-        try {
-            validateBrandId(request.getBrandId());
-
-            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "google");
-            if (config == null) {
-                log.warn("No Google config found for brandId={}", request.getBrandId());
-                return ResponseEntity.ok(TrendingResponse.builder()
-                        .success(false)
-                        .configFound(false)
-                        .error("No Google Trends config found. Please click ⚙️ Configure to set up first.")
-                        .build());
-            }
-
-            log.info("Fetching Google trending from cache: brandId={}, geo={}, categoryId={}",
-                    request.getBrandId(), config.getGeo(), config.getCategoryId());
-
-            List<Map<String, Object>> data = trendingService.getTrendingFromCache(
-                    request.getBrandId(), config.getGeo(), config.getCategoryId());
-
-            return ResponseEntity.ok(TrendingResponse.builder()
-                    .success(!data.isEmpty())
-                    .configFound(true)
-                    .trendingSearches(data)
-                    .geo(config.getGeo())
-                    .categoryId(config.getCategoryId())
-                    .build());
-
-        } catch (Exception e) {
-            log.error("Error fetching Google trending", e);
-            return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false).error(e.getMessage()).build());
-        }
+    public ResponseEntity<TrendingResponse> getTrendingSearchesOld(@Valid @RequestBody TrendingRequest request) {
+        return search("google", request);
     }
 
-    /** Refresh Google trending from SerpAPI using saved config. */
     @PostMapping("/search/refresh")
-    public ResponseEntity<TrendingResponse> refreshTrendingSearches(@Valid @RequestBody TrendingRequest request) {
-        try {
-            validateBrandId(request.getBrandId());
-
-            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "google");
-            if (config == null) {
-                log.warn("No Google config found for brandId={}", request.getBrandId());
-                return ResponseEntity.ok(TrendingResponse.builder()
-                        .success(false)
-                        .configFound(false)
-                        .error("No Google Trends config found. Please click ⚙️ Configure to set up first.")
-                        .build());
-            }
-
-            log.info("Refreshing Google trending from API: brandId={}, geo={}, categoryId={}",
-                    request.getBrandId(), config.getGeo(), config.getCategoryId());
-
-            List<Map<String, Object>> data = trendingService.getTrendingFromAPI(
-                    request.getBrandId(), config.getGeo(), config.getCategoryId());
-
-            return ResponseEntity.ok(TrendingResponse.builder()
-                    .success(!data.isEmpty())
-                    .configFound(true)
-                    .trendingSearches(data)
-                    .geo(config.getGeo())
-                    .categoryId(config.getCategoryId())
-                    .build());
-
-        } catch (Exception e) {
-            log.error("Error refreshing Google trending", e);
-            return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false).error(e.getMessage()).build());
-        }
+    public ResponseEntity<TrendingResponse> refreshTrendingSearchesOld(@Valid @RequestBody TrendingRequest request) {
+        return refresh("google", request);
     }
 
-    @PostMapping("/search/default")
-    public ResponseEntity<TrendingResponse> getTrendingDefault() {
-        return getTrendingSearches(TrendingRequest.builder().geo("VN").build());
-    }
-
-    @PostMapping("/search/refresh/default")
-    public ResponseEntity<TrendingResponse> refreshTrendingDefault() {
-        return refreshTrendingSearches(TrendingRequest.builder().geo("VN").build());
-    }
-
-    // ============= FACEBOOK TRENDS =============
-
-    /** Fetch Facebook trending from cache using saved config (keyword + geo). */
     @PostMapping("/facebook/search")
-    public ResponseEntity<TrendingResponse> searchFacebook(@Valid @RequestBody TrendingRequest request) {
-        try {
-            validateBrandId(request.getBrandId());
-
-            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "facebook");
-            if (config == null || config.getSearchKeyword() == null || config.getSearchKeyword().isBlank()) {
-                log.warn("No Facebook config (or missing keyword) for brandId={}", request.getBrandId());
-                return ResponseEntity.ok(TrendingResponse.builder()
-                        .success(false)
-                        .configFound(false)
-                        .error("No Facebook config found. Please click ⚙️ Configure and enter a search keyword.")
-                        .build());
-            }
-
-            log.info("Fetching Facebook trending from cache: brandId={}, geo={}, keyword={}",
-                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
-
-            List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromCache(
-                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
-
-            return ResponseEntity.ok(TrendingResponse.builder()
-                    .success(!data.isEmpty())
-                    .configFound(true)
-                    .trendingSearches(data)
-                    .geo(config.getGeo())
-                    .build());
-
-        } catch (Exception e) {
-            log.error("Error fetching Facebook trending", e);
-            return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false).error(e.getMessage()).build());
-        }
+    public ResponseEntity<TrendingResponse> searchFacebookOld(@Valid @RequestBody TrendingRequest request) {
+        return search("facebook", request);
     }
 
-    /** Refresh Facebook trending from API using saved config (keyword + geo). */
     @PostMapping("/facebook/search/refresh")
-    public ResponseEntity<TrendingResponse> refreshFacebook(@Valid @RequestBody TrendingRequest request) {
-        try {
-            validateBrandId(request.getBrandId());
-
-            TrendingConfigResponse config = configService.getConfigByBrandAndSource(request.getBrandId(), "facebook");
-            if (config == null || config.getSearchKeyword() == null || config.getSearchKeyword().isBlank()) {
-                log.warn("No Facebook config (or missing keyword) for brandId={}", request.getBrandId());
-                return ResponseEntity.ok(TrendingResponse.builder()
-                        .success(false)
-                        .configFound(false)
-                        .error("No Facebook config found. Please click ⚙️ Configure and enter a search keyword.")
-                        .build());
-            }
-
-            log.info("Refreshing Facebook trending from API: brandId={}, geo={}, keyword={}",
-                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
-
-            List<Map<String, Object>> data = facebookTrendingService.getFacebookTrendingFromAPI(
-                    request.getBrandId(), config.getGeo(), config.getSearchKeyword());
-
-            return ResponseEntity.ok(TrendingResponse.builder()
-                    .success(!data.isEmpty())
-                    .configFound(true)
-                    .trendingSearches(data)
-                    .geo(config.getGeo())
-                    .build());
-
-        } catch (Exception e) {
-            log.error("Error refreshing Facebook trending", e);
-            return ResponseEntity.badRequest().body(TrendingResponse.builder()
-                    .success(false).error(e.getMessage()).build());
-        }
+    public ResponseEntity<TrendingResponse> refreshFacebookOld(@Valid @RequestBody TrendingRequest request) {
+        return refresh("facebook", request);
     }
 
     // ============= CONFIG MANAGEMENT =============

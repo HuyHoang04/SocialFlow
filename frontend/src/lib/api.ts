@@ -95,6 +95,8 @@ export const api = {
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
 
+    getBrandConnections: (brandId: string) => request(`/brands/${brandId}/connections`),
+
     // Facebook SDK connect (sends token from FB.login popup)
     facebookConnect: (data: { accessToken: string; brandId: string }) =>
         request('/oauth/facebook/connect', { method: 'POST', body: JSON.stringify(data) }),
@@ -310,21 +312,23 @@ export const api = {
 
     // ============= TRENDING ENDPOINTS =============
 
-    // Fetch Google trending from cache (uses saved config for this brand — no need to send geo/category)
     getTrendingSearches: (data: { brand_id: string }) =>
-        request('/trending/search', { method: 'POST', body: JSON.stringify(data) }),
+        request('/trending/google/search', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Refresh Google trending from SerpAPI (uses saved config)
     refreshTrendingSearches: (data: { brand_id: string }) =>
-        request('/trending/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
+        request('/trending/google/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Fetch Facebook trending from cache (uses saved config — keyword resolved server-side)
     searchFacebookTrending: (data: { brand_id: string }) =>
         request('/trending/facebook/search', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Refresh Facebook trending from API (uses saved config)
     refreshFacebookTrending: (data: { brand_id: string }) =>
         request('/trending/facebook/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
+
+    searchBlueskyTrending: (data: { brand_id: string }) =>
+        request('/trending/bluesky/search', { method: 'POST', body: JSON.stringify(data) }),
+
+    refreshBlueskyTrending: (data: { brand_id: string }) =>
+        request('/trending/bluesky/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 
     // Cleanup old trending data
     cleanupTrendingData: () => request('/trending/cleanup', { method: 'POST' }),
