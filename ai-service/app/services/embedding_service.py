@@ -84,11 +84,12 @@ class EmbeddingService:
             # Use OpenRouter (primary and only option)
             logger.info("Using OpenRouter for embeddings")
             
-            # Determine which model to use based on ENABLE_EMBBED_FALLBACK flag
+            # Determine which model to use
             if not model:
                 if ENABLE_EMBBED_FALLBACK:
-                    model = "nvidia/llama-nemotron-embed-vl-1b-v2"  # FREE multimodal model
-                    logger.info("Using FREE default embedding model (ENABLE_EMBBED_FALLBACK=true)")
+                    from app.config import DEFAULT_EMBEDDING_MODEL
+                    model = DEFAULT_EMBEDDING_MODEL
+                    logger.info(f"Using default embedding model: {model}")
                 else:
                     logger.error("Model not specified and ENABLE_EMBBED_FALLBACK is disabled")
                     raise Exception("Model is required when ENABLE_EMBBED_FALLBACK=false. Please specify a model explicitly.")

@@ -16,9 +16,13 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.socialflow.model.AiModelConfig;
 import com.socialflow.ai.dto.*;
 
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 
 /**
@@ -47,6 +51,8 @@ import java.util.Optional;
 public class AiServiceClient {
     
     private final RestTemplate restTemplate;
+    private final AiModelConfigService aiModelConfigService;
+    private final ObjectMapper objectMapper;
     
     @Value("${ai.service.url:http://localhost:5000}")
     private String pythonServiceUrl;
@@ -59,11 +65,12 @@ public class AiServiceClient {
      */
     public ContentResponse generateContent(ContentRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /generate-content | Provider: {} | Model: {} | Max Words: {}", 
-                     request.getProvider(), request.getModel(), request.getMaxWords());
+            log.info("Calling Python AI Service: POST /generate-content | Max Words: {}", 
+                     request.getMaxWords());
             
             String url = pythonServiceUrl + "/generate-content";
-            HttpEntity<ContentRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "text");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<ContentResponse> response = restTemplate.exchange(
                 url,
@@ -92,11 +99,12 @@ public class AiServiceClient {
      */
     public RewriteResponse rewriteContent(RewriteRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /rewrite-content | Provider: {} | Model: {} | Max Words: {}", 
-                     request.getProvider(), request.getModel(), request.getMaxWords());
+            log.info("Calling Python AI Service: POST /rewrite-content | Max Words: {}", 
+                     request.getMaxWords());
             
             String url = pythonServiceUrl + "/rewrite-content";
-            HttpEntity<RewriteRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "text");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<RewriteResponse> response = restTemplate.exchange(
                 url,
@@ -125,11 +133,12 @@ public class AiServiceClient {
      */
     public KeywordOptimizationResponse optimizeKeywords(KeywordOptimizationRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /optimize-keywords | Provider: {} | Model: {} | Max Words: {}", 
-                     request.getProvider(), request.getModel(), request.getMaxWords());
+            log.info("Calling Python AI Service: POST /optimize-keywords | Max Words: {}", 
+                     request.getMaxWords());
             
             String url = pythonServiceUrl + "/optimize-keywords";
-            HttpEntity<KeywordOptimizationRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "text");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<KeywordOptimizationResponse> response = restTemplate.exchange(
                 url,
@@ -161,11 +170,11 @@ public class AiServiceClient {
      */
     public ImageGenerationResponse generateImage(ImageGenerationRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /generate-image | Provider: {} | Model: {}", 
-                     request.getProvider(), request.getModel());
+            log.info("Calling Python AI Service: POST /generate-image");
             
             String url = pythonServiceUrl + "/generate-image";
-            HttpEntity<ImageGenerationRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "image");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<ImageGenerationResponse> response = restTemplate.exchange(
                 url,
@@ -195,11 +204,12 @@ public class AiServiceClient {
      */
     public EmbeddingResponse generateEmbeddings(EmbeddingRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /embed | Texts: {} | Model: {}", 
-                     request.getTexts().size(), request.getModel());
+            log.info("Calling Python AI Service: POST /embed | Texts: {}", 
+                     request.getTexts().size());
             
             String url = pythonServiceUrl + "/embed";
-            HttpEntity<EmbeddingRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "embedding");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<EmbeddingResponse> response = restTemplate.exchange(
                 url,
@@ -351,10 +361,10 @@ public class AiServiceClient {
      * POST /rag/upload?brand_id=...&category=...&provider=...&model=...
      * Multipart form data: file
      */
-    public RagUploadResponse uploadToRag(String brandId, String category, byte[] fileContent, String fileName, String provider, String model) {
+    public RagUploadResponse uploadToRag(String brandId, String category, byte[] fileContent, String fileName) {
         try {
-            log.info("Calling Python AI Service: POST /rag/upload | Brand: {} | File: {} | Size: {} bytes | Provider: {} | Model: {}", 
-                     brandId, fileName, fileContent.length, provider, model);
+            log.info("Calling Python AI Service: POST /rag/upload | Brand: {} | File: {} | Size: {} bytes", 
+                     brandId, fileName, fileContent.length);
             
             // Build URL with all query parameters
             String url = pythonServiceUrl + "/rag/upload?brand_id=" + brandId;
@@ -363,12 +373,10 @@ public class AiServiceClient {
                 url += "&category=" + category;
             }
             
-            if (provider != null && !provider.isEmpty()) {
-                url += "&provider=" + provider;
-            }
-            
-            if (model != null && !model.isEmpty()) {
-                url += "&model=" + model;
+            AiModelConfig config = aiModelConfigService.getConfigByBrandIdStr(brandId);
+            if (config != null) {
+                if (config.getEmbeddingProvider() != null) url += "&provider=" + config.getEmbeddingProvider();
+                if (config.getEmbeddingModel() != null) url += "&model=" + config.getEmbeddingModel();
             }
             
             log.info("Request URL: {}", url);
@@ -430,7 +438,8 @@ public class AiServiceClient {
                      request.getBrandId(), request.getQuery(), request.getLimit());
             
             String url = pythonServiceUrl + "/rag/search";
-            HttpEntity<RagSearchRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "embedding");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<RagSearchResponse> response = restTemplate.exchange(
                 url,
@@ -556,11 +565,12 @@ public class AiServiceClient {
      */
     public RagGenerateContentResponse generateContentWithRag(RagGenerateContentRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /rag/generate-content | Brand: {} | Provider: {} | Model: {}", 
-                     request.getBrandId(), request.getProvider(), request.getModel());
+            log.info("Calling Python AI Service: POST /rag/generate-content | Brand: {}", 
+                     request.getBrandId());
             
             String url = pythonServiceUrl + "/rag/generate-content";
-            HttpEntity<RagGenerateContentRequest> entity = new HttpEntity<>(request, getHeaders());
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "rag");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<RagGenerateContentResponse> response = restTemplate.exchange(
                 url,
@@ -589,11 +599,11 @@ public class AiServiceClient {
      */
     public RagGenerateContentResponse generateContentWithRagAndImages(RagGenerateContentRequest request) {
         try {
-            log.info("Calling Python AI Service: POST /rag/generate-content | Brand: {} | Provider: {} | Model: {}", 
-                     request.getBrandId(), request.getProvider(), request.getModel());
+            log.info("Calling Python AI Service: POST /rag/generate-with-images | Brand: {}", request.getBrandId());
             
-            String url = pythonServiceUrl + "/rag/generate-content";
-            HttpEntity<RagGenerateContentRequest> entity = new HttpEntity<>(request, getHeaders());
+            String url = pythonServiceUrl + "/rag/generate-with-images";
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "rag");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
             
             ResponseEntity<RagGenerateContentResponse> response = restTemplate.exchange(
                 url,
@@ -614,6 +624,70 @@ public class AiServiceClient {
         }
     }
     
+    // ==================== CHAT ENDPOINTS ====================
+    
+    /**
+     * Send message to AI Chat
+     * POST /chat/send
+     */
+    public ChatResponse sendChatMessage(ChatRequest request) {
+        try {
+            log.info("Calling Python AI Service: POST /chat/send | Brand: {} | User: {} | Session: {}", 
+                     request.getBrandId(), request.getUserId(), request.getSessionId());
+            
+            String url = pythonServiceUrl + "/chat/send";
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "chat");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
+            
+            ResponseEntity<ChatResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                ChatResponse.class
+            );
+            
+            log.info("✓ Chat message sent successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Chat message failed: {}", e.getMessage());
+            return ChatResponse.builder()
+                .success(false)
+                .error("Failed to call Python chat service: " + e.getMessage())
+                .build();
+        }
+    }
+    
+    /**
+     * Get chat session history
+     * GET /chat/session/{session_id}
+     */
+    public Object getChatHistory(String sessionId) {
+        try {
+            log.info("Calling Python AI Service: GET /chat/session/{}", sessionId);
+            
+            String url = pythonServiceUrl + "/chat/session/" + sessionId;
+            
+            ResponseEntity<Object> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(getHeaders()),
+                Object.class
+            );
+            
+            log.info("✓ Get chat history successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Get chat history failed: {}", e.getMessage());
+            return Map.of(
+                "success", false,
+                "error", "Failed to call Python chat service: " + e.getMessage()
+            );
+        }
+    }
+    
+
     // ==================== HELPER METHODS ====================
     
     /**
@@ -624,5 +698,43 @@ public class AiServiceClient {
         headers.set("Content-Type", "application/json");
         headers.set("Accept", "application/json");
         return headers;
+    }
+    
+    /**
+     * Helper to inject AI configuration into request map
+     */
+    private Map<String, Object> injectConfig(Object request, String brandId, String type) {
+        Map<String, Object> map = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
+        
+        if (brandId != null && !brandId.isEmpty()) {
+            AiModelConfig config = aiModelConfigService.getConfigByBrandIdStr(brandId);
+            if (config != null) {
+                // Primary model injection (provider/model)
+                if ("text".equals(type) || "chat".equals(type) || "rag".equals(type)) {
+                    if (config.getTextProvider() != null) map.put("provider", config.getTextProvider());
+                    if (config.getTextModel() != null) map.put("model", config.getTextModel());
+                } else if ("image".equals(type)) {
+                    if (config.getImageProvider() != null) map.put("provider", config.getImageProvider());
+                    if (config.getImageModel() != null) map.put("model", config.getImageModel());
+                } else if ("embedding".equals(type)) {
+                    if (config.getEmbeddingProvider() != null) map.put("provider", config.getEmbeddingProvider());
+                    if (config.getEmbeddingModel() != null) map.put("model", config.getEmbeddingModel());
+                }
+                
+                // Agent/Sidekick models for multi-modal endpoints
+                if ("chat".equals(type)) {
+                    if (config.getImageProvider() != null) map.put("image_provider", config.getImageProvider());
+                    if (config.getImageModel() != null) map.put("image_model", config.getImageModel());
+                    if (config.getEmbeddingProvider() != null) map.put("embedding_provider", config.getEmbeddingProvider());
+                    if (config.getEmbeddingModel() != null) map.put("embedding_model", config.getEmbeddingModel());
+                }
+                
+                if ("rag".equals(type)) {
+                    if (config.getEmbeddingProvider() != null) map.put("embedding_provider", config.getEmbeddingProvider());
+                    if (config.getEmbeddingModel() != null) map.put("embedding_model", config.getEmbeddingModel());
+                }
+            }
+        }
+        return map;
     }
 }

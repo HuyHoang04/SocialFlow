@@ -26,7 +26,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Default Models
 DEFAULT_GROQ_MODEL = "llama-3.1-70b-versatile"
-DEFAULT_OPENROUTER_MODEL = "auto"
+DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free"
+DEFAULT_EMBEDDING_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free"
 FALLBACK_OPENROUTER_MODEL = "qwen/qwen3.6-plus:free"  # Free model for fallback
 
 # Costs (in USD per 1M tokens)
@@ -37,7 +38,7 @@ OPENROUTER_OUTPUT_COST = 15.0 / 1_000_000
 
 # API Settings
 GROQ_MAX_TOKENS = 500
-OPENROUTER_MAX_TOKENS = 500
+OPENROUTER_MAX_TOKENS = 1500
 DEFAULT_TEMPERATURE = 0.7
 
 # Image Model Defaults

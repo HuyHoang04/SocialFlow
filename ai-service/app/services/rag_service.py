@@ -10,6 +10,9 @@ import re
 from app.database import get_db_client
 from app.utils.logger import setup_logger
 from app.services.embedding_service import EmbeddingService
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from app.prompts import format_rag_variation_prompt
+from app.config import DEFAULT_OPENROUTER_MODEL # Import defaults
 
 logger = setup_logger(__name__)
 
@@ -24,35 +27,24 @@ class RagService:
     
     def chunk_text(self, text: str, chunk_size: int = 512, overlap: int = 102) -> List[str]:
         """
-        Split text into overlapping chunks for embedding.
-        Approximation: 1 token ≈ 4 characters
+        Split text into overlapping chunks for embedding using LangChain's
+        RecursiveCharacterTextSplitter for better semantic integrity.
+        Approximate token conversion: 1 token ≈ 4 characters
         """
         if not text:
             return []
         
-        # Estimate tokens from characters (rough approximation)
-        char_per_token = 4
-        chunk_size_chars = chunk_size * char_per_token
-        overlap_chars = overlap * char_per_token
+        # Convert tokens to characters for the splitter
+        chunk_size_chars = chunk_size * 4
+        overlap_chars = overlap * 4
         
-        chunks = []
-        start = 0
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size_chars,
+            chunk_overlap=overlap_chars,
+            separators=["\n\n", "\n", " ", ""]
+        )
         
-        while start < len(text):
-            end = min(start + chunk_size_chars, len(text))
-            chunk = text[start:end].strip()
-            
-            if chunk:
-                chunks.append(chunk)
-            
-            # Move start position with overlap
-            start = end - overlap_chars
-            
-            # Stop if we've reached the end or would only get tiny chunks
-            if end >= len(text) or (len(text) - end) < 100:
-                break
-        
-        return chunks
+        return splitter.split_text(text)
     
     def save_library_item(
         self,
@@ -72,6 +64,11 @@ class RagService:
         try:
             cursor = conn.cursor()
             
+            # Safeguard: Validate category against DB constraints
+            valid_categories = ['BRAND_GUIDELINES', 'POST_TEMPLATES', 'CUSTOMER_FEEDBACK', 'FAQ', 'COMPETITOR_ANALYSIS', 'MEDIA_ASSETS', 'OTHER']
+            if category not in valid_categories:
+                category = 'OTHER'
+                
             library_id = str(uuid.uuid4())
             
             logger.info(f"Saving library item: {library_id}")
@@ -126,8 +123,8 @@ class RagService:
         brand_id: str,
         library_item_id: str,
         extracted_text: str,
-        model: str,
-        provider: str = "openrouter"
+        model: Optional[str] = None,
+        provider: Optional[str] = None
     ) -> Tuple[int, int]:
         """
         Chunk text and generate embeddings for all chunks.
@@ -171,7 +168,9 @@ class RagService:
                     brand_id=brand_id,
                     library_item_id=library_item_id,
                     chunks=chunks,
-                    embeddings=embeddings
+                    embeddings=embeddings,
+                    model=model or embedding_response.get("model"),
+                    provider=provider or embedding_response.get("provider")
                 )
                 logger.info(f"_save_chunk_embeddings returned: {saved_count} saved")
                 
@@ -191,7 +190,9 @@ class RagService:
         brand_id: str,
         library_item_id: str,
         chunks: List[str],
-        embeddings: List[List[float]]
+        embeddings: List[List[float]],
+        model: str = None,
+        provider: str = None
     ) -> int:
         """Save chunk embeddings to rag_embedding table"""
         logger.info(f"_save_chunk_embeddings called: {len(chunks)} chunks, {len(embeddings)} embeddings")
@@ -222,6 +223,8 @@ class RagService:
                         chunk_id,
                         chunk_text,
                         vector_str,  # pgvector format
+                        model,
+                        provider,
                         json.dumps({"chunk_position": chunk_id, "word_count": len(chunk_text.split())})
                     ))
             
@@ -233,8 +236,8 @@ class RagService:
             
             insert_sql = """
                 INSERT INTO rag_embedding 
-                (id, brand_id, library_item_id, chunk_id, chunk_text, embedding, metadata)
-                VALUES (%s, %s, %s, %s, %s, %s::vector, %s)
+                (id, brand_id, library_item_id, chunk_id, chunk_text, embedding, model, provider, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s::vector, %s, %s, %s)
             """
             
             cursor.executemany(insert_sql, embedding_records)
@@ -263,177 +266,167 @@ class RagService:
                     conn.close()
                 except:
                     pass
-    
+
     async def search_similar_chunks(
         self,
         brand_id: str,
         query_text: str,
         limit: int = 5,
         threshold: float = 0.3,
-        model: str = "nvidia/llama-nemotron-embed-vl-1b-v2"
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        use_multi_query: bool = True
     ) -> List[Dict[str, Any]]:
         """
-        Search for similar content chunks using embedding similarity.
-        Uses cosine similarity via pgvector.
-        Note: threshold default is 0.3 because cosine distance for multimodal embeddings
-        produces lower scores than typical text-only models.
+        Search for similar content chunks using Multi-Query strategy.
+        Generates variations of the query to broaden search results.
         """
         try:
             if not query_text:
-                logger.warning("Empty query text")
                 return []
-            
-            # Get embedding for query
-            query_response = await self.embedding_service.embed(
-                brand_id=brand_id,
-                texts=[query_text],
-                model=model,
-                provider="openrouter"
-            )
-            
-            if not query_response.get("success"):
-                logger.error(f"Query embedding failed: {query_response.get('error')}")
-                return []
-            
-            query_embeddings = query_response.get("embeddings", [])
-            if not query_embeddings:
-                logger.warning("No embeddings returned for query")
-                return []
-            
-            query_vector = query_embeddings[0]
-            logger.info(f"🔍 Query vector: {len(query_vector)} dimensions, first 5 values: {query_vector[:5]}")
-            
-            # Convert to pgvector format
-            vector_str = '[' + ', '.join(str(v) for v in query_vector) + ']'
-            logger.debug(f"Vector string length: {len(vector_str)} chars")
-            
-            db_client = get_db_client()
-            conn = db_client.get_connection()
-            cursor = None
-            try:
-                cursor = conn.cursor()
-                
-                # First, check how many embeddings exist for this brand
-                check_sql = "SELECT COUNT(*) FROM rag_embedding WHERE brand_id = %s"
-                cursor.execute(check_sql, (brand_id,))
-                count_result = cursor.fetchone()
-                embedding_count = count_result[0] if count_result else 0
-                logger.info(f"📊 Total embeddings in database for brand {brand_id}: {embedding_count}")
-                
-                # DEBUG: Get top results regardless of threshold to see actual similarity scores
-                debug_sql = """
-                    SELECT 
-                        chunk_id,
-                        chunk_text,
-                        (1 - (embedding <-> %s::vector) / 2) AS similarity
-                    FROM rag_embedding
-                    WHERE brand_id = %s
-                    ORDER BY similarity DESC
-                    LIMIT 10
-                """
-                logger.info(f"🔍 DEBUG: Checking top 10 similarity scores (no threshold filter)...")
-                cursor.execute(debug_sql, (vector_str, brand_id))
-                debug_rows = cursor.fetchall()
-                if debug_rows:
-                    for i, debug_row in enumerate(debug_rows):
-                        logger.info(f"  [{i+1}] chunk_id={debug_row[0]}, text={debug_row[1][:50]}..., similarity={debug_row[2]:.4f}")
-                else:
-                    logger.warning(f"  No results even without threshold!")
-                
-                # Search using cosine similarity
-                search_sql = """
-                    SELECT 
-                        id,
-                        library_item_id,
-                        chunk_id,
-                        chunk_text,
-                        (1 - (embedding <-> %s::vector) / 2) AS similarity,
-                        metadata,
-                        created_at
-                    FROM rag_embedding
-                    WHERE brand_id = %s
-                    AND (1 - (embedding <-> %s::vector) / 2) >= %s
-                    ORDER BY similarity DESC
-                    LIMIT %s
-                """
-                
-                logger.info(f"🔎 Executing search: threshold={threshold}, limit={limit}, brand={brand_id}")
-                cursor.execute(search_sql, (vector_str, brand_id, vector_str, threshold, limit))
-                rows = cursor.fetchall()
-                logger.info(f"✓ Database returned {len(rows)} rows with threshold={threshold}")
-                if len(rows) == 0 and embedding_count > 0:
-                    logger.warning(f"⚠️  WARNING: Found {embedding_count} embeddings but 0 rows above threshold {threshold}!")
-                    logger.warning(f"    Consider lowering threshold or checking vector dimensions")
 
-                
-                results = []
-                for row in rows:
-                    results.append({
-                        "embedding_id": row[0],
-                        "library_item_id": row[1],
-                        "chunk_id": row[2],
-                        "text": row[3],
-                        "similarity": float(row[4]),
-                        "metadata": row[5] if row[5] else {},
-                        "created_at": row[6].isoformat() if row[6] else None
-                    })
-                
-                logger.info(f"Found {len(results)} similar chunks for brand: {brand_id}")
-                return results
+            queries = [query_text]
             
-            except Exception as e:
-                logger.error(f"❌ Search query error: {e}", exc_info=True)
-                logger.error(f"  Exception type: {type(e).__name__}")
-                return []
-            finally:
-                if cursor:
-                    try:
-                        cursor.close()
-                    except:
-                        pass
-                if conn:
-                    try:
-                        conn.close()
-                    except:
-                        pass
+            # Phase 1: Generate query variations for better coverage (only if enabled)
+            if use_multi_query and len(query_text) > 10:
+                try:
+                    # Use a very fast model to generate variations
+                    # This helps find content that might use different wording
+                    from app.services.ai_service import AIService
+                    ai_service = AIService()
+                    
+                    variation_prompt = format_rag_variation_prompt(query_text)
+                    
+                    # Use the same provider/model passed to the search function
+                    response = await ai_service.generate_content(
+                        variation_prompt, 
+                        provider=provider or "openrouter", 
+                        model=model or DEFAULT_OPENROUTER_MODEL,
+                        max_tokens=100
+                    )
+                    if response.success:
+                        variations = [v.strip() for v in response.content.split('\n') if v.strip()]
+                        queries.extend(variations[:2])
+                        logger.info(f"🔍 Generated variations: {variations[:2]}")
+                except Exception as e:
+                    logger.warning(f"Multi-query generation failed, falling back to single query: {e}")
+
+            # Phase 2: Get embeddings for all queries and search
+            all_results = []
+            seen_chunk_ids = set()
+            
+            for q in queries:
+                # Get embedding for each variation
+                query_response = await self.embedding_service.embed(
+                    brand_id=brand_id,
+                    texts=[q],
+                    model=model,
+                    provider="openrouter"
+                )
+                
+                if not query_response.get("success"):
+                    continue
+                
+                query_vector = query_response.get("embeddings", [[]])[0]
+                if not query_vector:
+                    continue
+                
+                # Convert to pgvector format
+                vector_str = '[' + ', '.join(str(v) for v in query_vector) + ']'
+                
+                db_client = get_db_client()
+                conn = db_client.get_connection()
+                cursor = None
+                try:
+                    cursor = conn.cursor()
+                    # Phase 3: Execute vector similarity search using Cosine Similarity (<=>)
+                    # Filter by model if provided to ensure vector compatibility
+                    model_filter = ""
+                    params = [vector_str, brand_id]
+                    
+                    if model:
+                        model_filter = "AND model = %s"
+                        params.append(model)
+                    
+                    params.extend([vector_str, threshold, limit])
+                    
+                    search_sql = f"""
+                        SELECT id, library_item_id, chunk_id, chunk_text,
+                               (1 - (embedding <=> %s::vector)) AS similarity,
+                               metadata
+                        FROM rag_embedding
+                        WHERE brand_id = %s {model_filter}
+                        AND (1 - (embedding <=> %s::vector)) >= %s
+                        ORDER BY similarity DESC
+                        LIMIT %s
+                    """
+                    cursor.execute(search_sql, tuple(params))
+                    rows = cursor.fetchall()
+                    
+                    for row in rows:
+                        chunk_id = row[2]
+                        if chunk_id not in seen_chunk_ids:
+                            all_results.append({
+                                "embedding_id": row[0],
+                                "library_item_id": row[1],
+                                "chunk_id": chunk_id,
+                                "text": row[3],
+                                "similarity": float(row[4]),
+                                "metadata": row[5] or {}
+                            })
+                            seen_chunk_ids.add(chunk_id)
+                finally:
+                    if cursor: cursor.close()
+                    if conn: conn.close()
+
+            # Sort by similarity and limit
+            all_results.sort(key=lambda x: x["similarity"], reverse=True)
+            return all_results[:limit]
         
         except Exception as e:
             logger.error(f"RAG search error: {e}")
             return []
     
     def get_rag_status(self, brand_id: str) -> Optional[Dict[str, Any]]:
-        """Get RAG index status for a brand"""
+        """Get RAG index status with manual fallback if record is missing"""
         db_client = get_db_client()
         conn = db_client.get_connection()
         cursor = None
         try:
             cursor = conn.cursor()
             
+            # 1. Try to get from rag_index table first
             query = """
-                SELECT id, total_files, indexed_chunks, total_embeddings, 
-                       status, error_message, last_updated, created_at
-                FROM rag_index
-                WHERE brand_id = %s
+                SELECT total_files, indexed_chunks, total_embeddings, status, error_message, last_updated
+                FROM rag_index WHERE brand_id = %s
             """
-            
             cursor.execute(query, (brand_id,))
             row = cursor.fetchone()
             
-            if not row:
-                logger.info(f"No RAG index found for brand: {brand_id}")
-                return None
+            if row:
+                return {
+                    "total_files": row[0],
+                    "indexed_chunks": row[1],
+                    "total_embeddings": row[2],
+                    "status": row[3],
+                    "error_message": row[4],
+                    "last_updated": row[5].isoformat() if row[5] else None,
+                    "is_ready": row[0] > 0
+                }
+            
+            # 2. Fallback: Manual count if index record is missing
+            cursor.execute("SELECT COUNT(*) FROM content_library_item WHERE brand_id = %s AND is_deleted = FALSE", (brand_id,))
+            file_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM rag_embedding WHERE brand_id = %s", (brand_id,))
+            embedding_count = cursor.fetchone()[0]
             
             return {
-                "index_id": row[0],
-                "total_files": row[1],
-                "indexed_chunks": row[2],
-                "total_embeddings": row[3],
-                "status": row[4],
-                "error_message": row[5],
-                "last_updated": row[6].isoformat() if row[6] else None,
-                "created_at": row[7].isoformat() if row[7] else None
+                "total_files": file_count,
+                "total_embeddings": embedding_count,
+                "status": "COMPLETE" if file_count > 0 else "PENDING",
+                "is_ready": file_count > 0
             }
-        
         except Exception as e:
             logger.error(f"Get RAG status error: {e}")
             return None
@@ -772,8 +765,8 @@ class RagService:
                 brand_id=brand_id,
                 library_item_id=library_id,
                 extracted_text=extracted_text,
-                model=model or "auto",
-                provider=provider or "openrouter"
+                model=model,
+                provider=provider
             )
             
             logger.info(f"✓ Upload workflow complete | Library: {library_id} | Chunks: {total_chunks} | Embeddings: {saved_embeddings}")
@@ -836,11 +829,11 @@ class RagService:
             files = [
                 {
                     "id": row[0],
-                    "filename": row[1],
+                    "file_name": row[1],
                     "file_type": row[2],
                     "category": row[3],
-                    "size": row[4],
-                    "uploadedAt": row[5].isoformat() if row[5] else None
+                    "file_size": row[4],
+                    "created_at": row[5].isoformat() if row[5] else None
                 }
                 for row in rows
             ]

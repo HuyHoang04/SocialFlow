@@ -9,7 +9,6 @@ import java.util.List;
 /**
  * Request DTO for embedding generation endpoint
  * Uses multimodal embeddings (text + images)
- * Model defaults to "auto" (nvidia/llama-nemotron-embed-vl-1b-v2)
  */
 @Data
 @NoArgsConstructor
@@ -26,16 +25,4 @@ public class EmbeddingRequest {
     
     private List<String> images;
     
-    @Builder.Default
-    private String provider = "openrouter";
-    
-    @Builder.Default
-    private String model = "auto";
-    
-    /**
-     * Validate model is not empty
-     */
-    public boolean isValidModel() {
-        return model != null && !model.isEmpty();
-    }
 }

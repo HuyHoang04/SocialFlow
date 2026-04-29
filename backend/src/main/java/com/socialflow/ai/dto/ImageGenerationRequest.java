@@ -1,19 +1,23 @@
 package com.socialflow.ai.dto;
 
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 
 /**
  * Request DTO for image generation endpoint
- * Requires provider and model selection for AI endpoint calls
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ImageGenerationRequest {
+    
+    @NotBlank(message = "brandId is required")
+    @JsonProperty("brand_id")
+    private String brandId;
     
     @NotBlank(message = "prompt is required")
     private String prompt;
@@ -39,24 +43,4 @@ public class ImageGenerationRequest {
     @Max(10)
     private Integer count = 1;
     
-    @NotBlank(message = "provider is required")
-    private String provider;
-    
-    @NotBlank(message = "model is required")
-    private String model;
-    
-    /**
-     * Validate provider is one of: pixazo, openrouter
-     */
-    public boolean isValidProvider() {
-        return provider != null && 
-               (provider.equals("pixazo") || provider.equals("openrouter"));
-    }
-    
-    /**
-     * Validate model is not empty
-     */
-    public boolean isValidModel() {
-        return model != null && !model.isEmpty();
-    }
 }

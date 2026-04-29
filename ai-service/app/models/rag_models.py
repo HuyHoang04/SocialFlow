@@ -12,6 +12,7 @@ class RagSearchRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=50, description="Max results to return")
     threshold: float = Field(default=0.3, ge=0.0, le=1.0, description="Similarity threshold")
     model: Optional[str] = Field(default=None, description="Embedding model override")
+    provider: Optional[str] = Field(default=None, description="AI provider override (groq or openrouter)")
 
     class Config:
         json_schema_extra = {

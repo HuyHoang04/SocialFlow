@@ -33,8 +33,6 @@ public class RagSearchRequest {
     @DecimalMax("1.0")
     private Float threshold = 0.3f;
     
-    private String model;
-    
     /**
      * Validate query is not empty
      */

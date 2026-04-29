@@ -1,4 +1,6 @@
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\controller\AiController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ChatRequest.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ChatResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ContentRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ContentResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\EmbeddingRequest.java
@@ -21,6 +23,8 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagUploadResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RewriteRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RewriteResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\exception\AiServiceException.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiChatService.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiModelConfigService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiServiceClient.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\CorsConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\OpenApiConfig.java
@@ -31,10 +35,12 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\controller\AnalyticsControlle
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\AuthController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\BrandController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\CampaignController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\controller\ChatController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\ConnectionController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\GlobalExceptionHandler.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\Heathcheck.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\InboxController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\controller\InboxSseController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\MediaController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\OAuthController.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\controller\PostController.java
@@ -57,8 +63,11 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\dto\TrendingConfigRequest.jav
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\TrendingConfigResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\TrendingRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\dto\TrendingResponse.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\model\AiModelConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\Brand.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\Campaign.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\model\ChatMessage.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\model\ChatSession.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\Embedding.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\enums\MessageType.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\enums\PlatformType.java
@@ -74,8 +83,11 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\model\SocialPage.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\TrendingConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\TrendingData.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\model\User.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\repository\AiModelConfigRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\BrandRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\CampaignRepository.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\repository\ChatMessageRepository.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\repository\ChatSessionRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\InboxMessageRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PageAnalyticsRepository.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\repository\PostAnalyticsRepository.java
@@ -98,6 +110,7 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\service\CampaignService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\CommentFetcherService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\FacebookAnalyticsService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\FacebookTrendingService.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\service\InboxEventPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\InboxService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\OAuthService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\PlatformAnalyticsAdapter.java
@@ -113,4 +126,5 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\ThreadsPubl
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\publisher\TwitterPublisher.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\TrendingConfigService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\service\TrendingService.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\service\WebhookEventService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\SocialFlowApplication.java

@@ -9,6 +9,9 @@ import mimetypes
 from pathlib import Path
 from app.utils.logger import setup_logger
 
+# LangChain Document Loaders
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
+
 logger = setup_logger(__name__)
 
 class ContentLibraryService:
@@ -99,27 +102,18 @@ class ContentLibraryService:
             return False, "", error
     
     def _extract_pdf(self, file_path: str) -> Tuple[bool, str, Optional[str]]:
-        """Extract text from PDF file"""
+        """Extract text from PDF file using LangChain's PyPDFLoader"""
         try:
-            try:
-                import pypdf
-            except ImportError:
-                error = "pypdf not installed. Run: pip install pypdf"
-                logger.error(error)
-                return False, "", error
+            loader = PyPDFLoader(file_path)
+            pages = loader.load()
             
             text_parts = []
-            
-            with open(file_path, 'rb') as f:
-                reader = pypdf.PdfReader(f)
-                
-                for page_num, page in enumerate(reader.pages):
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_parts.append(f"--- Page {page_num + 1} ---\n{page_text}")
+            for i, page in enumerate(pages):
+                if page.page_content:
+                    text_parts.append(f"--- Page {i + 1} ---\n{page.page_content}")
             
             extracted_text = "\n\n".join(text_parts)
-            logger.info(f"Extracted PDF from {file_path}: {len(extracted_text)} chars from {len(reader.pages)} pages")
+            logger.info(f"Extracted PDF from {file_path}: {len(extracted_text)} chars from {len(pages)} pages")
             return True, extracted_text, None
         
         except Exception as e:
@@ -176,20 +170,14 @@ class ContentLibraryService:
             return False, "", error
     
     def _extract_docx(self, file_path: str) -> Tuple[bool, str, Optional[str]]:
-        """Extract text from DOCX file"""
+        """Extract text from DOCX file using LangChain's Docx2txtLoader"""
         try:
-            try:
-                from docx import Document
-            except ImportError:
-                error = "python-docx not installed. Run: pip install python-docx"
-                logger.error(error)
-                return False, "", error
+            loader = Docx2txtLoader(file_path)
+            docs = loader.load()
             
-            doc = Document(file_path)
-            text_parts = [para.text for para in doc.paragraphs if para.text.strip()]
-            extracted_text = "\n".join(text_parts)
+            extracted_text = "\n".join([doc.page_content for doc in docs])
             
-            logger.info(f"Extracted DOCX from {file_path}: {len(extracted_text)} chars from {len(text_parts)} paragraphs")
+            logger.info(f"Extracted DOCX from {file_path}: {len(extracted_text)} chars")
             return True, extracted_text, None
         
         except Exception as e:

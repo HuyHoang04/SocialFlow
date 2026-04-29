@@ -61,23 +61,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            // Validate provider and model
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider: " + request.getProvider() + ". Must be 'groq' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required and cannot be empty"
-                ));
-            }
-            
-            log.info("→ Generate content | Provider: {} | Model: {} | Tone: {}", 
-                     request.getProvider(), request.getModel(), request.getTone());
+
+            log.info("→ Generate content | Brand: {} | Tone: {}", 
+                     request.getBrandId(), request.getTone());
             
             ContentResponse response = aiServiceClient.generateContent(request);
             
@@ -111,22 +97,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider. Must be 'groq' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required"
-                ));
-            }
-            
-            log.info("→ Rewrite content | Provider: {} | Model: {} | Tone: {}", 
-                     request.getProvider(), request.getModel(), request.getTone());
+
+            log.info("→ Rewrite content | Brand: {} | Tone: {}", 
+                     request.getBrandId(), request.getTone());
             
             RewriteResponse response = aiServiceClient.rewriteContent(request);
             
@@ -159,22 +132,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider. Must be 'groq' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required"
-                ));
-            }
-            
-            log.info("→ Keyword optimize | Provider: {} | Model: {} | Platform: {}", 
-                     request.getProvider(), request.getModel(), request.getPlatform());
+
+            log.info("→ Keyword optimize | Brand: {} | Platform: {}", 
+                     request.getBrandId(), request.getPlatform());
             
             KeywordOptimizationResponse response = aiServiceClient.optimizeKeywords(request);
             
@@ -210,22 +170,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider. Must be 'pixazo' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required"
-                ));
-            }
-            
-            log.info("→ Generate image | Provider: {} | Model: {} | Count: {} | Size: {}x{}", 
-                     request.getProvider(), request.getModel(), request.getCount(),
+
+            log.info("→ Generate image | Brand: {} | Count: {} | Size: {}x{}", 
+                     request.getBrandId(), request.getCount(),
                      request.getWidth(), request.getHeight());
             
             ImageGenerationResponse response = aiServiceClient.generateImage(request);
@@ -262,15 +209,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is invalid"
-                ));
-            }
-            
-            log.info("→ Generate embeddings | Brand: {} | Texts: {} | Model: {}", 
-                     request.getBrandId(), request.getTexts().size(), request.getModel());
+
+            log.info("→ Generate embeddings | Brand: {} | Texts: {}", 
+                     request.getBrandId(), request.getTexts().size());
             
             EmbeddingResponse response = aiServiceClient.generateEmbeddings(request);
             
@@ -562,22 +503,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider. Must be 'groq' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required"
-                ));
-            }
-            
-            log.info("→ RAG generate content | Brand: {} | Provider: {} | Model: {} | RAG Limit: {}", 
-                     request.getBrandId(), request.getProvider(), request.getModel(), request.getRagLimit());
+
+            log.info("→ RAG generate content | Brand: {} | RAG Limit: {}", 
+                     request.getBrandId(), request.getRagLimit());
             
             RagGenerateContentResponse response = aiServiceClient.generateContentWithRag(request);
             
@@ -612,22 +540,9 @@ public class AiController {
                 return handleValidationErrors(bindingResult);
             }
             
-            if (!request.isValidProvider()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Invalid provider. Must be 'groq' or 'openrouter'"
-                ));
-            }
-            
-            if (!request.isValidModel()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Model is required"
-                ));
-            }
-            
-            log.info("→ RAG generate content with images | Brand: {} | Provider: {} | Model: {}", 
-                     request.getBrandId(), request.getProvider(), request.getModel());
+
+            log.info("→ RAG generate content with images | Brand: {}", 
+                     request.getBrandId());
             
             RagGenerateContentResponse response = aiServiceClient.generateContentWithRagAndImages(request);
             
@@ -655,8 +570,6 @@ public class AiController {
     public ResponseEntity<RagUploadResponse> uploadToRag(
             @RequestParam(name = "brand_id") String brandId,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String provider,
-            @RequestParam(required = false) String model,
             @RequestParam MultipartFile file) {
         try {
             if (brandId == null || brandId.isEmpty()) {
@@ -676,10 +589,10 @@ public class AiController {
             String fileName = file.getOriginalFilename();
             byte[] fileContent = file.getBytes();
             
-            log.info("→ Upload to RAG | Brand: {} | File: {} | Size: {} bytes | Category: {} | Provider: {} | Model: {}", 
-                     brandId, fileName, fileContent.length, category, provider, model);
+            log.info("→ Upload to RAG | Brand: {} | File: {} | Size: {} bytes | Category: {}", 
+                     brandId, fileName, fileContent.length, category);
             
-            RagUploadResponse response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName, provider, model);
+            RagUploadResponse response = aiServiceClient.uploadToRag(brandId, category, fileContent, fileName);
             
             if (response != null && response.isSuccessful()) {
                 log.info("✓ Upload to RAG successful | Library ID: {} | Chunks: {}", 

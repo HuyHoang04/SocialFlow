@@ -3,6 +3,12 @@ from app.main import app
 if __name__ == "__main__":
     import uvicorn
     import logging
+    import asyncio
+    import sys
+    import os
+
+    if os.name == 'nt':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     logging.basicConfig(
         level=logging.INFO,

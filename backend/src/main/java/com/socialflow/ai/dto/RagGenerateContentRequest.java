@@ -11,7 +11,6 @@ import jakarta.validation.constraints.DecimalMax;
 /**
  * Request DTO for RAG (Retrieval-Augmented Generation) content generation endpoint
  * Combines content library search with AI generation
- * Requires provider and model selection for AI endpoint calls
  */
 @Data
 @NoArgsConstructor
@@ -41,26 +40,5 @@ public class RagGenerateContentRequest {
     @DecimalMax("1.0")
     private Float ragThreshold = 0.3f;
     
-    @NotBlank(message = "provider is required")
-    private String provider;
-    
-    @NotBlank(message = "model is required")
-    private String model;
-    
     private String tone;
-    
-    /**
-     * Validate provider is one of: groq, openrouter
-     */
-    public boolean isValidProvider() {
-        return provider != null && 
-               (provider.equals("groq") || provider.equals("openrouter"));
-    }
-    
-    /**
-     * Validate model is not empty
-     */
-    public boolean isValidModel() {
-        return model != null && !model.isEmpty();
-    }
 }

@@ -36,7 +36,7 @@ public class Post {
     private LocalDateTime scheduledTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "page_id", nullable = false)
+    @JoinColumn(name = "page_id", nullable = true)
     private SocialPage page;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)

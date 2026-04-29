@@ -102,7 +102,8 @@ async def search_content(
             query_text=request.query,
             limit=request.limit,
             threshold=request.threshold,
-            model=request.model
+            model=request.model,
+            provider=request.provider
         )
         
         # Wrap in DTO
@@ -163,14 +164,12 @@ async def get_rag_status(
     brand_id: str,
     rag_service: RagService = Depends(get_rag_service)
 ) -> RagStatusResponse:
-    """Get RAG indexing status for a brand"""
+    """Get indexing status and readiness for a brand"""
     try:
         logger.info(f"Status endpoint | Brand: {brand_id}")
         
-        # Call service - returns raw status dict or None
-        status_data = rag_service.get_rag_status_sync(brand_id)
+        status_data = rag_service.get_rag_status(brand_id)
         
-        # Wrap in DTO
         return RagStatusResponse(
             success=True,
             brand_id=brand_id,

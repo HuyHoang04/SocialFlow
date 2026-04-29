@@ -76,7 +76,7 @@ class AIService:
         
         # Set defaults
         if provider is None:
-            provider = "groq"
+            provider = "openrouter"
         if provider == "groq" and model is None:
             model = DEFAULT_GROQ_MODEL
         elif provider == "openrouter" and model is None:

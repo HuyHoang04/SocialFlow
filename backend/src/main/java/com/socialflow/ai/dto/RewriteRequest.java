@@ -8,13 +8,16 @@ import jakarta.validation.constraints.Max;
 
 /**
  * Request DTO for content rewrite endpoint
- * Requires provider and model selection for AI endpoint calls
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class RewriteRequest {
+    
+    @NotBlank(message = "brandId is required")
+    @JsonProperty("brand_id")
+    private String brandId;
     
     @NotBlank(message = "content is required")
     private String content;
@@ -31,24 +34,4 @@ public class RewriteRequest {
     @Max(value = 1500, message = "maxWords cannot exceed 1500 words")
     private Integer maxWords = 150;
     
-    @NotBlank(message = "provider is required")
-    private String provider;
-    
-    @NotBlank(message = "model is required")
-    private String model;
-    
-    /**
-     * Validate provider is one of: groq, openrouter
-     */
-    public boolean isValidProvider() {
-        return provider != null && 
-               (provider.equals("groq") || provider.equals("openrouter"));
-    }
-    
-    /**
-     * Validate model is not empty
-     */
-    public boolean isValidModel() {
-        return model != null && !model.isEmpty();
-    }
 }
