@@ -44,6 +44,7 @@ import com.socialflow.ai.service.AiServiceClient;
 public class AiController {
     
     private final AiServiceClient aiServiceClient;
+    private final com.socialflow.ai.service.AiModelConfigService aiModelConfigService;
     
     // ==================== TEXT GENERATION ====================
     
@@ -258,73 +259,62 @@ public class AiController {
         }
     }
     
-    // ==================== MODEL LISTING ====================
-    
     /**
-     * List all available models
+     * List available AI models
      * GET /api/ai/models
      */
     @GetMapping("/models")
     public ResponseEntity<?> listModels() {
         try {
-            log.info("→ List all models");
-            
-            Object response = aiServiceClient.listAllModels();
-            
-            log.info("✓ List models successful");
-            return ResponseEntity.ok(response);
-            
+            log.info("→ List models");
+            return ResponseEntity.ok(aiServiceClient.listAllModels());
         } catch (Exception e) {
             log.error("✗ List models error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "success", false,
-                "error", "Failed to list models: " + e.getMessage()
+                "error", "Internal server error: " + e.getMessage()
             ));
         }
     }
     
-    /**
-     * List all available image models
-     * GET /api/ai/image-models
-     */
-    @GetMapping("/image-models")
+    @GetMapping("/models/image")
     public ResponseEntity<?> listImageModels() {
         try {
-            log.info("→ List all image models");
-            
-            Object response = aiServiceClient.listImageModels();
-            
-            log.info("✓ List image models successful");
-            return ResponseEntity.ok(response);
-            
+            log.info("→ List image models");
+            return ResponseEntity.ok(aiServiceClient.listImageModels());
         } catch (Exception e) {
             log.error("✗ List image models error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "success", false,
-                "error", "Failed to list image models: " + e.getMessage()
+                "error", "Internal server error: " + e.getMessage()
             ));
         }
     }
     
-    /**
-     * List all available embedding models for RAG
-     * GET /api/ai/rag-models
-     */
-    @GetMapping("/rag-models")
-    public ResponseEntity<?> listRagModels() {
+    @GetMapping("/models/embedding")
+    public ResponseEntity<?> listEmbeddingModels() {
         try {
-            log.info("→ List all RAG embedding models");
-            
-            Object response = aiServiceClient.listEmbeddingModels();
-            
-            log.info("✓ List RAG embedding models successful");
-            return ResponseEntity.ok(response);
-            
+            log.info("→ List embedding models");
+            return ResponseEntity.ok(aiServiceClient.listEmbeddingModels());
         } catch (Exception e) {
-            log.error("✗ List RAG embedding models error: {}", e.getMessage());
+            log.error("✗ List embedding models error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "success", false,
-                "error", "Failed to list RAG embedding models: " + e.getMessage()
+                "error", "Internal server error: " + e.getMessage()
+            ));
+        }
+    }
+    
+    @PostMapping("/refresh-models")
+    public ResponseEntity<?> refreshModels() {
+        try {
+            log.info("→ Refresh models");
+            return ResponseEntity.ok(aiServiceClient.refreshModels());
+        } catch (Exception e) {
+            log.error("✗ Refresh models error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Internal server error: " + e.getMessage()
             ));
         }
     }
@@ -619,6 +609,37 @@ public class AiController {
                     .error("Upload failed: " + e.getMessage())
                     .build());
         }
+    }
+    
+    // ==================== AI MODEL CONFIG ====================
+    
+    /**
+     * Get AI model configuration for a brand
+     * GET /api/ai/config?brand_id={brandId}
+     */
+    @GetMapping("/config")
+    public ResponseEntity<?> getAiConfig(@RequestParam("brand_id") String brandId) {
+        return ResponseEntity.ok(aiModelConfigService.getConfigByBrandIdStr(brandId));
+    }
+    
+    /**
+     * Save AI model configuration for a brand
+     * POST /api/ai/config
+     */
+    @PostMapping("/config")
+    public ResponseEntity<?> saveAiConfig(@RequestBody Map<String, Object> request) {
+        String brandId = (String) request.get("brand_id");
+        if (brandId == null) return ResponseEntity.badRequest().body("brand_id is required");
+        
+        com.socialflow.model.AiModelConfig config = new com.socialflow.model.AiModelConfig();
+        config.setTextProvider((String) request.get("text_provider"));
+        config.setTextModel((String) request.get("text_model"));
+        config.setImageProvider((String) request.get("image_provider"));
+        config.setImageModel((String) request.get("image_model"));
+        config.setEmbeddingProvider((String) request.get("embedding_provider"));
+        config.setEmbeddingModel((String) request.get("embedding_model"));
+        
+        return ResponseEntity.ok(aiModelConfigService.saveConfig(java.util.UUID.fromString(brandId), config));
     }
     
     // ==================== HELPER METHODS ====================

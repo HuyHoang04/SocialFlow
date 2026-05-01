@@ -259,8 +259,8 @@ function CreatePostContent() {
         useRag: false
     });
     const [aiLoading, setAiLoading] = useState(false);
-    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; provider: string }[]>([]);
-    const [generatedContent, setGeneratedContent] = useState<string>('');
+    const [generatedContent, setGeneratedContent] = useState('');
+    const [ragResults, setRagResults] = useState<any[]>([]);
     const [isGenerationComplete, setIsGenerationComplete] = useState(false);
 
     // Image generation state
@@ -268,9 +268,6 @@ function CreatePostContent() {
     const [imagePrompt, setImagePrompt] = useState('');
     const [imageSearchQuery, setImageSearchQuery] = useState('');
     const [imageCount, setImageCount] = useState(1);
-    const [imageProvider, setImageProvider] = useState('pixazo');
-    const [imageModel, setImageModel] = useState('flux-1-schnell');
-    const [imageModels, setImageModels] = useState<{ id: string; name: string; provider: string }[]>([]);
     const [generatedImages, setGeneratedImages] = useState<any[]>([]);
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set()); // Track selected image indices
@@ -283,75 +280,6 @@ function CreatePostContent() {
         Promise.all([
             api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
             api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); }),
-            api.getModels().then(m => {
-                console.log('Models response:', m);
-                // Handle different response formats
-                let modelsList: any[] = [];
-                
-                // If response has groq/openrouter fields (from Python API)
-                if (m?.groq || m?.openrouter) {
-                    const groqModels = m.groq || {};
-                    const openrouterModels = m.openrouter || {};
-                    
-                    console.log('Groq models:', groqModels);
-                    console.log('OpenRouter models:', openrouterModels);
-                    
-                    // Convert from object to array: { "model-id": {...}, ... } -> [{ id, name, provider }, ...]
-                    modelsList = [
-                        ...Object.entries(groqModels).map(([modelId, modelInfo]: any) => ({
-                            id: modelId,
-                            name: modelInfo?.name || modelId,
-                            provider: 'groq'
-                        })),
-                        ...Object.entries(openrouterModels).map(([modelId, modelInfo]: any) => ({
-                            id: modelId,
-                            name: modelInfo?.name || modelId,
-                            provider: 'openrouter'
-                        }))
-                    ];
-                } else {
-                    // Fallback for other formats
-                    modelsList = Array.isArray(m) ? m : m?.models || m?.data || [];
-                }
-                
-                console.log('Final models list:', modelsList);
-                setAvailableModels(modelsList);
-                // Set default model for first provider
-                const groqModel = modelsList.find?.((md: any) => md.provider === 'groq');
-                if (groqModel) setAiOptions(prev => ({ ...prev, model: groqModel.id }));
-            }).catch((err) => {
-                console.error('Failed to fetch models:', err);
-                // If API fails, just use empty list
-                setAvailableModels([]);
-            }),
-            api.getImageModels?.().then(m => {
-                console.log('Image models response:', m);
-                let imgModelsList: any[] = [];
-                
-                if (m?.pixazo || m?.openrouter) {
-                    const pixazoModels = m.pixazo || {};
-                    const openrouterImgModels = m.openrouter || {};
-                    
-                    imgModelsList = [
-                        ...Object.entries(pixazoModels).map(([modelId, modelInfo]: any) => ({
-                            id: modelId,
-                            name: modelInfo?.name || modelId,
-                            provider: 'pixazo'
-                        })),
-                        ...Object.entries(openrouterImgModels).map(([modelId, modelInfo]: any) => ({
-                            id: modelId,
-                            name: modelInfo?.name || modelId,
-                            provider: 'openrouter'
-                        }))
-                    ];
-                } else {
-                    imgModelsList = Array.isArray(m) ? m : m?.models || m?.data || [];
-                }
-                
-                setImageModels(imgModelsList);
-                const pixazoModel = imgModelsList.find?.((md: any) => md.provider === 'pixazo');
-                if (pixazoModel) setImageModel(pixazoModel.id);
-            }).catch(() => setImageModels([]))
         ]).finally(() => setLoading(false));
     }, [brand]);
 
@@ -454,32 +382,32 @@ function CreatePostContent() {
 
     // ===== AI Functions =====
     const handleAiGenerate = async () => {
+        if (!brand) return;
         setAiLoading(true);
         try {
-            if (aiOptions.useRag && brand) {
+            if (aiOptions.useRag) {
                 // Use RAG endpoint
                 const result = await api.ragGenerateContent({
                     brand_id: brand.id,
                     prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
-                    provider: aiOptions.provider,
-                    model: aiOptions.model,
                     tone: aiOptions.tone,
                     rag_limit: 5,
                     rag_threshold: 0.7
                 });
-                setGeneratedContent(result.caption || result.content);
+                setGeneratedContent(result.caption || result.content || '');
+                setRagResults(result.rag_results || []);
                 setIsGenerationComplete(true);
             } else {
                 // Use regular generation
                 const result = await api.generateContent({
+                    brand_id: brand.id,
                     prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
-                    provider: aiOptions.provider,
-                    model: aiOptions.model,
                     tone: aiOptions.tone,
                     platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
                     max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
                 });
-                setGeneratedContent(result.caption || result.content);
+                setGeneratedContent(result.caption || result.content || '');
+                setRagResults([]);
                 setIsGenerationComplete(true);
             }
         } catch (err: unknown) {
@@ -492,24 +420,26 @@ function CreatePostContent() {
     const confirmGeneratedContent = () => {
         setContent(generatedContent);
         setGeneratedContent('');
+        setRagResults([]);
         setIsGenerationComplete(false);
         setAiModal({ isOpen: false, type: null });
     };
 
     const cancelGeneration = () => {
         setGeneratedContent('');
+        setRagResults([]);
         setIsGenerationComplete(false);
         setAiModal({ isOpen: false, type: null });
     };
 
     const handleGenerateImage = async () => {
+        if (!brand) return;
         if (!imagePrompt.trim()) return setError('Please enter image prompt');
         setImageLoading(true);
         try {
             const result = await api.generateImage({
+                brand_id: brand.id,
                 prompt: imagePrompt,
-                provider: imageProvider,
-                model: imageModel,
                 count: imageCount
             });
             // Extract images array from response
@@ -653,18 +583,19 @@ function CreatePostContent() {
     };
 
     const handleAiEnhance = async () => {
+        if (!brand) return;
         setAiLoading(true);
         try {
             const result = await api.rewriteContent({
+                brand_id: brand.id,
                 content: content,
                 tone: aiOptions.tone,
-                provider: aiOptions.provider,
-                model: aiOptions.model,
                 platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
                 max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
             });
-            setContent(result.rewritten || result.content);
-            setAiModal({ isOpen: false, type: null });
+            setGeneratedContent(result.rewritten || result.content || '');
+            setRagResults([]);
+            setIsGenerationComplete(true);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'AI enhancement failed');
         } finally {
@@ -673,16 +604,17 @@ function CreatePostContent() {
     };
 
     const handleAiHashtags = async () => {
+        if (!brand) return;
         setAiLoading(true);
         try {
             const result = await api.optimizeKeywords({
+                brand_id: brand.id,
                 content: content,
-                provider: aiOptions.provider,
-                model: aiOptions.model,
                 max_hashtags: aiOptions.length === 'short' ? 3 : aiOptions.length === 'long' ? 15 : 8
             });
-            setContent(content + '\n\n' + (result.hashtags || result.keywords || []).map((tag: string) => `#${tag}`).join(' '));
-            setAiModal({ isOpen: false, type: null });
+            setGeneratedContent(content + '\n\n' + (result.hashtags || result.keywords || []).map((tag: string) => `#${tag}`).join(' '));
+            setRagResults([]);
+            setIsGenerationComplete(true);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to generate hashtags');
         } finally {
@@ -1205,229 +1137,205 @@ function CreatePostContent() {
                                     <IconX size={18} />
                                 </button>
                             </div>
-                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {/* Provider Selection */}
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                        AI Provider
-                                    </label>
-                                    <select 
-                                        value={aiOptions.provider}
-                                        onChange={e => {
-                                            setAiOptions({ ...aiOptions, provider: e.target.value });
-                                            const firstModel = availableModels?.find(m => m.provider === e.target.value);
-                                            if (firstModel) setAiOptions(prev => ({ ...prev, model: firstModel.id }));
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg-glass)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: 14,
-                                            fontFamily: 'inherit',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        {availableModels && availableModels.length > 0 ? (
-                                            Array.from(new Set(availableModels.map(m => m.provider))).map(provider => (
-                                                <option style={{color:"black"}} key={provider} value={provider}>
-                                                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <option style={{color:"black"}} value="groq">Loading models...</option>
-                                        )}
-                                    </select>
-                                </div>
-
-                                {/* Model Selection */}
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                        AI Model
-                                    </label>
-                                    <select 
-                                        value={aiOptions.model}
-                                        onChange={e => setAiOptions({ ...aiOptions, model: e.target.value })}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg-glass)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: 14,
-                                            fontFamily: 'inherit',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        {availableModels && availableModels.length > 0 ? (
-                                            availableModels
-                                                .filter(m => m.provider === aiOptions.provider)
-                                                .map(m => (
-                                                    <option style={{color:"black"}} key={m.id} value={m.id}>
-                                                        {m.name}
-                                                    </option>
-                                                ))
-                                        ) : (
-                                            <option style={{color:"black"}} value="">No models available</option>
-                                        )}
-                                    </select>
-                                </div>
-
-                                {/* Tone Selection */}
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                        Tone
-                                    </label>
-                                    <select 
-                                        value={aiOptions.tone}
-                                        onChange={e => setAiOptions({ ...aiOptions, tone: e.target.value })}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 12px',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg-glass)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: 14,
-                                            fontFamily: 'inherit',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <option style={{color:"black"}} value="casual">Casual & Friendly</option>
-                                        <option style={{color:"black"}} value="professional">Professional</option>
-                                        <option style={{color:"black"}} value="exciting">Exciting & Energetic</option>
-                                        <option style={{color:"black"}} value="humorous">Humorous</option>
-                                        <option style={{color:"black"}} value="informative">Informative</option>
-                                    </select>
-                                </div>
-
-                                {/* Length Selection */}
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                        Length
-                                    </label>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        {['short', 'medium', 'long'].map(len => (
-                                            <button
-                                                key={len}
-                                                onClick={() => setAiOptions({ ...aiOptions, length: len })}
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                                
+                                {/* TOP SECTION: AI PARAMETERS (Full Width) */}
+                                {!isGenerationComplete && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                        <div>
+                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                Tone
+                                            </label>
+                                            <select 
+                                                value={aiOptions.tone}
+                                                onChange={e => setAiOptions({ ...aiOptions, tone: e.target.value })}
                                                 style={{
-                                                    flex: 1,
-                                                    padding: '8px 12px',
-                                                    border: aiOptions.length === len ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    border: '1px solid var(--border)',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    background: aiOptions.length === len ? 'var(--accent)' : 'var(--bg-glass)',
-                                                    color: aiOptions.length === len ? 'white' : 'var(--text-primary)',
-                                                    fontSize: 12,
-                                                    fontWeight: aiOptions.length === len ? 600 : 500,
-                                                    cursor: 'pointer',
-                                                    textTransform: 'capitalize'
+                                                    background: 'var(--bg-glass)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: 14,
+                                                    fontFamily: 'inherit',
+                                                    cursor: 'pointer'
                                                 }}
                                             >
-                                                {len}
-                                            </button>
-                                        ))}
+                                                <option style={{color:"black"}} value="casual">Casual & Friendly</option>
+                                                <option style={{color:"black"}} value="professional">Professional</option>
+                                                <option style={{color:"black"}} value="exciting">Exciting & Energetic</option>
+                                                <option style={{color:"black"}} value="humorous">Humorous</option>
+                                                <option style={{color:"black"}} value="informative">Informative</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                Length
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {['short', 'medium', 'long'].map(len => (
+                                                    <button
+                                                        key={len}
+                                                        onClick={() => setAiOptions({ ...aiOptions, length: len })}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '10px 12px',
+                                                            border: aiOptions.length === len ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            background: aiOptions.length === len ? 'var(--accent)' : 'var(--bg-glass)',
+                                                            color: aiOptions.length === len ? 'white' : 'var(--text-primary)',
+                                                            fontSize: 12,
+                                                            fontWeight: aiOptions.length === len ? 600 : 500,
+                                                            cursor: 'pointer',
+                                                            textTransform: 'capitalize'
+                                                        }}
+                                                    >
+                                                        {len}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {(aiModal.type === 'generate' || aiModal.type === 'enhance') && (
+                                            <div style={{ gridColumn: 'span 2' }}>
+                                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                    Instructions (optional)
+                                                </label>
+                                                <textarea
+                                                    value={aiOptions.customPrompt}
+                                                    onChange={e => setAiOptions({ ...aiOptions, customPrompt: e.target.value })}
+                                                    placeholder={aiModal.type === 'generate' ? 'E.g., Create a caption about our new product launch...' : 'E.g., Make it more funny and engaging...'}
+                                                    rows={2}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: 12,
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-glass)',
+                                                        color: 'var(--text-primary)',
+                                                        fontFamily: 'inherit',
+                                                        fontSize: 14,
+                                                        resize: 'none'
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {aiModal.type === 'generate' && (
+                                            <div style={{ 
+                                                gridColumn: 'span 2',
+                                                padding: '10px 12px', 
+                                                border: '1px solid var(--border)', 
+                                                borderRadius: 'var(--radius-sm)', 
+                                                background: 'var(--bg-glass)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    id="rag-toggle"
+                                                    checked={aiOptions.useRag}
+                                                    onChange={e => setAiOptions({ ...aiOptions, useRag: e.target.checked })}
+                                                    style={{ cursor: 'pointer', width: 16, height: 16 }}
+                                                />
+                                                <label htmlFor="rag-toggle" style={{ cursor: 'pointer', flex: 1, margin: 0, fontSize: 13, color: 'var(--text-primary)' }}>
+                                                    Use Content Library (RAG)
+                                                </label>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                    📚 Reference brand context
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* BOTTOM SECTION: 2 COLUMNS (ORIGIN vs RESULT) */}
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: '1fr 1fr', 
+                                    gap: 20,
+                                    borderTop: '1px solid var(--border)',
+                                    paddingTop: 20,
+                                    flex: 1, // Let this section grow
+                                    minHeight: 350
+                                }}>
+                                    {/* Left Column: Origin */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                            Original Content
+                                        </label>
+                                        <div style={{
+                                            flex: 1, // Grow to fill
+                                            padding: 12,
+                                            background: 'var(--bg-glass)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 12,
+                                            color: 'var(--text-muted)',
+                                            lineHeight: 1.5,
+                                            minHeight: 150,
+                                            maxHeight: 300,
+                                            overflow: 'auto',
+                                            border: '1px solid var(--border)'
+                                        }}>
+                                            {content || '(empty)'}
+                                        </div>
+
+                                        {ragResults.length > 0 && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                                    📚 Knowledge Source
+                                                </label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 120, overflow: 'auto' }}>
+                                                    {ragResults.map((res, idx) => (
+                                                        <div key={idx} style={{
+                                                            padding: 8,
+                                                            background: 'rgba(255, 255, 255, 0.03)',
+                                                            borderRadius: 4,
+                                                            fontSize: 10,
+                                                            color: 'var(--text-muted)',
+                                                            border: '1px solid var(--border)',
+                                                            lineHeight: 1.4
+                                                        }}>
+                                                            {res.content?.substring(0, 150)}...
+                                                            <div style={{ marginTop: 4, fontSize: 9, opacity: 0.6 }}>
+                                                                Source: {res.filename || 'Unknown'}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right Column: Result */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <label style={{ fontSize: 11, color: isGenerationComplete ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                            {isGenerationComplete ? '✨ AI Suggested' : 'AI Result'}
+                                        </label>
+                                        <div style={{
+                                            flex: 1, // Grow to fill
+                                            padding: 12,
+                                            background: isGenerationComplete ? 'white' : 'var(--bg-glass)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 13,
+                                            color: isGenerationComplete ? 'black' : 'var(--text-muted)',
+                                            lineHeight: 1.6,
+                                            minHeight: 150,
+                                            maxHeight: 300,
+                                            overflow: 'auto',
+                                            fontWeight: isGenerationComplete ? 500 : 400,
+                                            border: isGenerationComplete ? '2px solid var(--accent)' : '1px dotted var(--border)',
+                                            display: 'flex',
+                                            alignItems: !isGenerationComplete ? 'center' : 'stretch',
+                                            justifyContent: !isGenerationComplete ? 'center' : 'stretch',
+                                            textAlign: !isGenerationComplete ? 'center' : 'left'
+                                        }}>
+                                            {isGenerationComplete ? generatedContent : 'Results will appear here after generation'}
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Custom Prompt */}
-                                {(aiModal.type === 'generate' || aiModal.type === 'enhance') && (
-                                    <div>
-                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                            Custom Prompt (optional)
-                                        </label>
-                                        <textarea
-                                            value={aiOptions.customPrompt}
-                                            onChange={e => setAiOptions({ ...aiOptions, customPrompt: e.target.value })}
-                                            placeholder={aiModal.type === 'generate' ? 'E.g., Create a caption about our new product launch...' : 'E.g., Make it more funny and engaging...'}
-                                            rows={3}
-                                            style={{
-                                                width: '100%',
-                                                padding: 12,
-                                                border: '1px solid var(--border)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                background: 'var(--bg-glass)',
-                                                color: 'var(--text-primary)',
-                                                fontFamily: 'inherit',
-                                                fontSize: 14,
-                                                resize: 'vertical',
-                                            }}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Generated Result Preview */}
-                                {isGenerationComplete && (
-                                    <div style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 12,
-                                        padding: 12,
-                                        border: '2px solid var(--accent)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        background: 'rgba(108, 92, 231, 0.05)'
-                                    }}>
-                                        <div>
-                                            <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                                                Original
-                                            </label>
-                                            <div style={{
-                                                padding: 10,
-                                                background: 'var(--bg-glass)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 13,
-                                                color: 'var(--text-muted)',
-                                                lineHeight: 1.5,
-                                                minHeight: 60,
-                                                maxHeight: 100,
-                                                overflow: 'auto'
-                                            }}>
-                                                {content || '(empty)'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                                                Generated
-                                            </label>
-                                            <div style={{
-                                                padding: 10,
-                                                background: 'var(--bg-glass)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 13,
-                                                color: 'var(--text-primary)',
-                                                lineHeight: 1.5,
-                                                minHeight: 60,
-                                                maxHeight: 100,
-                                                overflow: 'auto',
-                                                fontWeight: 500
-                                            }}>
-                                                {generatedContent}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* RAG Toggle - Only show for Generate and before generation */}
-                                {aiModal.type === 'generate' && !isGenerationComplete && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-glass)' }}>
-                                        <input
-                                            type="checkbox"
-                                            id="rag-toggle"
-                                            checked={aiOptions.useRag}
-                                            onChange={e => setAiOptions({ ...aiOptions, useRag: e.target.checked })}
-                                            style={{ cursor: 'pointer', width: 16, height: 16 }}
-                                        />
-                                        <label htmlFor="rag-toggle" style={{ cursor: 'pointer', flex: 1, margin: 0, fontSize: 13, color: 'var(--text-primary)' }}>
-                                            Use Content Library (RAG)
-                                        </label>
-                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                            📚 Reference brand content
-                                        </span>
-                                    </div>
-                                )}
                             </div>
                             <div className="modal-footer">
                                 {isGenerationComplete ? (
@@ -1493,95 +1401,31 @@ function CreatePostContent() {
                                 </button>
                             </div>
                             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {/* Provider & Model Selection - Only for Generate and not showing preview */}
                                 {imageModal.mode === 'generate' && !isImageGenerationComplete && (
-                                    <>
-                                        <div>
-                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                                Image Provider
-                                            </label>
-                                            <select 
-                                                value={imageProvider}
-                                                onChange={e => {
-                                                    setImageProvider(e.target.value);
-                                                    // Set default model for new provider
-                                                    const defaultModel = imageModels.find(m => m.provider === e.target.value);
-                                                    if (defaultModel) setImageModel(defaultModel.id);
-                                                }}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '10px 12px',
-                                                    border: '1px solid var(--border)',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    background: 'var(--bg-glass)',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: 14,
-                                                    fontFamily: 'inherit',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {Array.from(new Set(imageModels.map(m => m.provider))).map(provider => (
-                                                    <option style={{color:"black"}} key={provider} value={provider}>
-                                                        {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                                Image Model
-                                            </label>
-                                            <select 
-                                                value={imageModel}
-                                                onChange={e => setImageModel(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '10px 12px',
-                                                    border: '1px solid var(--border)',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    background: 'var(--bg-glass)',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: 14,
-                                                    fontFamily: 'inherit',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {imageModels
-                                                    .filter(m => m.provider === imageProvider)
-                                                    .map(m => (
-                                                        <option style={{color:"black"}} key={m.id} value={m.id}>
-                                                            {m.name}
-                                                        </option>
-                                                    ))}
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                                Number of Images
-                                            </label>
-                                            <select 
-                                                value={imageCount}
-                                                onChange={e => setImageCount(parseInt(e.target.value))}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '10px 12px',
-                                                    border: '1px solid var(--border)',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    background: 'var(--bg-glass)',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: 14,
-                                                    fontFamily: 'inherit',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {[1, 2, 3, 4].map(n => (
-                                                    <option style={{color:"black"}} key={n} value={n}>{n} {n === 1 ? 'image' : 'images'}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </>
+                                    <div>
+                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                            Number of Images
+                                        </label>
+                                        <select 
+                                            value={imageCount}
+                                            onChange={e => setImageCount(parseInt(e.target.value))}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-glass)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: 14,
+                                                fontFamily: 'inherit',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {[1, 2, 3, 4].map(n => (
+                                                <option style={{color:"black"}} key={n} value={n}>{n} {n === 1 ? 'image' : 'images'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 )}
 
                                 {/* Search/Prompt input - Hide when showing preview */}

@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { getUser } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import Sidebar from './Sidebar';
-import { IconMenu } from './Icons';
+import { IconMenu, IconSettings } from './Icons';
+import ChatDrawer from './ChatDrawer';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -48,6 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="main-bg-orb main-bg-orb-2" />
                 </div>
                 {children}
+                <ChatDrawer />
             </main>
         </div>
     );

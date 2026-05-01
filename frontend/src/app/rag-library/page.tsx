@@ -30,73 +30,7 @@ export default function RAGLibraryPage() {
     // Upload form state
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [uploadProvider, setUploadProvider] = useState('openrouter');
-    const [uploadModel, setUploadModel] = useState('');
-    const [embeddingModels, setEmbeddingModels] = useState<any[]>([]);
-    const [modelsLoading, setModelsLoading] = useState(false);
 
-    // Load embedding models on mount
-    useEffect(() => {
-        loadEmbeddingModels();
-    }, []);
-
-    const loadEmbeddingModels = async () => {
-        try {
-            setModelsLoading(true);
-            console.log('📊 Loading embedding models...');
-            const response = await api.getRagModels();
-            console.log('✓ Embedding models loaded:', response);
-            
-            // Response format: { groq: {...}, openrouter: {...}, success: true }
-            if (response && (response.groq || response.openrouter)) {
-                const models: any[] = [];
-                
-                // Extract models from groq
-                if (response.groq && typeof response.groq === 'object') {
-                    Object.entries(response.groq).forEach(([id, model]: [string, any]) => {
-                        models.push({
-                            id,
-                            provider: 'groq',
-                            name: model.name || id,
-                        });
-                    });
-                }
-                
-                // Extract models from openrouter
-                if (response.openrouter && typeof response.openrouter === 'object') {
-                    Object.entries(response.openrouter).forEach(([id, model]: [string, any]) => {
-                        models.push({
-                            id,
-                            provider: 'openrouter',
-                            name: model.name || id,
-                        });
-                    });
-                }
-                
-                console.log('✓ Parsed models:', models);
-                setEmbeddingModels(models);
-                
-                // Set default model - openrouter if available
-                const defaultModel = models.find(m => m.provider === 'openrouter');
-                if (defaultModel?.id) {
-                    setUploadModel(defaultModel.id);
-                    console.log('✓ Default model set to:', defaultModel.id);
-                } else {
-                    // If no openrouter, use first model available
-                    const firstModel = models[0];
-                    if (firstModel?.id) {
-                        setUploadModel(firstModel.id);
-                        console.log('✓ Default model set to (first available):', firstModel.id);
-                    }
-                }
-            }
-        } catch (err: any) {
-            console.error('✗ Failed to load models:', err);
-            // Continue anyway - model selection is optional
-        } finally {
-            setModelsLoading(false);
-        }
-    };
 
     const loadFiles = useCallback(async () => {
         // Guard: Check if brand is loaded
@@ -135,14 +69,17 @@ export default function RAGLibraryPage() {
             return;
         }
 
-        // Validate file type
+        // Validate file type and extension
         const allowedTypes = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown'];
-        if (!allowedTypes.includes(file.type)) {
+        const allowedExtensions = ['.pdf', '.txt', '.docx', '.md', '.markdown'];
+        const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
             setError('Only PDF, TXT, DOCX, and Markdown files are supported');
             return;
         }
 
-        // Set file and show form for provider/model selection
+        // Set file and show form for category selection
         setSelectedFile(file);
         setShowUploadForm(true);
     };
@@ -156,20 +93,15 @@ export default function RAGLibraryPage() {
         setUploading(true);
         setError('');
         try {
-            console.log('📤 Uploading file | Brand:', brand.id, 'File:', selectedFile.name, 'Category:', selectedCategory, 'Provider:', uploadProvider, 'Model:', uploadModel);
             await api.ragUploadFile(
                 brand.id, 
                 selectedFile, 
-                selectedCategory || undefined,
-                uploadProvider,
-                uploadModel
+                selectedCategory || undefined
             );
             console.log('✓ File uploaded successfully');
             setSuccess('✓ File uploaded successfully!');
             setCurrentPage(1); // Reset to first page to show newly uploaded file
             setSelectedCategory('');
-            setUploadProvider('openrouter');
-            setUploadModel('');
             setShowUploadForm(false);
             setSelectedFile(null);
             // Reload files immediately
@@ -298,44 +230,6 @@ export default function RAGLibraryPage() {
                                 </select>
                             </div>
 
-                            <div className="upload-form-group">
-                                <label className="upload-form-label">🔌 Embedding Provider</label>
-                                <select 
-                                    className="upload-form-select"
-                                    value={uploadProvider}
-                                    onChange={e => setUploadProvider(e.target.value)}
-                                    disabled={uploading}
-                                >
-                                    <option style={{color:"black"}} value="openrouter">OpenRouter</option>
-                                    <option style={{color:"black"}} value="groq">Groq</option>
-                                </select>
-                            </div>
-
-                            <div className="upload-form-group">
-                                <label className="upload-form-label">
-                                    🧠 Embedding Model {modelsLoading && '(Loading...)'}
-                                </label>
-                                <select 
-                                    className="upload-form-select"
-                                    value={uploadModel}
-                                    onChange={e => setUploadModel(e.target.value)}
-                                    disabled={uploading || modelsLoading}
-                                >
-                                    {embeddingModels.length === 0 ? (
-                                        <option>— No models available —</option>
-                                    ) : embeddingModels.filter(m => m.provider === uploadProvider).length === 0 ? (
-                                        <option>— No models for {uploadProvider} —</option>
-                                    ) : (
-                                        embeddingModels
-                                            .filter(m => m.provider === uploadProvider)
-                                            .map(m => (
-                                                <option style={{color:"black"}} key={m.id} value={m.id}>
-                                                    {m.name || m.id}
-                                                </option>
-                                            ))
-                                    )}
-                                </select>
-                            </div>
                         </div>
 
                         <div className="modal-footer">

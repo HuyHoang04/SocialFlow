@@ -153,4 +153,20 @@ public class AiChatService {
             }
         }
     }
+
+    public List<ChatSession> getSessions(String brandId) {
+        return sessionRepository.findByBrandIdAndIsDeletedFalseOrderByUpdatedAtDesc(UUID.fromString(brandId));
+    }
+
+    public List<ChatMessage> getHistory(String sessionId) {
+        return messageRepository.findBySessionIdOrderByCreatedAtAsc(UUID.fromString(sessionId));
+    }
+
+    @Transactional
+    public void deleteSession(String sessionId) {
+        ChatSession session = sessionRepository.findById(UUID.fromString(sessionId))
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+        session.setDeleted(true);
+        sessionRepository.save(session);
+    }
 }

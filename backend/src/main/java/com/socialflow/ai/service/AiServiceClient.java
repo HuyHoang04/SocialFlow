@@ -354,6 +354,35 @@ public class AiServiceClient {
         }
     }
     
+    /**
+     * Refresh available models from providers
+     * POST /refresh-models
+     */
+    public Object refreshModels() {
+        try {
+            log.info("Calling Python AI Service: POST /refresh-models");
+            
+            String url = pythonServiceUrl + "/refresh-models";
+            
+            ResponseEntity<Object> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                new HttpEntity<>(getHeaders()),
+                Object.class
+            );
+            
+            log.info("✓ Refresh models successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Refresh models failed: {}", e.getMessage());
+            return Map.of(
+                "success", false,
+                "error", "Failed to call Python service: " + e.getMessage()
+            );
+        }
+    }
+    
     // ==================== RAG ENDPOINTS ====================
     
     /**
@@ -580,7 +609,7 @@ public class AiServiceClient {
             );
             
             log.info("✓ RAG generate content successful | Content length: {} | RAG results: {}", 
-                     response.getBody() != null ? response.getBody().getContent().length() : 0,
+                     (response.getBody() != null && response.getBody().getContent() != null) ? response.getBody().getContent().length() : 0,
                      response.getBody() != null ? response.getBody().getRagResultsCount() : 0);
             return response.getBody();
             
@@ -706,35 +735,56 @@ public class AiServiceClient {
     private Map<String, Object> injectConfig(Object request, String brandId, String type) {
         Map<String, Object> map = objectMapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
         
+        // Helper to check if a value is missing or empty
+        java.util.function.BiConsumer<String, String> putIfMissing = (key, value) -> {
+            Object current = map.get(key);
+            if (value != null && !value.isEmpty() && (current == null || current.toString().isEmpty())) {
+                map.put(key, value);
+            }
+        };
+
         if (brandId != null && !brandId.isEmpty()) {
             AiModelConfig config = aiModelConfigService.getConfigByBrandIdStr(brandId);
             if (config != null) {
                 // Primary model injection (provider/model)
                 if ("text".equals(type) || "chat".equals(type) || "rag".equals(type)) {
-                    if (config.getTextProvider() != null) map.put("provider", config.getTextProvider());
-                    if (config.getTextModel() != null) map.put("model", config.getTextModel());
+                    putIfMissing.accept("provider", config.getTextProvider());
+                    putIfMissing.accept("model", config.getTextModel());
                 } else if ("image".equals(type)) {
-                    if (config.getImageProvider() != null) map.put("provider", config.getImageProvider());
-                    if (config.getImageModel() != null) map.put("model", config.getImageModel());
+                    putIfMissing.accept("provider", config.getImageProvider());
+                    putIfMissing.accept("model", config.getImageModel());
                 } else if ("embedding".equals(type)) {
-                    if (config.getEmbeddingProvider() != null) map.put("provider", config.getEmbeddingProvider());
-                    if (config.getEmbeddingModel() != null) map.put("model", config.getEmbeddingModel());
+                    putIfMissing.accept("provider", config.getEmbeddingProvider());
+                    putIfMissing.accept("model", config.getEmbeddingModel());
                 }
                 
                 // Agent/Sidekick models for multi-modal endpoints
                 if ("chat".equals(type)) {
-                    if (config.getImageProvider() != null) map.put("image_provider", config.getImageProvider());
-                    if (config.getImageModel() != null) map.put("image_model", config.getImageModel());
-                    if (config.getEmbeddingProvider() != null) map.put("embedding_provider", config.getEmbeddingProvider());
-                    if (config.getEmbeddingModel() != null) map.put("embedding_model", config.getEmbeddingModel());
+                    putIfMissing.accept("image_provider", config.getImageProvider());
+                    putIfMissing.accept("image_model", config.getImageModel());
+                    putIfMissing.accept("embedding_provider", config.getEmbeddingProvider());
+                    putIfMissing.accept("embedding_model", config.getEmbeddingModel());
                 }
                 
                 if ("rag".equals(type)) {
-                    if (config.getEmbeddingProvider() != null) map.put("embedding_provider", config.getEmbeddingProvider());
-                    if (config.getEmbeddingModel() != null) map.put("embedding_model", config.getEmbeddingModel());
+                    putIfMissing.accept("embedding_provider", config.getEmbeddingProvider());
+                    putIfMissing.accept("embedding_model", config.getEmbeddingModel());
                 }
             }
         }
+        
+        // Fallback to system defaults if still missings
+        if ("image".equals(type)) {
+            putIfMissing.accept("provider", "pixazo");
+            putIfMissing.accept("model", "flux-1-schnell");
+        } else if ("embedding".equals(type)) {
+            putIfMissing.accept("provider", "openrouter");
+            putIfMissing.accept("model", "nvidia/llama-nemotron-embed-vl-1b-v2:free");
+        } else { 
+            putIfMissing.accept("provider", "openrouter");
+            putIfMissing.accept("model", "nvidia/nemotron-3-nano-30b-a3b:free");
+        }
+        
         return map;
     }
 }

@@ -25,6 +25,7 @@ export interface ImageModel {
 }
 
 export interface GenerateContentRequest {
+  brand_id: string;
   prompt: string;
   provider?: 'groq' | 'openrouter';
   model?: string;
@@ -44,6 +45,7 @@ export interface GenerateContentResponse {
 }
 
 export interface RewriteContentRequest {
+  brand_id: string;
   content: string;
   tone: 'professional' | 'casual' | 'humorous' | 'inspirational' | 'technical';
   provider?: 'groq' | 'openrouter';
@@ -65,6 +67,7 @@ export interface RewriteContentResponse {
 }
 
 export interface KeywordOptimizationRequest {
+  brand_id: string;
   content: string;
   keywords?: string[];
   platform?: 'facebook' | 'twitter' | 'linkedin' | 'bluesky' | 'threads';
@@ -87,6 +90,7 @@ export interface KeywordOptimizationResponse {
 }
 
 export interface GenerateImageRequest {
+  brand_id: string;
   prompt: string;
   provider?: 'pixazo' | 'openrouter';
   model?: string;

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconLink, IconLogOut, IconZap,
-    IconChevronLeft, IconChevronRight, IconFileText,
+    IconChevronLeft, IconChevronRight, IconFileText, IconMessageCircle, IconSettings
 } from './Icons';
 
 interface SidebarProps {
@@ -40,6 +40,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { href: '/campaigns', icon: <IconTarget size={20} />, label: 'Campaigns' },
         { href: '/rag-library', icon: <IconFileText size={20} />, label: 'Content Library' },
         { href: '/accounts', icon: <IconLink size={20} />, label: 'Accounts' },
+        { href: '/settings/ai', icon: <IconSettings size={20} />, label: 'Settings' },
     ];
 
     return (

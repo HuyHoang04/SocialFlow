@@ -153,12 +153,13 @@ export const api = {
 
     // AI Models
     getModels: () => request('/ai/models'),
-    getImageModels: () => request('/ai/image-models'),
-    getRagModels: () => request('/ai/rag-models'),
+    getImageModels: () => request('/ai/models/image'),
+    getRagModels: () => request('/ai/models/embedding'),
     refreshModels: () => request('/ai/refresh-models', { method: 'POST' }),
 
     // Text Generation
     generateContent: (data: {
+        brand_id: string;
         prompt: string;
         provider?: string;
         model?: string;
@@ -169,16 +170,18 @@ export const api = {
 
     // Content Rewrite
     rewriteContent: (data: {
+        brand_id: string;
         content: string;
         tone: string;
         provider?: string;
         model?: string;
         platform?: string;
         max_words?: number;
-    }) => request('/ai/rewrite-content', { method: 'POST', body: JSON.stringify(data) }),
+    }) => request('/ai/rewrite', { method: 'POST', body: JSON.stringify(data) }),
 
     // Keyword Optimization
     optimizeKeywords: (data: {
+        brand_id: string;
         content: string;
         keywords?: string[];
         platform?: string;
@@ -186,10 +189,11 @@ export const api = {
         provider?: string;
         model?: string;
         max_words?: number;
-    }) => request('/ai/optimize-keywords', { method: 'POST', body: JSON.stringify(data) }),
+    }) => request('/ai/keyword-optimize', { method: 'POST', body: JSON.stringify(data) }),
 
     // Image Generation
     generateImage: async (data: {
+        brand_id: string;
         prompt: string;
         provider?: string;
         model?: string;
@@ -308,7 +312,7 @@ export const api = {
         model?: string;
         tone?: string;
         image_model?: string;
-    }) => request('/ai/rag/generate-content-with-images', { method: 'POST', body: JSON.stringify(data) }),
+    }) => request('/ai/rag/generate-with-images', { method: 'POST', body: JSON.stringify(data) }),
 
     // ============= TRENDING ENDPOINTS =============
 
@@ -330,7 +334,32 @@ export const api = {
     refreshBlueskyTrending: (data: { brand_id: string }) =>
         request('/trending/bluesky/search/refresh', { method: 'POST', body: JSON.stringify(data) }),
 
-    // Cleanup old trending data
+    // ============= CHAT ENDPOINTS =============
+    sendChatMessage: (data: {
+        brand_id: string;
+        user_id: string;
+        session_id: string;
+        message: string;
+        context_data?: string;
+        provider?: string;
+        model?: string;
+    }) => request('/ai/chat/send', { method: 'POST', body: JSON.stringify(data) }),
+
+    getChatSessions: (brandId: string) => request(`/ai/chat/sessions?brandId=${brandId}`),
+    getChatHistory: (sessionId: string) => request(`/ai/chat/history/${sessionId}`),
+    deleteChatSession: (sessionId: string) => request(`/ai/chat/session/${sessionId}`, { method: 'DELETE' }),
+
+    // AI Config
+    getAiConfig: (brandId: string) => request(`/ai/config?brand_id=${brandId}`),
+    updateAiConfig: (brandId: string, data: {
+        text_provider?: string;
+        text_model?: string;
+        image_provider?: string;
+        image_model?: string;
+        embedding_provider?: string;
+        embedding_model?: string;
+    }) => request('/ai/config', { method: 'POST', body: JSON.stringify({ ...data, brand_id: brandId }) }),
+
     cleanupTrendingData: () => request('/trending/cleanup', { method: 'POST' }),
 
     // ── Trending Config (upsert: 1 per brand per source) ──────────────────

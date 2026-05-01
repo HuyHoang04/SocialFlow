@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/ai/chat")
 @RequiredArgsConstructor
 @CrossOrigin
 public class ChatController {
@@ -18,6 +18,22 @@ public class ChatController {
     @PostMapping("/send")
     public ResponseEntity<ChatResponse> sendMessage(@RequestBody ChatRequest request) {
         return ResponseEntity.ok(aiChatService.processChatMessage(request));
+    }
+
+    @GetMapping("/sessions")
+    public ResponseEntity<?> getSessions(@RequestParam String brandId) {
+        return ResponseEntity.ok(aiChatService.getSessions(brandId));
+    }
+
+    @GetMapping("/history/{sessionId}")
+    public ResponseEntity<?> getHistory(@PathVariable String sessionId) {
+        return ResponseEntity.ok(aiChatService.getHistory(sessionId));
+    }
+
+    @DeleteMapping("/session/{sessionId}")
+    public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
+        aiChatService.deleteSession(sessionId);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/callback")

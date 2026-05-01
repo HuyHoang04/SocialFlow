@@ -6,6 +6,7 @@ import { api } from './api';
 // ============================================================================
 
 interface GenerateContentParams {
+  brand_id: string;
   prompt: string;
   provider?: string;
   model?: string;
@@ -54,6 +55,7 @@ export function useGenerateContent() {
 // ============================================================================
 
 interface RewriteContentParams {
+  brand_id: string;
   content: string;
   tone: 'professional' | 'casual' | 'humorous' | 'inspirational' | 'technical';
   provider?: string;
@@ -107,6 +109,7 @@ export function useRewriteContent() {
 // ============================================================================
 
 interface OptimizeKeywordsParams {
+  brand_id: string;
   content: string;
   keywords?: string[];
   platform?: string;
@@ -161,6 +164,7 @@ export function useOptimizeKeywords() {
 // ============================================================================
 
 interface GenerateImageParams {
+  brand_id: string;
   prompt: string;
   provider?: string;
   model?: string;
