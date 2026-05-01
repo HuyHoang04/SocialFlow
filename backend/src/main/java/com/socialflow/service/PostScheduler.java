@@ -22,7 +22,8 @@ public class PostScheduler {
     // Run every minute
     @Scheduled(fixedDelay = 60000)
     public void publishScheduledPosts() {
-        LocalDateTime now = LocalDateTime.now();
+        // Use UTC time to match stored scheduledTime
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
         List<Post> duePosts = postRepository.findByStatusAndScheduledTimeLessThanEqual(PostStatus.SCHEDULED, now);
 
         if (!duePosts.isEmpty()) {

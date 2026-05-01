@@ -76,8 +76,9 @@ public class PostService {
             LocalDateTime scheduledTime = null;
             PostStatus initialStatus = PostStatus.DRAFT;
             if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
+                // Parse as OffsetDateTime and convert to LocalDateTime (UTC)
                 scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
-                if (scheduledTime.isAfter(LocalDateTime.now())) {
+                if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
                     initialStatus = PostStatus.SCHEDULED;
                 }
             }
@@ -148,9 +149,9 @@ public class PostService {
 
         // Update scheduled time if provided
         if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
-            LocalDateTime scheduledTime = LocalDateTime.parse(request.getScheduledTime());
+            LocalDateTime scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
             post.setScheduledTime(scheduledTime);
-            if (scheduledTime.isAfter(LocalDateTime.now())) {
+            if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
                 post.setStatus(PostStatus.SCHEDULED);
             } else {
                 post.setStatus(PostStatus.DRAFT);
