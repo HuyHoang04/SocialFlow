@@ -103,15 +103,26 @@ public class MediaController {
             throw new RuntimeException("Failed to save file to disk", e);
         }
 
-        // Return metadata without saving to database
-        // Database entry will be created when the post is published
+        // Save to database
+        PostMedia postMedia = new PostMedia();
+        postMedia.setFilename(filename);
+        postMedia.setOriginalName(originalName != null ? originalName : filename);
+        postMedia.setContentType(contentType);
+        postMedia.setFileSize(file.getSize());
+        postMedia.setUrl("/api/media/" + filename);
+        postMedia.setUploader(user);
+        
+        PostMedia savedMedia = mediaRepository.save(postMedia);
+
+        log.info("Saved media metadata to database: id={}", savedMedia.getId());
+
         return Map.of(
-                "id", UUID.randomUUID().toString(),
+                "id", savedMedia.getId().toString(),
                 "filename", filename,
-                "url", "/api/media/" + filename,
+                "url", savedMedia.getUrl(),
                 "contentType", contentType,
-                "originalName", originalName != null ? originalName : filename,
-                "fileSize", file.getSize()
+                "originalName", savedMedia.getOriginalName(),
+                "fileSize", savedMedia.getFileSize()
         );
     }
 

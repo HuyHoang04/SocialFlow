@@ -72,6 +72,8 @@ export const api = {
     getBrands: () => request('/brands'),
     createBrand: (data: { name: string; description?: string }) =>
         request('/brands', { method: 'POST', body: JSON.stringify(data) }),
+    updateBrand: (id: string, data: { name: string; description?: string; logoUrl?: string }) =>
+        request(`/brands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBrand: (id: string) => request(`/brands/${id}`, { method: 'DELETE' }),
 
     // Connections

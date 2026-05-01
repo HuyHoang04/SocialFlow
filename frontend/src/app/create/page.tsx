@@ -6,8 +6,9 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import {
-    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX,
+    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX, IconEdit,
 } from '@/components/Icons';
+import ImageEditor from '@/components/ImageEditor';
 import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews, BlueskyPostPreview, LinkedInPostPreview, ThreadsPostPreview } from '@automattic/social-previews';
 import '@automattic/social-previews/style.css';
 import '@/styles/create-page.css';
@@ -273,6 +274,14 @@ function CreatePostContent() {
     const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set()); // Track selected image indices
     const [imageLoading, setImageLoading] = useState(false);
     const [isImageGenerationComplete, setIsImageGenerationComplete] = useState(false);
+
+    // Image editing state
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [editingMediaIndex, setEditingMediaIndex] = useState<number | null>(null);
+    const [isStockOpen, setIsStockOpen] = useState(false);
+    const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+    const [libraryAssets, setLibraryAssets] = useState<any[]>([]);
+    const [loadingLibrary, setLoadingLibrary] = useState(false);
 
     useEffect(() => {
         if (!brand) return;
@@ -665,6 +674,61 @@ function CreatePostContent() {
         setMediaFiles(prev => prev.filter(m => m.id !== id));
     };
 
+    const handleEditImage = (index: number) => {
+        setEditingMediaIndex(index);
+        setIsEditorOpen(true);
+    };
+
+    const handleSaveEditedImage = async (editedData: { imageBase64: string; filename: string }) => {
+        if (editingMediaIndex === null) return;
+        
+        setIsEditorOpen(false);
+        setUploading(true);
+        try {
+            const res = await fetch(editedData.imageBase64);
+            const blob = await res.blob();
+            const file = new File([blob], editedData.filename, { type: 'image/png' });
+            
+            const result = await api.uploadMedia(file);
+            
+            // Replace the old media with the new one
+            setMediaFiles(prev => {
+                const updated = [...prev];
+                updated[editingMediaIndex] = result;
+                return updated;
+            });
+        } catch (err) {
+            setError('Failed to save edited image');
+        } finally {
+            setUploading(false);
+            setEditingMediaIndex(null);
+        }
+    };
+
+    const openLibrary = async () => {
+        setIsLibraryOpen(true);
+        setLoadingLibrary(true);
+        try {
+            const data = await api.getMedia();
+            setLibraryAssets(data);
+        } catch (err) {
+            setError('Failed to load library');
+        } finally {
+            setLoadingLibrary(false);
+        }
+    };
+
+    const handleSelectFromLibrary = (asset: any) => {
+        setMediaFiles(prev => {
+            const isSelected = prev.find(m => m.id === asset.id);
+            if (isSelected) {
+                return prev.filter(m => m.id !== asset.id);
+            } else {
+                return [...prev, asset];
+            }
+        });
+    };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setDragOver(false);
@@ -861,38 +925,29 @@ function CreatePostContent() {
                             {/* Quick image tools */}
                             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                                 <button 
+                                    className="ai-tool-btn" 
                                     onClick={() => setImageModal({ isOpen: true, mode: 'generate' })}
-                                    style={{
-                                        padding: '8px 14px',
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        background: 'var(--accent)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: 'var(--radius-sm)',
-                                        cursor: 'pointer',
-                                        transition: 'var(--transition)'
-                                    }}
-                                    onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
-                                    onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                                 >
-                                    🎨 Generate Image
+                                    🎨 AI Generate
                                 </button>
                                 <button 
-                                    onClick={() => setImageModal({ isOpen: true, mode: 'search' })}
-                                    style={{
-                                        padding: '8px 14px',
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        background: 'var(--bg-glass)',
-                                        color: 'var(--accent)',
-                                        border: '1px solid var(--accent)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        cursor: 'pointer',
-                                        transition: 'var(--transition)'
-                                    }}
-                                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(108, 92, 231, 0.1)')}
-                                    onMouseOut={(e) => (e.currentTarget.style.background = 'var(--bg-glass)')}
+                                    className="ai-tool-btn" 
+                                    onClick={openLibrary}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                                >
+                                    📁 My Library
+                                </button>
+                                <button 
+                                    className="ai-tool-btn" 
+                                    onClick={() => setIsStockOpen(true)}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                                 >
                                     🖼️ Stock Photos
                                 </button>
@@ -956,9 +1011,20 @@ function CreatePostContent() {
                                                     className="media-remove"
                                                     onClick={(e) => { e.stopPropagation(); removeMedia(media.id); }}
                                                     title="Remove"
+                                                    style={{ right: 8 }}
                                                 >
                                                     <IconX size={14} />
                                                 </button>
+                                                {media.contentType.startsWith('image/') && (
+                                                    <button
+                                                        className="media-remove"
+                                                        onClick={(e) => { e.stopPropagation(); handleEditImage(mediaFiles.indexOf(media)); }}
+                                                        title="Edit"
+                                                        style={{ right: 36, background: 'white', color: 'var(--accent)' }}
+                                                    >
+                                                        <IconEdit size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1692,6 +1758,90 @@ function CreatePostContent() {
                                             ? 'Accept'
                                             : 'Generate'
                                     )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* Image Editor Modal */}
+                {editingMediaIndex !== null && mediaFiles[editingMediaIndex] && (
+                    <ImageEditor
+                        isOpen={isEditorOpen}
+                        onClose={() => {
+                            setIsEditorOpen(false);
+                            setEditingMediaIndex(null);
+                        }}
+                        onSave={handleSaveEditedImage}
+                        imageUrl={mediaFiles[editingMediaIndex].url}
+                        filename={mediaFiles[editingMediaIndex].originalName}
+                    />
+                )}
+
+                {/* Media Library Modal */}
+                {isLibraryOpen && (
+                    <div className="modal-overlay" style={{ zIndex: 10000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+                        <div className="modal-container" style={{ maxWidth: 900, width: '95%', height: '85vh', display: 'flex', flexDirection: 'column', background: '#09090b', border: '1px solid #27272a' }}>
+                            <div className="modal-header" style={{ borderBottom: '1px solid #27272a', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <h3 style={{ margin: 0, fontSize: 16, color: 'white' }}>Media Assets Library</h3>
+                                <button 
+                                    onClick={() => setIsLibraryOpen(false)}
+                                    style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.color = 'white')}
+                                    onMouseOut={(e) => (e.currentTarget.style.color = '#71717a')}
+                                >
+                                    <IconX size={24} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ overflowY: 'auto', padding: 20, background: '#09090b', flex: 1 }}>
+                                {loadingLibrary ? (
+                                    <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" /></div>
+                                ) : libraryAssets.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>No media found in library</div>
+                                ) : (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+                                        {libraryAssets.map(asset => (
+                                            <div 
+                                                key={asset.id} 
+                                                className={`library-item ${mediaFiles.find(m => m.id === asset.id) ? 'selected' : ''}`}
+                                                onClick={() => handleSelectFromLibrary(asset)}
+                                                style={{ 
+                                                    aspectRatio: '1', 
+                                                    borderRadius: 12, 
+                                                    overflow: 'hidden', 
+                                                    cursor: 'pointer',
+                                                    position: 'relative',
+                                                    transition: '0.2s',
+                                                    transform: mediaFiles.find(m => m.id === asset.id) ? 'scale(0.95)' : 'scale(1)',
+                                                    border: mediaFiles.find(m => m.id === asset.id) ? '3px solid #6c5ce7' : '1px solid #27272a',
+                                                    boxShadow: mediaFiles.find(m => m.id === asset.id) ? '0 0 20px rgba(108, 92, 231, 0.3)' : 'none'
+                                                }}
+                                            >
+                                                {asset.contentType.startsWith('image/') ? (
+                                                    <img src={asset.url} alt={asset.originalName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#18181b' }}>
+                                                        <IconFilm size={40} color="var(--text-muted)" />
+                                                    </div>
+                                                )}
+                                                {mediaFiles.find(m => m.id === asset.id) && (
+                                                    <div style={{ position: 'absolute', top: 12, right: 12, background: '#6c5ce7', color: 'white', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>✓</div>
+                                                )}
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: 10, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {asset.originalName}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', borderTop: '1px solid #27272a', background: '#09090b' }}>
+                                <button 
+                                    onClick={() => setIsLibraryOpen(false)}
+                                    style={{ background: '#6c5ce7', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = '#5b4bc4')}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = '#6c5ce7')}
+                                >
+                                    Confirm Selection
                                 </button>
                             </div>
                         </div>

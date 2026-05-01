@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, getUser } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
-import { 
-    IconMessageCircle, IconSend, IconPlus, 
+import {
+    IconMessageCircle, IconSend, IconPlus,
     IconTrash, IconRefreshCw, IconSparkles,
     IconUsers, IconZap, IconChevronLeft,
     IconHistory, IconX
@@ -28,7 +28,7 @@ export default function ChatDrawer() {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();
         }
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             const r = Math.random() * 16 | 0;
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
@@ -142,23 +142,23 @@ export default function ChatDrawer() {
     return (
         <>
             {/* Floating Toggle Button */}
-            <button 
+            <button
                 className={`chat-toggle ${isOpen ? 'active' : ''}`}
                 onClick={() => setIsOpen(!isOpen)}
                 title="AI Assistant"
             >
-                {isOpen ? <IconX size={24} /> : <IconZap size={24} />}
+                {isOpen ? <IconX size={24} /> : <img src="/logoAI.svg" alt="Evie" style={{ width: 64, height: 64, filter: 'drop-shadow(0 0 8px var(--accent-glow))' }} />}
             </button>
 
             {/* Sliding Drawer */}
             <div className={`chat-drawer ${isOpen ? 'open' : ''}`}>
                 <div className="drawer-header">
                     <div className="header-info">
-                        <div className="ai-avatar">
-                            <IconZap size={18} color="white" />
+                        <div className="ai-avatar" style={{ background: 'transparent' }}>
+                            <img src="/logoAI.svg" alt="Evie" style={{ width: 48, height: 48 }} />
                         </div>
                         <div>
-                            <h3>AI Assistant</h3>
+                            <h3>Chat with Evie</h3>
                             <span className="status-online">● Online</span>
                         </div>
                     </div>
@@ -188,14 +188,14 @@ export default function ChatDrawer() {
                                     <div className="p-4 text-center text-muted">No history found</div>
                                 ) : (
                                     sessions.map(s => (
-                                        <div 
-                                            key={s.sessionId} 
+                                        <div
+                                            key={s.sessionId}
                                             className={`history-item ${activeSessionId === s.sessionId ? 'active' : ''}`}
                                             onClick={() => handleSelectSession(s.sessionId)}
                                         >
                                             <IconMessageCircle size={14} />
                                             <span className="history-preview">{s.lastMessage || 'New Chat'}</span>
-                                            <button 
+                                            <button
                                                 className="delete-btn"
                                                 onClick={(e) => handleDeleteSession(e, s.sessionId)}
                                             >
@@ -209,12 +209,17 @@ export default function ChatDrawer() {
                     ) : (
                         <div className="chat-messages">
                             {messages.length === 0 && !loading ? (
-                                <div className="chat-welcome">
-                                    <IconSparkles size={40} color="var(--primary)" />
-                                    <h3>How can I help you?</h3>
-                                    <div className="suggestions">
-                                        <button onClick={() => setInput('Write a post about...')}>"Write a post..."</button>
-                                        <button onClick={() => setInput('Optimize my hashtags')}>"Optimize hashtags"</button>
+                                <div className="chat-welcome" style={{ padding: '20px 0' }}>
+                                    <div className="message-row assistant">
+                                        <div className="message-bubble">
+                                            Hello! I'm <b>Evie</b> ✨<br /><br />
+                                            Your AI social media assistant. I can help you write content or analyze performance. What's on your mind?
+                                        </div>
+                                    </div>
+                                    <div className="quick-chips" style={{ marginTop: 12, padding: '0 16px' }}>
+                                        <button onClick={() => setInput('Help me create a new marketing campaign for...')}>🚀 Start Campaign</button>
+                                        <button onClick={() => setInput('Write a viral post about...')}>📝 Create Viral Post</button>
+                                        <button onClick={() => setInput('Give me 5 post ideas for my brand')}>💡 Content Ideas</button>
                                     </div>
                                 </div>
                             ) : (
@@ -243,7 +248,7 @@ export default function ChatDrawer() {
 
                 <div className="drawer-footer">
                     <div className="input-wrapper">
-                        <textarea 
+                        <textarea
                             placeholder="Type a message..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
@@ -255,7 +260,7 @@ export default function ChatDrawer() {
                             }}
                             rows={1}
                         />
-                        <button 
+                        <button
                             className={`send-btn ${!input.trim() || loading ? 'disabled' : ''}`}
                             onClick={handleSendMessage}
                             disabled={!input.trim() || loading}
@@ -347,6 +352,12 @@ export default function ChatDrawer() {
                 .status-online { font-size: 10px; color: var(--success); font-weight: 600; }
 
                 .header-actions { display: flex; gap: 8px; }
+                .icon-btn {
+                    background: none; border: none; color: #71717a; cursor: pointer;
+                    display: flex; align-items: center; justify-content: center;
+                    width: 32px; height: 32px; border-radius: 8px; transition: all 0.2s;
+                }
+                .icon-btn:hover { background: rgba(255,255,255,0.05); color: white; }
 
                 .drawer-body {
                     flex: 1;
@@ -360,25 +371,18 @@ export default function ChatDrawer() {
                     gap: 12px;
                 }
                 .chat-welcome {
-                    text-align: center;
-                    padding: 40px 20px;
+                    padding: 20px 0;
                 }
-                .suggestions {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                    margin-top: 20px;
+                .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 0 16px; }
+                .quick-chips button {
+                    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+                    color: white; padding: 8px 16px; border-radius: 12px; font-size: 13px;
+                    cursor: pointer; transition: all 0.2s;
                 }
-                .suggestions button {
-                    background: rgba(255,255,255,0.05);
-                    border: 1px solid var(--border);
-                    padding: 8px 12px;
-                    border-radius: 10px;
-                    font-size: 13px;
-                    cursor: pointer;
-                    transition: all 0.2s;
+                .quick-chips button:hover {
+                    background: rgba(108, 92, 231, 0.1); border-color: var(--primary);
+                    transform: translateY(-2px);
                 }
-                .suggestions button:hover { background: var(--primary-glow); }
 
                 .message-row { display: flex; margin-bottom: 8px; }
                 .message-row.user { justify-content: flex-end; }
@@ -397,6 +401,28 @@ export default function ChatDrawer() {
                 .assistant .message-bubble {
                     background: rgba(255,255,255,0.08);
                     border-bottom-left-radius: 4px;
+                }
+
+                .chat-welcome {
+                    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+                    padding: 40px 20px; text-align: center;
+                }
+                .evie-avatar {
+                    width: 56px; height: 56px; background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+                    border-radius: 20px; display: flex; align-items: center; justify-content: center;
+                    margin-bottom: 20px; box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
+                }
+                .chat-welcome h3 { margin: 0 0 10px; font-size: 20px; font-weight: 700; color: white; }
+                .chat-welcome p { margin: 0 0 24px; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+                .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+                .quick-chips button {
+                    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+                    color: white; padding: 8px 16px; border-radius: 12px; font-size: 13px;
+                    cursor: pointer; transition: all 0.2s;
+                }
+                .quick-chips button:hover {
+                    background: rgba(108, 92, 231, 0.1); border-color: var(--primary);
+                    transform: translateY(-2px);
                 }
 
                 .history-popup {

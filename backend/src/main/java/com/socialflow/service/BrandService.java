@@ -43,4 +43,15 @@ public class BrandService {
         }
         brandRepository.delete(brand);
     }
+
+    public Brand updateBrand(UUID id, User user, CreateBrandRequest request) {
+        Brand brand = getBrandById(id);
+        if (!brand.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        brand.setName(request.getName());
+        brand.setDescription(request.getDescription());
+        brand.setLogoUrl(request.getLogoUrl());
+        return brandRepository.save(brand);
+    }
 }

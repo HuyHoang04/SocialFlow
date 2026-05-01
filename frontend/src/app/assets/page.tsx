@@ -2,7 +2,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import AppShell from '@/components/AppShell';
-import { IconUpload, IconFilm, IconImage, IconTrash } from '@/components/Icons';
+import { IconUpload, IconFilm, IconImage, IconTrash, IconSearch, IconX, IconEdit } from '@/components/Icons';
+import ImageEditor from '@/components/ImageEditor';
 
 interface MediaAsset {
     id: string;
@@ -20,7 +21,12 @@ export default function AssetsPage() {
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
     const [error, setError] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Editor state
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null);
 
     const loadAssets = async () => {
         setLoading(true);
@@ -54,7 +60,6 @@ export default function AssetsPage() {
                 }
                 await api.uploadMedia(file);
             }
-            // Reload assets after upload completes
             loadAssets();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Upload failed');
@@ -66,10 +71,10 @@ export default function AssetsPage() {
 
     const handleDelete = async (id: string, postId?: string) => {
         if (postId) {
-            alert('Cannot delete media that is attached to a post. Delete the post first.');
+            alert('This media is currently used in a post and cannot be deleted.');
             return;
         }
-        if (!confirm('Are you sure you want to delete this media?')) return;
+        if (!confirm('Are you sure you want to permanently delete this media?')) return;
 
         try {
             await api.deleteMedia(id);
@@ -79,10 +84,27 @@ export default function AssetsPage() {
         }
     };
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setDragOver(false);
-        handleFileUpload(e.dataTransfer.files);
+    const handleSaveEditedImage = async (editedData: { imageBase64: string; filename: string }) => {
+        setIsEditorOpen(false);
+        setUploading(true);
+        setError('');
+        try {
+            const res = await fetch(editedData.imageBase64);
+            const blob = await res.blob();
+            const file = new File([blob], editedData.filename, { type: 'image/png' });
+            
+            const result = await api.uploadMedia(file);
+            // Prepend to list immediately for instant feedback
+            setAssets(prev => [result, ...prev]);
+            
+            // Still reload to be sure everything is in sync
+            setTimeout(loadAssets, 500);
+        } catch (err) {
+            setError('Failed to save edited image');
+        } finally {
+            setUploading(false);
+            setEditingAsset(null);
+        }
     };
 
     const formatFileSize = (bytes: number) => {
@@ -91,32 +113,79 @@ export default function AssetsPage() {
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     };
 
+    const filteredAssets = assets.filter(a => 
+        a.originalName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <AppShell>
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">Media Assets</h1>
-                    <p className="page-subtitle">Manage your uploaded images and videos</p>
+            <div className="page-header" style={{ marginBottom: 32 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div>
+                        <h1 className="page-title" style={{ margin: 0 }}>Media Library</h1>
+                        <p className="page-subtitle" style={{ margin: '4px 0 0' }}>Central hub for all your visual content</p>
+                    </div>
+                    
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 400 }}>
+                        <div style={{ 
+                            position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
+                            color: 'var(--text-muted)', display: 'flex', pointerEvents: 'none'
+                        }}>
+                            <IconSearch size={20} />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search by filename..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="form-control"
+                            style={{ 
+                                padding: '12px 16px 12px 48px', 
+                                background: 'var(--bg-glass)',
+                                borderRadius: 12,
+                                border: '1px solid var(--border)',
+                                width: '100%',
+                                fontSize: 15
+                            }}
+                        />
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm('')}
+                                style={{ 
+                                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'rgba(255,255,255,0.1)', border: 'none', 
+                                    color: 'var(--text-primary)', cursor: 'pointer',
+                                    width: 24, height: 24, borderRadius: '50%',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}
+                            >
+                                <IconX size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24 }}>{error}</div>}
+            {error && <div className="error-msg" style={{ marginBottom: 24, borderRadius: 12 }}>{error}</div>}
 
-            {/* Upload Area */}
+            {/* Modern Upload Zone */}
             <div
                 className="card"
                 onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files); }}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                    border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
+                    border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
                     textAlign: 'center',
                     cursor: 'pointer',
-                    transition: 'var(--transition)',
-                    background: dragOver ? 'rgba(99,102,241,0.08)' : 'var(--bg-glass)',
-                    marginBottom: 32,
-                    padding: '40px 20px',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    background: dragOver ? 'rgba(108, 92, 231, 0.08)' : 'var(--bg-glass)',
+                    marginBottom: 40,
+                    padding: '60px 40px',
+                    borderRadius: 24,
+                    boxShadow: dragOver ? '0 12px 24px rgba(108, 92, 231, 0.1)' : 'none',
+                    transform: dragOver ? 'scale(1.01)' : 'scale(1)',
                 }}
             >
                 <input
@@ -128,86 +197,235 @@ export default function AssetsPage() {
                     style={{ display: 'none' }}
                 />
                 {uploading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <div className="spinner" style={{ width: 24, height: 24, borderWidth: 3 }} />
-                        <span style={{ fontSize: 16, color: 'var(--text-primary)' }}>Uploading files...</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                        <div className="spinner" style={{ width: 48, height: 48, borderWidth: 4 }} />
+                        <div>
+                            <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>Uploading...</div>
+                            <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>Optimizing your media assets</div>
+                        </div>
                     </div>
                 ) : (
                     <>
-                        <div style={{ marginBottom: 12 }}><IconUpload size={48} color="var(--accent)" /></div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
-                            Click to upload or drag and drop files here
+                        <div style={{ 
+                            width: 80, height: 80, borderRadius: '24px', 
+                            background: 'linear-gradient(135deg, var(--accent) 0%, #a29bfe 100%)', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 24px',
+                            boxShadow: '0 10px 20px rgba(108, 92, 231, 0.2)'
+                        }}>
+                            <IconUpload size={40} color="white" />
                         </div>
-                        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>
-                            Supported: JPG, PNG, GIF, MP4, MOV (Max size: 50MB)
-                        </div>
+                        <h3 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+                            Upload New Media
+                        </h3>
+                        <p style={{ fontSize: 16, color: 'var(--text-muted)', maxWidth: 450, margin: '0 auto' }}>
+                            Drag images or videos here, or click to browse. <br/>
+                            <span style={{ fontSize: 14, opacity: 0.8 }}>MAX 50MB per file.</span>
+                        </p>
                     </>
                 )}
             </div>
 
-            {/* Gallery */}
+            {/* Gallery Grid - FIXED LAYOUT */}
             {loading ? (
-                <div className="loading-center"><div className="spinner" /></div>
-            ) : assets.length === 0 ? (
-                <div className="empty-state">
-                    <div className="empty-state-icon"><IconImage size={40} color="var(--text-muted)" /></div>
-                    <div className="empty-state-title">No assets found</div>
-                    <div className="empty-state-text">Your media library is empty. Upload some files to get started!</div>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>
+                    <div className="spinner" />
+                </div>
+            ) : filteredAssets.length === 0 ? (
+                <div className="empty-state" style={{ padding: '80px 40px', borderRadius: 24, background: 'var(--bg-glass)' }}>
+                    <div style={{ 
+                        width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px'
+                    }}>
+                        <IconImage size={40} color="var(--text-muted)" />
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+                        {searchTerm ? 'No matches found' : 'Empty Library'}
+                    </div>
+                    <p style={{ fontSize: 15, color: 'var(--text-muted)', maxWidth: 320, margin: '0 auto' }}>
+                        {searchTerm ? `Try searching for a different filename.` : 'Upload some images to start creating amazing social posts!'}
+                    </p>
                 </div>
             ) : (
-                <div className="grid grid-4">
-                    {assets.map(asset => (
-                        <div key={asset.id} className="card" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
-                            <div style={{ background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                    gap: 24,
+                    width: '100%' 
+                }}>
+                    {filteredAssets.map(asset => (
+                        <div 
+                            key={asset.id} 
+                            className="card group" 
+                            style={{ 
+                                padding: 0, 
+                                borderRadius: 20,
+                                overflow: 'hidden', 
+                                position: 'relative',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                border: '1px solid var(--border)',
+                                background: 'var(--bg-card)',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            {/* Preview Area */}
+                            <div style={{ 
+                                height: 220, 
+                                background: '#0a0a0a',
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                position: 'relative',
+                                overflow: 'hidden'
+                            }}>
                                 {asset.contentType.startsWith('image/') ? (
                                     <img
                                         src={asset.url}
                                         alt={asset.originalName}
-                                        style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                                        className="asset-image"
                                     />
                                 ) : (
-                                    <div style={{ width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <span><IconFilm size={48} color="var(--text-muted)" /></span>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <IconFilm size={48} color="var(--text-muted)" />
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>MP4 Video</div>
                                     </div>
                                 )}
+                                
+                                {/* Overlay Type Badge */}
+                                <div style={{ 
+                                    position: 'absolute', top: 12, left: 12,
+                                    padding: '6px 10px', borderRadius: 8,
+                                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                }}>
+                                    {asset.contentType.startsWith('image/') ? <IconImage size={14} color="white" /> : <IconFilm size={14} color="white" />}
+                                    <span style={{ fontSize: 10, color: 'white', fontWeight: 600, textTransform: 'uppercase' }}>
+                                        {asset.contentType.split('/')[1]}
+                                    </span>
+                                </div>
+
+                                {/* Hover Actions */}
+                                <div className="hover-overlay">
+                                    {asset.contentType.startsWith('image/') && (
+                                        <button
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setEditingAsset(asset);
+                                                setIsEditorOpen(true);
+                                            }}
+                                            className="action-btn edit"
+                                            title="Edit Image"
+                                        >
+                                            <IconEdit size={20} />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(asset.id, asset.postId); }}
+                                        className="action-btn delete"
+                                        title="Delete Asset"
+                                    >
+                                        <IconTrash size={20} />
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{ padding: '12px 16px' }}>
+
+                            {/* Details Area */}
+                            <div style={{ padding: 16, background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0) 100%)' }}>
                                 <div style={{
-                                    fontSize: 14, fontWeight: 600, color: 'var(--text-primary)',
+                                    fontSize: 15, fontWeight: 600, color: 'var(--text-primary)',
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                    marginBottom: 4
+                                    marginBottom: 6
                                 }}>
                                     {asset.originalName}
                                 </div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{formatFileSize(asset.fileSize)}</span>
-                                    <span>{new Date(asset.createdAt).toLocaleDateString()}</span>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ opacity: 0.8 }}>{formatFileSize(asset.fileSize)}</span>
+                                    <span style={{ fontSize: 11 }}>{new Date(asset.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 {asset.postId && (
-                                    <div style={{ marginTop: 8 }}>
-                                        <span className="badge badge-published" style={{ fontSize: 10 }}>Attached to Post</span>
+                                    <div style={{ marginTop: 12 }}>
+                                        <span style={{ 
+                                            padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                                            background: 'rgba(0, 184, 148, 0.1)', color: '#00b894',
+                                            textTransform: 'uppercase', letterSpacing: '0.05em',
+                                            border: '1px solid rgba(0, 184, 148, 0.2)'
+                                        }}>
+                                            Attached
+                                        </span>
                                     </div>
                                 )}
                             </div>
-
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(asset.id, asset.postId); }}
-                                style={{
-                                    position: 'absolute', top: 8, right: 8,
-                                    width: 32, height: 32, borderRadius: '50%',
-                                    background: 'rgba(239, 68, 68, 0.9)', border: 'none',
-                                    color: 'white', fontSize: 16, cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                                }}
-                                title="Delete media"
-                            >
-                                <IconTrash size={16} />
-                            </button>
                         </div>
                     ))}
                 </div>
             )}
+
+            {/* Image Editor Modal */}
+            {editingAsset && (
+                <ImageEditor
+                    isOpen={isEditorOpen}
+                    onClose={() => setIsEditorOpen(false)}
+                    onSave={handleSaveEditedImage}
+                    imageUrl={editingAsset.url}
+                    filename={editingAsset.originalName}
+                />
+            )}
+
+            <style jsx>{`
+                .hover-overlay {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(0,0,0,0.6);
+                    backdrop-filter: blur(8px);
+                    opacity: 0;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 16;
+                    cursor: pointer;
+                    z-index: 10;
+                }
+                .action-btn {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    border: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                    transform: translateY(20px);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    cursor: pointer;
+                }
+                .action-btn.edit {
+                    background: white;
+                    color: var(--accent);
+                    transition-delay: 0.05s;
+                }
+                .action-btn.delete {
+                    background: #ff4757;
+                    color: white;
+                    box-shadow: 0 8px 16px rgba(255, 71, 87, 0.3);
+                }
+                .card.group:hover {
+                    transform: translateY(-8px);
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+                    border-color: var(--accent);
+                }
+                .card.group:hover .hover-overlay {
+                    opacity: 1;
+                }
+                .card.group:hover .action-btn {
+                    transform: translateY(0);
+                }
+                .card.group:hover .asset-image {
+                    transform: scale(1.15);
+                }
+            `}</style>
         </AppShell>
     );
 }
