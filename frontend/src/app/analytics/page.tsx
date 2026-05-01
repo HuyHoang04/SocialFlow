@@ -8,7 +8,7 @@ import {
     IconBarChart, IconRefreshCw, IconClock, IconTrendingUp, IconFileText,
     IconHeart, IconMessageCircle, IconShare, IconEye, IconRadio,
     IconActivity, IconCheckCircle, IconTrophy, IconUsers, IconUserPlus,
-    IconMousePointer, IconGlobe, SkeletonCard,
+    IconMousePointer, IconGlobe, SkeletonCard, IconSparkles,
 } from '@/components/Icons';
 import styles from './analytics.module.css';
 
@@ -47,6 +47,7 @@ interface PostAnalytics {
     engagementRate: number;
     fetchedAt: string;
     publishedAt: string;
+    imageUrl?: string;
 }
 
 interface AnalyticsOverview {
@@ -141,6 +142,34 @@ export default function AnalyticsPage() {
         }
     };
 
+    const handleSendToChat = (message: string, contextData: any) => {
+        const event = new CustomEvent('socialflow-chat-open', {
+            detail: { message, contextData }
+        });
+        window.dispatchEvent(event);
+    };
+
+    const handleSendOverviewToChat = () => {
+        if (!overview) return;
+        const ctx = {
+            totalFollowers: overview.pages.reduce((s, p) => s + p.followers, 0),
+            avgEngagement: overview.avgEngagementRate,
+            totalReach: overview.totalReach,
+            totalImpressions: overview.totalImpressions,
+            totalPosts: overview.totalPosts,
+            image: "/logoAI.svg" // Using AI logo as a visual for overview analysis
+        };
+        handleSendToChat("", ctx);
+    };
+
+    const handleSendPostToChat = (post: PostAnalytics) => {
+        const ctx = {
+            ...post,
+            image: post.imageUrl || "/logoAI.svg"
+        };
+        handleSendToChat("", ctx);
+    };
+
     const hasData = overview && (overview.totalPosts > 0 || overview.topPosts.length > 0);
 
     // Best post for engagement bar scale (using total interactions for visual volume)
@@ -163,15 +192,25 @@ export default function AnalyticsPage() {
                             {lastSynced && <span className={styles.lastSynced}> · Last synced {lastSynced}</span>}
                         </p>
                     </div>
-                    <button
-                        className={styles.syncBtn}
-                        onClick={handleSync}
-                        disabled={syncing || !brand}
-                    >
-                        {syncing
-                            ? <><IconClock size={15} /> Syncing…</>
-                            : <><IconRefreshCw size={15} /> Sync Data</>}
-                    </button>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                            className={styles.syncBtn}
+                            style={{ background: 'var(--primary-glow)', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                            onClick={handleSendOverviewToChat}
+                            disabled={!brand || !overview}
+                        >
+                            <IconSparkles size={15} /> Analyze with Evie
+                        </button>
+                        <button
+                            className={styles.syncBtn}
+                            onClick={handleSync}
+                            disabled={syncing || !brand}
+                        >
+                            {syncing
+                                ? <><IconClock size={15} /> Syncing…</>
+                                : <><IconRefreshCw size={15} /> Sync Data</>}
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Loading skeleton ── */}
@@ -267,7 +306,16 @@ export default function AnalyticsPage() {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <span className={styles.engRate}>{post.engagementRate}%</span>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                                                        <span className={styles.engRate}>{post.engagementRate}%</span>
+                                                        <button
+                                                            className={styles.chatSmallBtn}
+                                                            onClick={() => handleSendPostToChat(post)}
+                                                            title="Analyze this post with AI"
+                                                        >
+                                                            <IconSparkles size={12} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}

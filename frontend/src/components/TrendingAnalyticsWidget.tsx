@@ -167,6 +167,13 @@ export default function TrendingAnalyticsWidget() {
     alert('Copied: ' + query);
   };
 
+  const handleAnalyzeWithAI = (message: string, contextData: any) => {
+    const event = new CustomEvent('socialflow-chat-open', {
+        detail: { message, contextData }
+    });
+    window.dispatchEvent(event);
+  };
+
   const parseNews = (newsData: string | NewsItem[] | object | undefined): NewsItem[] => {
     if (!newsData) return [];
     if (Array.isArray(newsData)) return newsData;
@@ -451,6 +458,15 @@ export default function TrendingAnalyticsWidget() {
                       </div>
 
                       <div className={styles.actionButtons}>
+                        <button
+                          onClick={() => handleAnalyzeWithAI("", item)}
+                          className={styles.chatBtn}
+                          title="Analyze with AI"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+                          </svg>
+                        </button>
                         <button onClick={() => handleCopyQuery(item.query || '')} className={styles.iconBtn} title="Copy">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -538,9 +554,19 @@ export default function TrendingAnalyticsWidget() {
                     </div>
                     
                     <div className={styles.fbCardActions}>
+                      <button
+                        onClick={() => handleAnalyzeWithAI("", item)}
+                        className={styles.chatBtn}
+                        title="Analyze with AI"
+                        style={{ width: 28, height: 28 }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+                        </svg>
+                      </button>
                       {item.link && (
-                        <a href={item.link} target="_blank" rel="noreferrer" className={styles.linkIcon} title="Open post">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <a href={item.link} target="_blank" rel="noreferrer" className={styles.linkIcon} title="Open post" style={{ width: 28, height: 28 }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                             <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                           </svg>
@@ -635,9 +661,19 @@ export default function TrendingAnalyticsWidget() {
                           </div>
                           
                           <div className={styles.fbCardActions}>
+                            <button
+                                onClick={() => handleAnalyzeWithAI("", item)}
+                                className={styles.chatBtn}
+                                title="Analyze with AI"
+                                style={{ width: 28, height: 28 }}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+                                </svg>
+                            </button>
                             {item.link && (
-                              <a href={item.link} target="_blank" rel="noreferrer" className={styles.linkIcon} title="Open post">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <a href={item.link} target="_blank" rel="noreferrer" className={styles.linkIcon} title="Open post" style={{ width: 28, height: 28 }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                                   <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                                 </svg>
@@ -647,8 +683,9 @@ export default function TrendingAnalyticsWidget() {
                                 onClick={() => handleCopyQuery(item.text || item.query || '')}
                                 className={styles.iconBtn}
                                 title="Copy text"
+                                style={{ width: 28, height: 28 }}
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                 </svg>

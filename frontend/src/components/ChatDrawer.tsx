@@ -7,7 +7,8 @@ import {
     IconMessageCircle, IconSend, IconPlus,
     IconTrash, IconRefreshCw, IconSparkles,
     IconUsers, IconZap, IconChevronLeft,
-    IconHistory, IconX
+    IconHistory, IconX, IconBarChart,
+    IconFileText, IconTrendingUp
 } from '@/components/Icons';
 
 export default function ChatDrawer() {
@@ -17,6 +18,7 @@ export default function ChatDrawer() {
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [input, setInput] = useState('');
+    const [attachedContext, setAttachedContext] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [sessionsLoading, setSessionsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -56,9 +58,66 @@ export default function ChatDrawer() {
         }
     }, [brand]);
 
+    const [attachedContexts, setAttachedContexts] = useState<any[]>([]);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
+
     useEffect(() => {
-        if (isOpen) loadSessions();
-    }, [isOpen, loadSessions]);
+        const handleExternalOpen = (e: any) => {
+            const { message, contextData } = e.detail || {};
+            setIsOpen(true);
+            
+            if (contextData) {
+                // Determine descriptive tag and label
+                let tag = "@Reference";
+                let label = "Selected Data";
+                const contentText = contextData.postContent || contextData.text || contextData.query || "";
+
+                if (contextData.totalFollowers !== undefined) {
+                    const brandName = brand?.name || "Brand";
+                    tag = `@Overview:${brandName.replace(/\s+/g, '_')}`;
+                    label = `${brandName} Overview`;
+                } else if (contextData.postId || contextData.postContent || contextData.text) {
+                    const shortTag = contentText.slice(0, 15).replace(/\s+/g, '_');
+                    tag = `@Post:${shortTag}`;
+                    const author = contextData.pageName || contextData.author || "";
+                    label = `${author ? `[${author}] ` : ""}${contentText.slice(0, 20)}...`;
+                } else if (contextData.query || contextData.traffic) {
+                    const queryTag = (contextData.query || "Topic").slice(0, 15).replace(/\s+/g, '_');
+                    tag = `@Trend:${queryTag}`;
+                    label = contextData.query || "Trending Topic";
+                }
+
+                // Prepare context for state
+                const newContext = {
+                    ...contextData,
+                    _id: Math.random().toString(36).substr(2, 9),
+                    _tag: tag,
+                    _displayLabel: label,
+                    _iconType: tag.split(':')[0].substring(1).toLowerCase()
+                };
+
+                setAttachedContexts(prev => {
+                    // Avoid duplicates by checking tag
+                    if (prev.some(c => c._tag === tag)) return prev;
+                    return [...prev, newContext];
+                });
+
+                setInput(prev => {
+                    if (!prev.includes(tag)) {
+                        return `${tag} ${prev}`.trim() + " ";
+                    }
+                    return prev;
+                });
+
+                setTimeout(() => inputRef.current?.focus(), 300);
+            } else if (message) {
+                setInput(message);
+            }
+        };
+
+        window.addEventListener('socialflow-chat-open', handleExternalOpen);
+        return () => window.removeEventListener('socialflow-chat-open', handleExternalOpen);
+    }, [brand]);
 
     const loadHistory = useCallback(async (sessionId: string) => {
         setLoading(true);
@@ -99,6 +158,9 @@ export default function ChatDrawer() {
         setLoading(true);
         setError(null);
 
+        const currentContexts = [...attachedContexts];
+        setAttachedContexts([]);
+
         const sessionId = activeSessionId || generateUUID();
         if (!activeSessionId) setActiveSessionId(sessionId);
 
@@ -107,7 +169,8 @@ export default function ChatDrawer() {
                 brand_id: brand.id,
                 user_id: user.userId,
                 session_id: sessionId,
-                message: userMsg.content
+                message: userMsg.content,
+                context_data: currentContexts.length > 0 ? JSON.stringify(currentContexts) : undefined
             });
 
             if (response && response.answer) {
@@ -247,8 +310,33 @@ export default function ChatDrawer() {
                 </div>
 
                 <div className="drawer-footer">
+                    {attachedContexts.length > 0 && (
+                        <div className="copilot-tags-container">
+                            {attachedContexts.map((ctx) => (
+                                <div key={ctx._id} className="copilot-tag">
+                                    <div className="tag-icon">
+                                        {ctx._iconType === 'overview' ? <IconBarChart size={14} /> : 
+                                         ctx._iconType === 'post' ? <IconFileText size={14} /> : <IconTrendingUp size={14} />}
+                                    </div>
+                                    <span className="tag-label">
+                                        {ctx._displayLabel}
+                                    </span>
+                                    <button 
+                                        className="tag-remove" 
+                                        onClick={() => {
+                                            setAttachedContexts(prev => prev.filter(c => c._id !== ctx._id));
+                                            setInput(prev => prev.replace(ctx._tag, '').trim());
+                                        }}
+                                    >
+                                        <IconX size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <div className="input-wrapper">
                         <textarea
+                            ref={inputRef}
                             placeholder="Type a message..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
@@ -467,7 +555,60 @@ export default function ChatDrawer() {
                     padding: 16px;
                     border-top: 1px solid var(--border);
                     background: rgba(255,255,255,0.02);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
                 }
+                .copilot-tags-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    padding-bottom: 4px;
+                }
+                .copilot-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: rgba(108, 92, 231, 0.08);
+                    border: 1px solid rgba(108, 92, 231, 0.2);
+                    border-radius: 8px;
+                    padding: 6px 10px;
+                    align-self: flex-start;
+                    animation: fadeInScale 0.2s ease-out;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                @keyframes fadeInScale {
+                    from { transform: scale(0.95); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                .tag-icon {
+                    color: var(--primary);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .tag-label {
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                }
+                .tag-remove {
+                    background: none;
+                    border: none;
+                    color: var(--text-muted);
+                    padding: 2px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    transition: all 0.2s;
+                }
+                .tag-remove:hover {
+                    background: rgba(255, 71, 87, 0.1);
+                    color: #ff4757;
+                }
+
                 .input-wrapper {
                     background: rgba(255,255,255,0.05);
                     border: 1px solid var(--border);
