@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -659,6 +660,7 @@ public class AiServiceClient {
      * Send message to AI Chat
      * POST /chat/send
      */
+    @PostMapping("/chat/send")
     public ChatResponse sendChatMessage(ChatRequest request) {
         try {
             log.info("Calling Python AI Service: POST /chat/send | Brand: {} | User: {} | Session: {}", 
@@ -683,6 +685,37 @@ public class AiServiceClient {
             return ChatResponse.builder()
                 .success(false)
                 .error("Failed to call Python chat service: " + e.getMessage())
+                .build();
+        }
+    }
+    
+    /**
+     * Suggest a reply to an inbox message or comment
+     * POST /suggest-reply
+     */
+    public SuggestReplyResponse suggestReply(SuggestReplyRequest request) {
+        try {
+            log.info("Calling Python AI Service: POST /suggest-reply | Brand: {}", request.getBrandId());
+            
+            String url = pythonServiceUrl + "/suggest-reply";
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "text");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
+            
+            ResponseEntity<SuggestReplyResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                SuggestReplyResponse.class
+            );
+            
+            log.info("✓ Suggest reply successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Suggest reply failed: {}", e.getMessage());
+            return SuggestReplyResponse.builder()
+                .success(false)
+                .error("Failed to call Python suggestion service: " + e.getMessage())
                 .build();
         }
     }

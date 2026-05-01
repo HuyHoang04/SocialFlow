@@ -194,6 +194,28 @@ The user is referring to the following content (from a post, analytics, or campa
 Please take this into account when answering the user's question below.
 """
 
+# ==================== REPLY SUGGESTION PROMPTS ====================
+
+SUGGEST_REPLY_PROMPT = """You are an expert Social Media Manager for '{brand_name}'.
+Brand Context: {brand_description}
+
+Platform: {platform}
+Interaction Type: {message_type}
+Customer Name: {customer_name}
+Incoming Message: '{message_content}'
+
+{rag_context}
+
+Task: Write a helpful, engaging, and professional reply in Vietnamese.
+Instructions:
+- Match the brand's voice.
+- Be concise and friendly.
+- Use the context above if relevant to answer questions.
+- If it's a comment, make it public-friendly.
+- If it's a direct message, be more personalized.
+- Return ONLY the suggested reply text, no preamble.
+"""
+
 # ==================== RAG ENHANCEMENT PROMPTS ====================
 
 RAG_VARIATION_PROMPT = """
@@ -223,4 +245,24 @@ def format_rag_variation_prompt(query: str) -> str:
     """Format prompt for generating query variations"""
     return RAG_VARIATION_PROMPT.format(
         query=query
+    )
+
+def format_suggest_reply_prompt(
+    brand_name: str,
+    brand_description: str,
+    platform: str,
+    message_type: str,
+    customer_name: str,
+    message_content: str,
+    rag_context: str = ""
+) -> str:
+    """Format the reply suggestion prompt with all necessary context"""
+    return SUGGEST_REPLY_PROMPT.format(
+        brand_name=brand_name,
+        brand_description=brand_description,
+        platform=platform,
+        message_type=message_type,
+        customer_name=customer_name,
+        message_content=message_content,
+        rag_context=rag_context
     )

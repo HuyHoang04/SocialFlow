@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
-import { PlatformIcon, IconRefreshCw, IconInbox, IconSend } from '@/components/Icons';
+import { PlatformIcon, IconRefreshCw, IconInbox, IconSend, IconSparkles } from '@/components/Icons';
 
 interface InboxMessage {
     id: string;
@@ -43,6 +43,7 @@ export default function InboxPage() {
     const [error, setError] = useState('');
     const [replyContent, setReplyContent] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
+    const [suggestingAi, setSuggestingAi] = useState(false);
     const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
     const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -235,6 +236,23 @@ export default function InboxPage() {
         }
     };
 
+    const handleSuggestReply = async () => {
+        const targetId = activeTab === 'comments'
+            ? selectedComment?.id
+            : selectedConversation?.messages[0]?.id;
+        if (!targetId || !brand) return;
+
+        setSuggestingAi(true);
+        try {
+            const res = await api.getAiReplySuggestion(targetId);
+            setReplyContent(res.suggestion || '');
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : 'Failed to get AI suggestion');
+        } finally {
+            setSuggestingAi(false);
+        }
+    };
+
     const replyPlaceholder = activeTab === 'comments'
         ? `Reply to ${selectedComment?.authorName ?? '...'} as ${selectedComment?.pageName ?? ''}...`
         : `Reply to ${selectedConversation?.preview?.authorName ?? '...'} as ${selectedConversation?.preview?.pageName ?? ''}...`;
@@ -420,8 +438,19 @@ export default function InboxPage() {
                                     style={{ marginBottom: 12, resize: 'none' }}
                                 />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ctrl+Enter to send</span>
-                                    <button className="btn btn-primary" onClick={handleReply} disabled={!replyContent.trim() || sendingReply}>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <button
+                                            className="btn btn-secondary"
+                                            onClick={handleSuggestReply}
+                                            disabled={suggestingAi || sendingReply}
+                                            title="Get AI suggested reply based on brand identity"
+                                            style={{ color: 'var(--primary)', borderColor: 'var(--primary-glow)' }}
+                                        >
+                                            {suggestingAi ? '✨ Suggesting...' : <><IconSparkles size={14} /> AI Suggest</>}
+                                        </button>
+                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>Ctrl+Enter to send</span>
+                                    </div>
+                                    <button className="btn btn-primary" onClick={handleReply} disabled={!replyContent.trim() || sendingReply || suggestingAi}>
                                         {sendingReply ? 'Sending...' : <><IconSend size={14} /> Send Reply</>}
                                     </button>
                                 </div>

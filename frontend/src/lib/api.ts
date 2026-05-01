@@ -139,6 +139,7 @@ export const api = {
     getInbox: (brandId: string) => request(`/brands/${brandId}/inbox`),
     replyToInboxMessage: (id: string, content: string) => request(`/inbox/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
     markInboxMessageRead: (id: string) => request(`/inbox/${id}/read`, { method: 'PUT' }),
+    getAiReplySuggestion: (id: string) => request(`/inbox/${id}/suggest-reply`),
 
     // Analytics
     syncAnalytics: (brandId: string) => request(`/analytics/brands/${brandId}/sync`, { method: 'POST' }),

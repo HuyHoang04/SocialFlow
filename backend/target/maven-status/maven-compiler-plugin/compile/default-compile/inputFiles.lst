@@ -22,10 +22,13 @@ F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagStatusResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RagUploadResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RewriteRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\RewriteResponse.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\SuggestReplyRequest.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\SuggestReplyResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\exception\AiServiceException.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiChatService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiModelConfigService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiServiceClient.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\service\AiSuggestionService.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\CorsConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\OpenApiConfig.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\config\RestTemplateConfig.java

@@ -72,6 +72,7 @@ com\socialflow\model\User$UserBuilder.class
 com\socialflow\SocialFlowApplication.class
 com\socialflow\ai\dto\ChatRequest$ChatRequestBuilder.class
 com\socialflow\controller\WebhookController.class
+com\socialflow\ai\dto\SuggestReplyRequest$SuggestReplyRequestBuilder.class
 com\socialflow\service\publisher\ThreadsPublisher.class
 com\socialflow\ai\dto\RagGenerateContentRequest$RagGenerateContentRequestBuilder.class
 com\socialflow\model\ChatSession.class
@@ -83,6 +84,7 @@ com\socialflow\ai\service\AiChatService.class
 com\socialflow\model\Brand.class
 com\socialflow\model\PublishResult$PublishResultBuilder.class
 com\socialflow\ai\dto\RagStatusResponse$RagStatusResponseBuilder.class
+com\socialflow\ai\dto\SuggestReplyRequest.class
 com\socialflow\dto\TrendingResponse$TrendingResponseBuilder.class
 com\socialflow\service\TrendingConfigService.class
 com\socialflow\dto\CreatePostRequest.class
@@ -141,6 +143,7 @@ com\socialflow\service\publisher\CommentFetcher.class
 com\socialflow\dto\CampaignResponse.class
 com\socialflow\dto\PostAnalyticsResponse.class
 com\socialflow\repository\BrandRepository.class
+com\socialflow\ai\service\AiSuggestionService.class
 com\socialflow\service\PostService.class
 com\socialflow\ai\dto\ModelInfo.class
 com\socialflow\dto\TrendingConfigResponse$TrendingConfigResponseBuilder.class
@@ -169,6 +172,7 @@ com\socialflow\ai\dto\RagSearchRequest.class
 com\socialflow\repository\TrendingConfigRepository.class
 com\socialflow\controller\TrendingController.class
 com\socialflow\dto\PlatformCommentDto.class
+com\socialflow\ai\dto\SuggestReplyResponse$SuggestReplyResponseBuilder.class
 com\socialflow\ai\dto\EmbeddingResponse.class
 com\socialflow\model\PostMedia.class
 com\socialflow\ai\dto\EmbeddingRequest.class
@@ -188,5 +192,6 @@ com\socialflow\ai\dto\RagUploadResponse$RagUploadResponseBuilder.class
 com\socialflow\ai\dto\RagDeleteResponse.class
 com\socialflow\model\AiModelConfig$AiModelConfigBuilder.class
 com\socialflow\ai\dto\RagGenerateContentResponse$RagGenerateContentResponseBuilder.class
+com\socialflow\ai\dto\SuggestReplyResponse.class
 com\socialflow\controller\Heathcheck.class
 com\socialflow\model\Campaign.class
