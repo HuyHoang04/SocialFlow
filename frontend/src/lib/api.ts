@@ -7,6 +7,22 @@ function getToken(): string | null {
     return localStorage.getItem('sf_token');
 }
 
+/**
+ * Decode the JWT exp claim (client-side only, no signature verify).
+ * Returns true if the token is missing or its exp is in the past.
+ */
+export function isTokenExpired(): boolean {
+    const token = getToken();
+    if (!token) return true;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (!payload.exp) return false; // no exp claim — treat as valid
+        return Date.now() >= payload.exp * 1000;
+    } catch {
+        return true; // malformed token
+    }
+}
+
 export function setToken(token: string) {
     localStorage.setItem('sf_token', token);
 }
@@ -30,6 +46,24 @@ export function logout() {
     localStorage.removeItem('sf_user');
     localStorage.removeItem('sf_selected_brand');
     window.location.href = '/login';
+}
+
+/** Shared 401 handler for raw fetch() calls (uploadMedia, ragUploadFile, etc.) */
+async function handleFetchResponse(res: Response): Promise<void> {
+    if (res.status === 401) {
+        logout();
+        throw new Error('Unauthorized');
+    }
+    if (!res.ok) {
+        const t = await res.text();
+        try {
+            const j = JSON.parse(t);
+            throw new Error(j.message || j.error || t || res.statusText);
+        } catch (e) {
+            if (e instanceof SyntaxError) throw new Error(t || res.statusText);
+            throw e;
+        }
+    }
 }
 
 async function request(path: string, options: RequestInit = {}) {
@@ -117,11 +151,7 @@ export const api = {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
             body: formData,
         });
-        if (!res.ok) {
-            const t = await res.text();
-            try { const j = JSON.parse(t); throw new Error(j.message || j.error || t || res.statusText); }
-            catch (e) { if (e instanceof SyntaxError) throw new Error(t || res.statusText); throw e; }
-        }
+        await handleFetchResponse(res);
         return res.json();
     },
 
@@ -253,12 +283,7 @@ export const api = {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
             body: formData,
         });
-        if (!res.ok) {
-            const t = await res.text();
-            console.error('✗ Upload failed:', t);
-            try { const j = JSON.parse(t); throw new Error(j.message || j.error || t || res.statusText); }
-            catch (e) { if (e instanceof SyntaxError) throw new Error(t || res.statusText); throw e; }
-        }
+        await handleFetchResponse(res);
         const result = await res.json();
         console.log('✓ Upload successful:', result);
         return result;

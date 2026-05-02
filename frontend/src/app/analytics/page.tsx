@@ -157,7 +157,6 @@ export default function AnalyticsPage() {
             totalReach: overview.totalReach,
             totalImpressions: overview.totalImpressions,
             totalPosts: overview.totalPosts,
-            image: "/logoAI.svg" // Using AI logo as a visual for overview analysis
         };
         handleSendToChat("", ctx);
     };

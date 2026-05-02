@@ -23,15 +23,6 @@ public class Brand {
 
     private String logoUrl;
 
-    private String industry;
-
-    private String website;
-
-    private String toneOfVoice;
-
-    @Column(length = 1000)
-    private String targetAudience;
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

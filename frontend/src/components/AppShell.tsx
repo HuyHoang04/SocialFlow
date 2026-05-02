@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser } from '@/lib/api';
+import { getUser, isTokenExpired, logout } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import Sidebar from './Sidebar';
 import { IconMenu, IconSettings } from './Icons';
@@ -14,7 +14,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [mobileOpen, setMobileOpen] = useState(false);
 
     useEffect(() => {
+        // 1. No user info → not logged in
         if (!getUser()) { router.replace('/login'); return; }
+        // 2. Token exists but JWT exp is in the past → redirect immediately
+        //    (prevents "empty data with no redirect" when token silently expired)
+        if (isTokenExpired()) { logout(); return; }
+        // 3. Logged in but no brand selected
         if (!loading && !selectedBrand) router.replace('/brands');
     }, [router, selectedBrand, loading]);
 

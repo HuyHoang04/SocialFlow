@@ -5,6 +5,7 @@ com\socialflow\dto\PostResponse$PublishResultResponse.class
 com\socialflow\model\Campaign$CampaignBuilder.class
 com\socialflow\controller\InboxSseController.class
 com\socialflow\controller\GlobalExceptionHandler.class
+com\socialflow\ai\dto\AiSuggestedEntities.class
 com\socialflow\ai\dto\ProviderModelsResponse$ProviderModelsResponseBuilder.class
 com\socialflow\ai\dto\ProviderModelsResponse.class
 com\socialflow\model\ChatMessage$ChatMessageBuilder.class
@@ -40,6 +41,7 @@ com\socialflow\dto\PostResponse.class
 com\socialflow\service\WebhookEventService.class
 com\socialflow\controller\ConnectionController.class
 com\socialflow\ai\service\AiModelConfigService.class
+com\socialflow\ai\dto\AiPostData.class
 com\socialflow\repository\CampaignRepository.class
 com\socialflow\service\PlatformAnalyticsAdapter.class
 com\socialflow\security\JwtUtil.class
@@ -161,6 +163,7 @@ com\socialflow\ai\dto\KeywordOptimizationResponse$KeywordOptimizationResponseBui
 com\socialflow\dto\AnalyticsOverviewResponse$AnalyticsOverviewResponseBuilder.class
 com\socialflow\service\TrendingService.class
 com\socialflow\config\OpenApiConfig.class
+com\socialflow\ai\dto\AiCampaignData.class
 com\socialflow\dto\PostResponse$PageInfo$PageInfoBuilder.class
 com\socialflow\controller\AnalyticsController.class
 com\socialflow\dto\PostResponse$MediaInfo.class

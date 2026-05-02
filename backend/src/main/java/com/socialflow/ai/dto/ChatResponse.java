@@ -25,7 +25,7 @@ public class ChatResponse {
     private List<Map<String, Object>> sourceDocuments;
     
     @JsonProperty("suggested_entities")
-    private Map<String, Object> suggestedEntities;
+    private AiSuggestedEntities suggestedEntities;
     
     private String error;
 }

@@ -31,13 +31,13 @@ interface UploadedMedia {
 }
 
 // Platform Preview Component using @automattic/social-previews
-function PlatformPreview({ 
-    platform, 
-    pageInfo, 
-    caption, 
-    mediaFiles, 
-    onEdit, 
-    hasCustomContent 
+function PlatformPreview({
+    platform,
+    pageInfo,
+    caption,
+    mediaFiles,
+    onEdit,
+    hasCustomContent
 }: {
     platform: string;
     pageInfo: any;
@@ -113,9 +113,9 @@ function PlatformPreview({
                             </div>
                         )}
                         <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'white', textAlign: 'center' }}>
-                            <div>❤️<br/><span style={{ fontSize: 10 }}>234</span></div>
-                            <div>💬<br/><span style={{ fontSize: 10 }}>45</span></div>
-                            <div>↗️<br/><span style={{ fontSize: 10 }}>89</span></div>
+                            <div>❤️<br /><span style={{ fontSize: 10 }}>234</span></div>
+                            <div>💬<br /><span style={{ fontSize: 10 }}>45</span></div>
+                            <div>↗️<br /><span style={{ fontSize: 10 }}>89</span></div>
                         </div>
                     </div>
                     <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-primary)' }}>
@@ -171,10 +171,10 @@ function PlatformPreview({
 
             {/* Fallback for unsupported platforms */}
             {!['facebook', 'twitter', 'instagram', 'tiktok', 'bluesky', 'linkedin', 'threads'].includes(platformLower) && (
-                <div style={{ 
-                    padding: '16px', 
-                    background: 'var(--bg-glass)', 
-                    borderRadius: 'var(--radius)', 
+                <div style={{
+                    padding: '16px',
+                    background: 'var(--bg-glass)',
+                    borderRadius: 'var(--radius)',
                     border: '1px solid var(--border)',
                     textAlign: 'center',
                     color: 'var(--text-muted)'
@@ -192,7 +192,7 @@ function PlatformPreview({
 
             {/* Edit button and custom content indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                <button 
+                <button
                     onClick={onEdit}
                     style={{
                         padding: '6px 12px',
@@ -210,7 +210,7 @@ function PlatformPreview({
                 </button>
                 {hasCustomContent && (
                     <span style={{ fontSize: 11, color: 'var(--accent-light)', fontWeight: 600 }}>
-                         Custom content
+                        Custom content
                     </span>
                 )}
             </div>
@@ -295,7 +295,7 @@ function CreatePostContent() {
     // Load post data if editing
     useEffect(() => {
         if (!postId || !brand) return;
-        
+
         setLoading(true);
         api.getPost(postId)
             .then((post: any) => {
@@ -343,9 +343,9 @@ function CreatePostContent() {
         const newSelected = selectedPages.includes(id)
             ? selectedPages.filter(p => p !== id)
             : [...selectedPages, id];
-        
+
         setSelectedPages(newSelected);
-        
+
         // Remove from platformContent if deselected
         if (!newSelected.includes(id)) {
             setPlatformContent(prev => {
@@ -531,18 +531,18 @@ function CreatePostContent() {
 
     const addSelectedImages = async () => {
         if (selectedImages.size === 0) return;
-        
+
         try {
             setUploading(true);
             const selectedImagesList = Array.from(selectedImages)
                 .sort((a, b) => a - b)
                 .map(idx => searchResults[idx]);
-            
+
             // Add all selected images
             for (const img of selectedImagesList) {
                 await addImageToMedia(img.url);
             }
-            
+
             // Clear and close
             setImageModal({ isOpen: false, mode: null });
             setImageSearchQuery('');
@@ -561,7 +561,7 @@ function CreatePostContent() {
             if (!response.ok) {
                 throw new Error(`Failed to fetch image: ${response.status}`);
             }
-            
+
             const blob = await response.blob();
             // Determine correct MIME type from blob or URL
             let mimeType = blob.type || 'image/jpeg';
@@ -571,10 +571,10 @@ function CreatePostContent() {
                 else if (imageUrl.endsWith('.webp')) mimeType = 'image/webp';
                 else mimeType = 'image/jpeg';
             }
-            
+
             const filename = `image-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`;
             const file = new File([blob], filename, { type: mimeType });
-            
+
             // Use existing upload handler
             setUploading(true);
             const result = await api.uploadMedia(file);
@@ -634,7 +634,7 @@ function CreatePostContent() {
     const insertText = (before: string, after: string = '') => {
         const textarea = document.querySelector('.caption-textarea') as HTMLTextAreaElement;
         if (!textarea) return;
-        
+
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const selected = content.substring(start, end);
@@ -681,16 +681,16 @@ function CreatePostContent() {
 
     const handleSaveEditedImage = async (editedData: { imageBase64: string; filename: string }) => {
         if (editingMediaIndex === null) return;
-        
+
         setIsEditorOpen(false);
         setUploading(true);
         try {
             const res = await fetch(editedData.imageBase64);
             const blob = await res.blob();
             const file = new File([blob], editedData.filename, { type: 'image/png' });
-            
+
             const result = await api.uploadMedia(file);
-            
+
             // Replace the old media with the new one
             setMediaFiles(prev => {
                 const updated = [...prev];
@@ -762,7 +762,7 @@ function CreatePostContent() {
             if (isEditingPost && editingPostId) {
                 // Update existing draft
                 await api.updatePost(editingPostId, postData);
-                
+
                 // If not scheduled, publish immediately
                 if (!ISOStringTime) {
                     await api.publishPost(editingPostId);
@@ -770,7 +770,7 @@ function CreatePostContent() {
             } else {
                 // Create new post
                 const posts = await api.createPost(postData);
-                
+
                 // If not scheduled, publish immediately
                 if (!ISOStringTime) {
                     await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
@@ -821,15 +821,15 @@ function CreatePostContent() {
                 <div className="create-header">
                     <h1 className="create-title">{isEditingPost ? 'Edit Draft' : 'Create Post'}</h1>
                     <div className="create-actions">
-                        <button 
-                            className="btn-action save" 
+                        <button
+                            className="btn-action save"
                             onClick={handleSaveDraft}
                             disabled={publishing || !content.trim() || selectedPages.length === 0}
                         >
                             <IconSave size={14} /> {isEditingPost ? 'Update Draft' : 'Save Draft'}
                         </button>
-                        <button 
-                            className="btn-action publish" 
+                        <button
+                            className="btn-action publish"
                             onClick={handleSubmit}
                             disabled={publishing || !content.trim() || selectedPages.length === 0}
                         >
@@ -858,9 +858,9 @@ function CreatePostContent() {
 
                                 {/* Text Format Toolbar */}
                                 <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                                    <button onClick={() => insertText('**', '**')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }} title="Bold">B</button>
+                                    {/* <button onClick={() => insertText('**', '**')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }} title="Bold">B</button>
                                     <button onClick={() => insertText('_', '_')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer', fontStyle: 'italic' }} title="Italic">I</button>
-                                    <button onClick={() => insertText('[', '](url)')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer' }} title="Link">🔗</button>
+                                    <button onClick={() => insertText('[', '](url)')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer' }} title="Link">🔗</button> */}
                                     <button onClick={() => insertText(' #')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }} title="Hashtag">#tag</button>
                                     <div style={{ flex: 1 }} />
                                     <button onClick={() => setAiModal({ isOpen: true, type: 'generate' })} style={{ padding: '6px 12px', fontSize: 12, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }} title="Generate Caption">✨ Generate</button>
@@ -868,7 +868,7 @@ function CreatePostContent() {
                                     <button onClick={() => setAiModal({ isOpen: true, type: 'hashtags' })} style={{ padding: '6px 12px', fontSize: 12, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }} title="Suggest Hashtags">🏷️ Hashtags</button>
                                 </div>
 
-                                <textarea 
+                                <textarea
                                     className="caption-textarea"
                                     value={content}
                                     onChange={e => {
@@ -921,11 +921,11 @@ function CreatePostContent() {
                             <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 12 }}>
                                 Media (optional)
                             </label>
-                            
+
                             {/* Quick image tools */}
                             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                                <button 
-                                    className="ai-tool-btn" 
+                                <button
+                                    className="ai-tool-btn"
                                     onClick={() => setImageModal({ isOpen: true, mode: 'generate' })}
                                     style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
                                     onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
@@ -933,8 +933,8 @@ function CreatePostContent() {
                                 >
                                     🎨 AI Generate
                                 </button>
-                                <button 
-                                    className="ai-tool-btn" 
+                                <button
+                                    className="ai-tool-btn"
                                     onClick={openLibrary}
                                     style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
                                     onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
@@ -942,8 +942,8 @@ function CreatePostContent() {
                                 >
                                     📁 My Library
                                 </button>
-                                <button 
-                                    className="ai-tool-btn" 
+                                <button
+                                    className="ai-tool-btn"
                                     onClick={() => setIsStockOpen(true)}
                                     style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
                                     onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
@@ -1063,7 +1063,7 @@ function CreatePostContent() {
                                     <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>
                                         Campaign (optional)
                                     </label>
-                                    <select 
+                                    <select
                                         value={selectedCampaign || ''}
                                         onChange={e => setSelectedCampaign(e.target.value)}
                                         style={{
@@ -1077,9 +1077,9 @@ function CreatePostContent() {
                                             fontFamily: 'inherit',
                                         }}
                                     >
-                                        <option style={{color:"black"}} value="">No Campaign</option>
+                                        <option style={{ color: "black" }} value="">No Campaign</option>
                                         {campaigns.map(c => (
-                                            <option style={{color:"black"}} key={c.id} value={c.id}>{c.name}</option>
+                                            <option style={{ color: "black" }} key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -1098,7 +1098,7 @@ function CreatePostContent() {
                                         if (!pageInfo) return null;
                                         const isActive = selectedPageForPreview === pageId;
                                         const hasCustom = platformContent[pageId] && platformContent[pageId] !== content;
-                                        
+
                                         return (
                                             <button
                                                 key={pageId}
@@ -1116,7 +1116,7 @@ function CreatePostContent() {
                                 {/* Active platform preview */}
                                 {selectedPageForPreview && getPageInfo(selectedPageForPreview) && (
                                     <div className="platform-preview-container">
-                                        <PlatformPreview 
+                                        <PlatformPreview
                                             platform={getPageInfo(selectedPageForPreview)!.platform}
                                             pageInfo={getPageInfo(selectedPageForPreview)!}
                                             caption={getCurrentPreviewContent()}
@@ -1139,7 +1139,7 @@ function CreatePostContent() {
                                 <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
                                     Customize for {getPageInfo(editingModal.pageId)?.pageName}
                                 </h2>
-                                <button 
+                                <button
                                     className="modal-close"
                                     onClick={() => setEditingModal({ isOpen: false, pageId: null })}
                                 >
@@ -1169,13 +1169,13 @@ function CreatePostContent() {
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button 
+                                <button
                                     className="btn-modal-cancel"
                                     onClick={() => setEditingModal({ isOpen: false, pageId: null })}
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     className="btn-modal-save"
                                     onClick={savePlatformContent}
                                 >
@@ -1196,7 +1196,7 @@ function CreatePostContent() {
                                     {aiModal.type === 'enhance' && '⚡ Enhance Caption'}
                                     {aiModal.type === 'hashtags' && '🏷️ Suggest Hashtags'}
                                 </h2>
-                                <button 
+                                <button
                                     className="modal-close"
                                     onClick={() => setAiModal({ isOpen: false, type: null })}
                                 >
@@ -1204,7 +1204,7 @@ function CreatePostContent() {
                                 </button>
                             </div>
                             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                                
+
                                 {/* TOP SECTION: AI PARAMETERS (Full Width) */}
                                 {!isGenerationComplete && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -1212,7 +1212,7 @@ function CreatePostContent() {
                                             <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                                                 Tone
                                             </label>
-                                            <select 
+                                            <select
                                                 value={aiOptions.tone}
                                                 onChange={e => setAiOptions({ ...aiOptions, tone: e.target.value })}
                                                 style={{
@@ -1227,11 +1227,11 @@ function CreatePostContent() {
                                                     cursor: 'pointer'
                                                 }}
                                             >
-                                                <option style={{color:"black"}} value="casual">Casual & Friendly</option>
-                                                <option style={{color:"black"}} value="professional">Professional</option>
-                                                <option style={{color:"black"}} value="exciting">Exciting & Energetic</option>
-                                                <option style={{color:"black"}} value="humorous">Humorous</option>
-                                                <option style={{color:"black"}} value="informative">Informative</option>
+                                                <option style={{ color: "black" }} value="casual">Casual & Friendly</option>
+                                                <option style={{ color: "black" }} value="professional">Professional</option>
+                                                <option style={{ color: "black" }} value="exciting">Exciting & Energetic</option>
+                                                <option style={{ color: "black" }} value="humorous">Humorous</option>
+                                                <option style={{ color: "black" }} value="informative">Informative</option>
                                             </select>
                                         </div>
 
@@ -1289,11 +1289,11 @@ function CreatePostContent() {
                                         )}
 
                                         {aiModal.type === 'generate' && (
-                                            <div style={{ 
+                                            <div style={{
                                                 gridColumn: 'span 2',
-                                                padding: '10px 12px', 
-                                                border: '1px solid var(--border)', 
-                                                borderRadius: 'var(--radius-sm)', 
+                                                padding: '10px 12px',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
                                                 background: 'var(--bg-glass)',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -1318,9 +1318,9 @@ function CreatePostContent() {
                                 )}
 
                                 {/* BOTTOM SECTION: 2 COLUMNS (ORIGIN vs RESULT) */}
-                                <div style={{ 
-                                    display: 'grid', 
-                                    gridTemplateColumns: '1fr 1fr', 
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
                                     gap: 20,
                                     borderTop: '1px solid var(--border)',
                                     paddingTop: 20,
@@ -1406,13 +1406,13 @@ function CreatePostContent() {
                             <div className="modal-footer">
                                 {isGenerationComplete ? (
                                     <>
-                                        <button 
+                                        <button
                                             className="btn-modal-cancel"
                                             onClick={cancelGeneration}
                                         >
                                             Cancel
                                         </button>
-                                        <button 
+                                        <button
                                             className="btn-modal-save"
                                             onClick={handleAiGenerate}
                                             disabled={aiLoading}
@@ -1420,7 +1420,7 @@ function CreatePostContent() {
                                         >
                                             {aiLoading ? 'Regenerating...' : 'Regenerate'}
                                         </button>
-                                        <button 
+                                        <button
                                             className="btn-modal-save"
                                             onClick={confirmGeneratedContent}
                                             style={{ background: 'var(--accent)' }}
@@ -1430,13 +1430,13 @@ function CreatePostContent() {
                                     </>
                                 ) : (
                                     <>
-                                        <button 
+                                        <button
                                             className="btn-modal-cancel"
                                             onClick={() => setAiModal({ isOpen: false, type: null })}
                                         >
                                             Cancel
                                         </button>
-                                        <button 
+                                        <button
                                             className="btn-modal-save"
                                             onClick={aiModal.type === 'generate' ? handleAiGenerate : aiModal.type === 'enhance' ? handleAiEnhance : handleAiHashtags}
                                             disabled={aiLoading}
@@ -1459,7 +1459,7 @@ function CreatePostContent() {
                                 <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
                                     {imageModal.mode === 'generate' ? '🎨 Generate Image' : '🖼️ Search Stock Photos'}
                                 </h2>
-                                <button 
+                                <button
                                     className="modal-close"
                                     onClick={() => setImageModal({ isOpen: false, mode: null })}
                                 >
@@ -1472,7 +1472,7 @@ function CreatePostContent() {
                                         <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
                                             Number of Images
                                         </label>
-                                        <select 
+                                        <select
                                             value={imageCount}
                                             onChange={e => setImageCount(parseInt(e.target.value))}
                                             style={{
@@ -1488,7 +1488,7 @@ function CreatePostContent() {
                                             }}
                                         >
                                             {[1, 2, 3, 4].map(n => (
-                                                <option style={{color:"black"}} key={n} value={n}>{n} {n === 1 ? 'image' : 'images'}</option>
+                                                <option style={{ color: "black" }} key={n} value={n}>{n} {n === 1 ? 'image' : 'images'}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -1496,27 +1496,27 @@ function CreatePostContent() {
 
                                 {/* Search/Prompt input - Hide when showing preview */}
                                 {!isImageGenerationComplete && (
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                        {imageModal.mode === 'generate' ? 'Describe the image you want' : 'Search for photos'}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={imageModal.mode === 'generate' ? imagePrompt : imageSearchQuery}
-                                        onChange={e => imageModal.mode === 'generate' ? setImagePrompt(e.target.value) : setImageSearchQuery(e.target.value)}
-                                        placeholder={imageModal.mode === 'generate' ? 'E.g., sunset over ocean with palm trees' : 'E.g., coffee, nature, urban'}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px',
-                                            fontSize: 14,
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg-glass)',
-                                            color: 'var(--text-primary)',
-                                            fontFamily: 'inherit'
-                                        }}
-                                    />
-                                </div>
+                                    <div>
+                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                            {imageModal.mode === 'generate' ? 'Describe the image you want' : 'Search for photos'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={imageModal.mode === 'generate' ? imagePrompt : imageSearchQuery}
+                                            onChange={e => imageModal.mode === 'generate' ? setImagePrompt(e.target.value) : setImageSearchQuery(e.target.value)}
+                                            placeholder={imageModal.mode === 'generate' ? 'E.g., sunset over ocean with palm trees' : 'E.g., coffee, nature, urban'}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                fontSize: 14,
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-glass)',
+                                                color: 'var(--text-primary)',
+                                                fontFamily: 'inherit'
+                                            }}
+                                        />
+                                    </div>
                                 )}
 
                                 {/* Results Grid - Only show when complete */}
@@ -1546,7 +1546,7 @@ function CreatePostContent() {
                                                     onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
                                                     onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
                                                 >
-                                                    <img 
+                                                    <img
                                                         src={img.thumbUrl || img.url}
                                                         alt={img.alt || 'image'}
                                                         style={{
@@ -1593,14 +1593,14 @@ function CreatePostContent() {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {/* Stock photos search results (no preview state) */}
                                 {imageModal.mode === 'search' && !isImageGenerationComplete && (
                                     <>
                                         {imageLoading && (
-                                            <div style={{ 
-                                                textAlign: 'center', 
-                                                padding: '20px', 
+                                            <div style={{
+                                                textAlign: 'center',
+                                                padding: '20px',
                                                 color: 'var(--text-secondary)',
                                                 fontSize: 14
                                             }}>
@@ -1608,9 +1608,9 @@ function CreatePostContent() {
                                             </div>
                                         )}
                                         {!imageLoading && searchResults.length === 0 && imageSearchQuery.trim() && (
-                                            <div style={{ 
-                                                textAlign: 'center', 
-                                                padding: '20px', 
+                                            <div style={{
+                                                textAlign: 'center',
+                                                padding: '20px',
                                                 color: 'var(--text-secondary)',
                                                 fontSize: 14
                                             }}>
@@ -1643,7 +1643,7 @@ function CreatePostContent() {
                                                             onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
                                                             onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
                                                         >
-                                                            <img 
+                                                            <img
                                                                 src={img.thumbUrl || img.url}
                                                                 alt={img.alt || 'image'}
                                                                 style={{
@@ -1692,7 +1692,7 @@ function CreatePostContent() {
                                 )}
                             </div>
                             <div className="modal-footer">
-                                <button 
+                                <button
                                     className="btn-modal-cancel"
                                     onClick={() => {
                                         if (isImageGenerationComplete) {
@@ -1708,11 +1708,11 @@ function CreatePostContent() {
                                     {isImageGenerationComplete ? 'Discard' : 'Cancel'}
                                 </button>
                                 {isImageGenerationComplete && imageModal.mode === 'generate' && (
-                                    <button 
+                                    <button
                                         className="btn-modal-action"
                                         onClick={regenerateImages}
                                         disabled={imageLoading}
-                                        style={{ 
+                                        style={{
                                             opacity: imageLoading ? 0.6 : 1,
                                             background: 'var(--text-secondary)',
                                             color: 'white',
@@ -1727,17 +1727,17 @@ function CreatePostContent() {
                                         {imageLoading ? 'Generating...' : 'Regenerate'}
                                     </button>
                                 )}
-                                <button 
+                                <button
                                     className={isImageGenerationComplete || imageModal.mode === 'search' ? 'btn-modal-save' : ''}
                                     onClick={
-                                        imageModal.mode === 'search' 
+                                        imageModal.mode === 'search'
                                             ? addSelectedImages
-                                            : isImageGenerationComplete 
-                                            ? confirmGeneratedImages 
-                                            : handleGenerateImage
+                                            : isImageGenerationComplete
+                                                ? confirmGeneratedImages
+                                                : handleGenerateImage
                                     }
                                     disabled={imageLoading || (imageModal.mode === 'search' && selectedImages.size === 0) || (isImageGenerationComplete && generatedImages.length === 0)}
-                                    style={{ 
+                                    style={{
                                         opacity: (imageLoading || (imageModal.mode === 'search' && selectedImages.size === 0) || (isImageGenerationComplete && generatedImages.length === 0)) ? 0.6 : 1,
                                         ...(isImageGenerationComplete || imageModal.mode === 'search' ? {
                                             background: 'var(--accent)',
@@ -1752,11 +1752,11 @@ function CreatePostContent() {
                                     }}
                                 >
                                     {imageLoading ? 'Loading...' : (
-                                        imageModal.mode === 'search' 
+                                        imageModal.mode === 'search'
                                             ? `Add Selected (${selectedImages.size})`
-                                            : isImageGenerationComplete 
-                                            ? 'Accept'
-                                            : 'Generate'
+                                            : isImageGenerationComplete
+                                                ? 'Accept'
+                                                : 'Generate'
                                     )}
                                 </button>
                             </div>
@@ -1783,7 +1783,7 @@ function CreatePostContent() {
                         <div className="modal-container" style={{ maxWidth: 900, width: '95%', height: '85vh', display: 'flex', flexDirection: 'column', background: '#09090b', border: '1px solid #27272a' }}>
                             <div className="modal-header" style={{ borderBottom: '1px solid #27272a', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <h3 style={{ margin: 0, fontSize: 16, color: 'white' }}>Media Assets Library</h3>
-                                <button 
+                                <button
                                     onClick={() => setIsLibraryOpen(false)}
                                     style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                                     onMouseOver={(e) => (e.currentTarget.style.color = 'white')}
@@ -1800,14 +1800,14 @@ function CreatePostContent() {
                                 ) : (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
                                         {libraryAssets.map(asset => (
-                                            <div 
-                                                key={asset.id} 
+                                            <div
+                                                key={asset.id}
                                                 className={`library-item ${mediaFiles.find(m => m.id === asset.id) ? 'selected' : ''}`}
                                                 onClick={() => handleSelectFromLibrary(asset)}
-                                                style={{ 
-                                                    aspectRatio: '1', 
-                                                    borderRadius: 12, 
-                                                    overflow: 'hidden', 
+                                                style={{
+                                                    aspectRatio: '1',
+                                                    borderRadius: 12,
+                                                    overflow: 'hidden',
                                                     cursor: 'pointer',
                                                     position: 'relative',
                                                     transition: '0.2s',
@@ -1835,7 +1835,7 @@ function CreatePostContent() {
                                 )}
                             </div>
                             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', borderTop: '1px solid #27272a', background: '#09090b' }}>
-                                <button 
+                                <button
                                     onClick={() => setIsLibraryOpen(false)}
                                     style={{ background: '#6c5ce7', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
                                     onMouseOver={(e) => (e.currentTarget.style.background = '#5b4bc4')}

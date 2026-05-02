@@ -32,7 +32,18 @@ export default function LoginPage() {
         <div className="auth-container">
             <div className="auth-card">
                 <h1 className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <IconZap size={28} color="var(--accent)" /> SocialFlow
+                    <span className="sidebar-logo-icon">
+                        <img
+                            src="/logo.svg"
+                            alt="SocialFlow"
+                            style={{
+                                width: 140,
+                                height: 'auto',
+                                maxHeight: 60,
+                                objectFit: 'contain'
+                            }}
+                        />
+                    </span>
                 </h1>
                 <p className="auth-subtitle">Sign in to manage your social presence</p>
                 {error && <div className="error-msg">{error}</div>}

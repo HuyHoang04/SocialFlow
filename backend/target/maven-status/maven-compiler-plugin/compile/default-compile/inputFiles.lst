@@ -1,4 +1,7 @@
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\controller\AiController.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\AiCampaignData.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\AiPostData.java
+F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\AiSuggestedEntities.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ChatRequest.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ChatResponse.java
 F:\SocialFlow\backend\src\main\java\com\socialflow\ai\dto\ContentRequest.java

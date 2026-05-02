@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { api, getUser } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import {
@@ -10,6 +12,76 @@ import {
     IconHistory, IconX, IconBarChart,
     IconFileText, IconTrendingUp
 } from '@/components/Icons';
+
+// ─── Markdown renderer using react-markdown + remark-gfm ──────────────────
+function MarkdownMessage({ content }: { content: string }) {
+    const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+    let codeBlockCounter = 0;
+
+    const copyCode = (code: string, idx: number) => {
+        navigator.clipboard.writeText(code).then(() => {
+            setCopiedIdx(idx);
+            setTimeout(() => setCopiedIdx(null), 1500);
+        });
+    };
+
+    return (
+        <div className="md-root">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    // ─ Code blocks
+                    code({ node, className, children, ...props }: any) {
+                        const isBlock = !props.inline;
+                        const lang = (className || '').replace('language-', '') || 'code';
+                        const raw = String(children).replace(/\n$/, '');
+                        // Pretty-print JSON
+                        let display = raw;
+                        if (lang === 'json' || (lang === 'code' && raw.trimStart().startsWith('{'))) {
+                            try { display = JSON.stringify(JSON.parse(raw), null, 2); } catch { }
+                        }
+                        if (isBlock) {
+                            const idx = codeBlockCounter++;
+                            return (
+                                <div className="md-code-block">
+                                    <div className="md-code-header">
+                                        <span className="md-code-lang">{lang}</span>
+                                        <button className="md-copy-btn" onClick={() => copyCode(display, idx)}>
+                                            {copiedIdx === idx ? '✓ Copied' : 'Copy'}
+                                        </button>
+                                    </div>
+                                    <pre className="md-pre"><code>{display}</code></pre>
+                                </div>
+                            );
+                        }
+                        return <code className="md-inline-code" {...props}>{children}</code>;
+                    },
+                    // ─ Tables
+                    table({ children }: any) { return <div className="md-table-wrap"><table className="md-table">{children}</table></div>; },
+                    thead({ children }: any) { return <thead>{children}</thead>; },
+                    tbody({ children }: any) { return <tbody>{children}</tbody>; },
+                    tr({ children }: any) { return <tr>{children}</tr>; },
+                    th({ children }: any) { return <th className="md-th">{children}</th>; },
+                    td({ children }: any) { return <td className="md-td">{children}</td>; },
+                    // ─ Typography
+                    h1({ children }: any) { return <h3 className="md-heading">{children}</h3>; },
+                    h2({ children }: any) { return <h4 className="md-heading">{children}</h4>; },
+                    h3({ children }: any) { return <h5 className="md-heading">{children}</h5>; },
+                    p({ children }: any) { return <p className="md-p">{children}</p>; },
+                    ul({ children }: any) { return <ul className="md-ul">{children}</ul>; },
+                    ol({ children }: any) { return <ol className="md-ol">{children}</ol>; },
+                    li({ children }: any) { return <li className="md-li">{children}</li>; },
+                    hr() { return <hr className="md-hr" />; },
+                    strong({ children }: any) { return <strong>{children}</strong>; },
+                    em({ children }: any) { return <em>{children}</em>; },
+                }}
+            >
+                {content}
+            </ReactMarkdown>
+        </div>
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 export default function ChatDrawer() {
     const { selectedBrand: brand } = useBrand();
@@ -65,7 +137,7 @@ export default function ChatDrawer() {
         const handleExternalOpen = (e: any) => {
             const { message, contextData } = e.detail || {};
             setIsOpen(true);
-            
+
             if (contextData) {
                 // Determine descriptive tag and label
                 let tag = "@Reference";
@@ -290,7 +362,10 @@ export default function ChatDrawer() {
                                     {messages.map((m, idx) => (
                                         <div key={idx} className={`message-row ${m.role}`}>
                                             <div className="message-bubble">
-                                                {m.content}
+                                                {m.role === 'assistant'
+                                                    ? <MarkdownMessage content={m.content} />
+                                                    : m.content
+                                                }
                                             </div>
                                         </div>
                                     ))}
@@ -315,14 +390,14 @@ export default function ChatDrawer() {
                             {attachedContexts.map((ctx) => (
                                 <div key={ctx._id} className="copilot-tag">
                                     <div className="tag-icon">
-                                        {ctx._iconType === 'overview' ? <IconBarChart size={14} /> : 
-                                         ctx._iconType === 'post' ? <IconFileText size={14} /> : <IconTrendingUp size={14} />}
+                                        {ctx._iconType === 'overview' ? <IconBarChart size={14} /> :
+                                            ctx._iconType === 'post' ? <IconFileText size={14} /> : <IconTrendingUp size={14} />}
                                     </div>
                                     <span className="tag-label">
                                         {ctx._displayLabel}
                                     </span>
-                                    <button 
-                                        className="tag-remove" 
+                                    <button
+                                        className="tag-remove"
                                         onClick={() => {
                                             setAttachedContexts(prev => prev.filter(c => c._id !== ctx._id));
                                             setInput(prev => prev.replace(ctx._tag, '').trim());
@@ -391,8 +466,8 @@ export default function ChatDrawer() {
                     position: fixed;
                     bottom: 100px;
                     right: 30px;
-                    width: 380px;
-                    height: 600px;
+                    width: 700px;
+                    height: 800px;
                     background: var(--bg-glass);
                     backdrop-filter: blur(20px);
                     border: 1px solid var(--border);
@@ -489,6 +564,7 @@ export default function ChatDrawer() {
                 .assistant .message-bubble {
                     background: rgba(255,255,255,0.08);
                     border-bottom-left-radius: 4px;
+                    max-width: 92%;
                 }
 
                 .chat-welcome {
@@ -637,6 +713,122 @@ export default function ChatDrawer() {
                 @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
                 .spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
+
+            {/* Global styles for MarkdownMessage — must be global because it's a separate component */}
+            <style jsx global>{`
+                .md-root { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+                .md-p { margin: 0; line-height: 1.7; }
+                .md-heading {
+                    margin: 14px 0 6px;
+                    font-weight: 700;
+                    color: white;
+                    padding-left: 10px;
+                    border-left: 3px solid #6c5ce7;
+                }
+                h3.md-heading { font-size: 15px; }
+                h4.md-heading { font-size: 14px; }
+                h5.md-heading { font-size: 13px; border-left-color: rgba(162,155,254,0.5); }
+                .md-ul, .md-ol {
+                    margin: 6px 0;
+                    padding-left: 24px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                }
+                .md-ul { list-style: disc; }
+                .md-ol { list-style: decimal; }
+                .md-li { padding-left: 4px; line-height: 1.7; }
+                .md-li > .md-ul, .md-li > .md-ol {
+                    margin: 6px 0 2px;
+                    padding-left: 20px;
+                    gap: 3px;
+                }
+                .md-li > .md-ul { list-style: circle; }
+                .md-li > .md-ol { list-style: lower-alpha; }
+                .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0; }
+                .md-inline-code {
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(255,255,255,0.12);
+                    border-radius: 4px;
+                    padding: 1px 5px;
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    font-size: 12px;
+                    color: #a29bfe;
+                }
+                .md-table-wrap {
+                    overflow-x: auto;
+                    margin: 8px 0;
+                    border-radius: 8px;
+                    border: 1px solid rgba(255,255,255,0.12);
+                }
+                .md-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 12px;
+                }
+                .md-th {
+                    background: rgba(108,92,231,0.15);
+                    color: #a29bfe;
+                    font-weight: 600;
+                    padding: 7px 10px;
+                    text-align: left;
+                    border-bottom: 1px solid rgba(255,255,255,0.1);
+                    white-space: nowrap;
+                }
+                .md-td {
+                    padding: 6px 10px;
+                    border-bottom: 1px solid rgba(255,255,255,0.06);
+                    color: #a1a1aa;
+                    vertical-align: top;
+                    line-height: 1.55;
+                }
+                .md-table tbody tr:last-child .md-td { border-bottom: none; }
+                .md-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+                .md-code-block {
+                    background: rgba(0,0,0,0.35);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 10px;
+                    overflow: hidden;
+                    margin: 6px 0;
+                }
+                .md-code-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px 10px;
+                    background: rgba(255,255,255,0.04);
+                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                }
+                .md-code-lang {
+                    font-size: 11px;
+                    color: #71717a;
+                    font-family: monospace;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                .md-copy-btn {
+                    background: rgba(108,92,231,0.15);
+                    border: 1px solid rgba(108,92,231,0.3);
+                    color: #a29bfe;
+                    font-size: 11px;
+                    padding: 2px 8px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                }
+                .md-copy-btn:hover { background: rgba(108,92,231,0.3); }
+                .md-pre {
+                    margin: 0;
+                    padding: 10px 12px;
+                    overflow-x: auto;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    font-size: 12px;
+                    line-height: 1.6;
+                    color: #e2e8f0;
+                }
             `}</style>
         </>
     );

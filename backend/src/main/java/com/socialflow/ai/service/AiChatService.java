@@ -1,19 +1,22 @@
 package com.socialflow.ai.service;
 
+import com.socialflow.ai.dto.AiCampaignData;
+import com.socialflow.ai.dto.AiPostData;
+import com.socialflow.ai.dto.AiSuggestedEntities;
 import com.socialflow.ai.dto.ChatRequest;
 import com.socialflow.ai.dto.ChatResponse;
+import com.socialflow.dto.CampaignRequest;
 import com.socialflow.model.*;
-import com.socialflow.model.enums.PostStatus;
 import com.socialflow.repository.*;
+import com.socialflow.service.CampaignService;
+import com.socialflow.service.PostService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -25,9 +28,8 @@ public class AiChatService {
     private final AiServiceClient aiServiceClient;
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
-    private final CampaignRepository campaignRepository;
-    private final PostRepository postRepository;
-    private final PostMediaRepository postMediaRepository;
+    private final CampaignService campaignService;
+    private final PostService postService;
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
 
@@ -78,66 +80,70 @@ public class AiChatService {
         return response;
     }
 
-    private void handleAutoSave(UUID brandId, UUID userId, Map<String, Object> entities) {
-        log.info("Handling auto-save for brand: {}", brandId);
-        
-        Brand brand = brandRepository.findById(brandId).orElse(null);
-        if (brand == null) {
-            log.error("Brand not found: {}", brandId);
+    /**
+     * Auto-saves AI-generated campaigns and posts through the proper service layer.
+     * - Campaign  → CampaignService.createCampaign()  (brand ownership validation included)
+     * - Post      → PostService.createAiDraftPost()    (validated, transactional, no raw SQL)
+     */
+    private void handleAutoSave(UUID brandId, UUID userId, AiSuggestedEntities entities) {
+        log.info("Handling auto-save via service layer for brand: {}", brandId);
+
+        // 1. Validate brand & user exist
+        if (brandRepository.findById(brandId).isEmpty()) {
+            log.error("Auto-save aborted: brand not found: {}", brandId);
+            return;
+        }
+        User uploader = userRepository.findById(userId).orElse(null);
+        if (uploader == null) {
+            log.error("Auto-save aborted: user not found: {}", userId);
             return;
         }
 
-        // 1. Extract Campaign
-        Map<String, Object> campaignData = (Map<String, Object>) entities.get("campaign");
-        Campaign campaign = null;
-        if (campaignData != null && campaignData.get("name") != null && !campaignData.get("name").equals("string")) {
-            campaign = Campaign.builder()
-                    .brand(brand)
-                    .name((String) campaignData.get("name"))
-                    .description((String) campaignData.get("description"))
-                    .startDate(campaignData.get("startDate") != null ? java.time.LocalDate.parse((String) campaignData.get("startDate")) : null)
-                    .endDate(campaignData.get("endDate") != null ? java.time.LocalDate.parse((String) campaignData.get("endDate")) : null)
-                    .build();
-            campaign = campaignRepository.save(campaign);
-            log.info("✓ Auto-saved campaign: {}", campaign.getId());
+        // 2. Create Campaign via CampaignService (includes brand ownership validation)
+        Campaign savedCampaign = null;
+        AiCampaignData campaignData = entities.getCampaign();
+        if (campaignData != null
+                && campaignData.getName() != null
+                && !campaignData.getName().isBlank()
+                && !campaignData.getName().equals("string")) {
+            try {
+                CampaignRequest req = new CampaignRequest();
+                req.setName(campaignData.getName());
+                req.setDescription(campaignData.getDescription());
+                req.setStartDate(campaignData.getStartDate() != null
+                        ? LocalDate.parse(campaignData.getStartDate()) : null);
+                req.setEndDate(campaignData.getEndDate() != null
+                        ? LocalDate.parse(campaignData.getEndDate()) : null);
+
+                var campaignResponse = campaignService.createCampaign(brandId, userId, req);
+                savedCampaign = new Campaign();
+                savedCampaign.setId(campaignResponse.getId());
+                log.info("✓ Campaign created via CampaignService: {}", campaignResponse.getId());
+            } catch (Exception e) {
+                log.error("Failed to create campaign via CampaignService: {}", e.getMessage());
+            }
         }
 
-        // 2. Extract Posts
-        List<Map<String, Object>> postsData = (List<Map<String, Object>>) entities.get("posts");
-        if (postsData != null) {
-            User uploader = userRepository.findById(userId).orElse(null);
-            
-            for (Map<String, Object> pData : postsData) {
-                String content = (String) pData.get("content");
-                if (content == null || content.equals("string")) continue;
-
-                Post post = Post.builder()
-                        .campaign(campaign)
-                        .content(content)
-                        .status(PostStatus.DRAFT)
-                        .scheduledTime(pData.get("scheduledTime") != null ? 
-                                java.time.OffsetDateTime.parse((String) pData.get("scheduledTime")).toLocalDateTime() : null)
-                        .build();
-                post = postRepository.save(post);
-                log.info("✓ Auto-saved post: {}", post.getId());
-
-                // 3. Extract Media (Images)
-                List<String> mediaFiles = (List<String>) pData.get("mediaFilenames");
-                if (mediaFiles != null && uploader != null) {
-                    for (int i = 0; i < mediaFiles.size(); i++) {
-                        String filename = mediaFiles.get(i);
-                        PostMedia media = PostMedia.builder()
-                                .post(post)
-                                .uploader(uploader)
-                                .filename(filename)
-                                .url(filename)
-                                .originalName("ai_gen_" + i + ".png")
-                                .contentType("image/png")
-                                .sortOrder(i)
-                                .build();
-                        postMediaRepository.save(media);
-                    }
-                    log.info("  ✓ Added {} media assets to post", mediaFiles.size());
+        // 3. Create Posts via PostService.createAiDraftPost()
+        List<AiPostData> posts = entities.getPosts();
+        if (posts != null) {
+            for (AiPostData post : posts) {
+                if (post.getContent() == null
+                        || post.getContent().isBlank()
+                        || post.getContent().equals("string")) {
+                    log.warn("Skipping AI post with empty/placeholder content");
+                    continue;
+                }
+                try {
+                    postService.createAiDraftPost(
+                            post.getContent(),
+                            savedCampaign,
+                            post.getScheduledTime(),
+                            post.getMediaFilenames(),
+                            uploader
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to create AI draft post via PostService: {}", e.getMessage());
                 }
             }
         }

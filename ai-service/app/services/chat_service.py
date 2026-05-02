@@ -2,7 +2,12 @@
 from typing import Optional, List, Dict, Any
 from app.services.rag_service import RagService
 from app.utils.logger import setup_logger
-from app.prompts import CHAT_SYSTEM_PROMPT, format_chat_rag_prompt, format_chat_reference_prompt
+from app.prompts import (
+    CHAT_SYSTEM_PROMPT,
+    PROMPT_INJECTION_PATTERNS,
+    format_chat_rag_prompt,
+    format_chat_reference_prompt,
+)
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import httpx
 from app.config import JAVA_BACKEND_URL
@@ -144,7 +149,8 @@ class ChatService:
             # Build final human input with RAG context
             human_input = format_chat_rag_prompt(user_message, context_text)
             if context_data:
-                reference_block = format_chat_reference_prompt(context_data)
+                safe_context = self._sanitize_context_data(context_data)
+                reference_block = format_chat_reference_prompt(safe_context)
                 human_input = f"{reference_block}\n\n{human_input}"
                 
             chain = LLMChain(llm=llm, prompt=prompt_template, memory=memory, verbose=False)
@@ -272,3 +278,38 @@ class ChatService:
     async def clear_session(self, session_id: str):
         """History is managed by Java, so this is now a no-op in Python"""
         return True
+
+    def _sanitize_context_data(self, context_data: str) -> str:
+        """
+        Sanitize user-controlled context_data to strip prompt injection attempts
+        before it is injected into the LLM prompt.
+
+        - Truncates to 8000 characters to prevent token flooding.
+        - Removes or neutralizes lines that match known injection patterns.
+        """
+        if not context_data:
+            return ""
+
+        # Hard truncate to protect against token-flooding attacks
+        MAX_CONTEXT_LENGTH = 8000
+        if len(context_data) > MAX_CONTEXT_LENGTH:
+            logger.warning(
+                f"context_data truncated from {len(context_data)} to {MAX_CONTEXT_LENGTH} chars"
+            )
+            context_data = context_data[:MAX_CONTEXT_LENGTH] + "\n[... content truncated ...]"
+
+        lower_ctx = context_data.lower()
+        detected = [
+            pattern for pattern in PROMPT_INJECTION_PATTERNS
+            if pattern.lower() in lower_ctx
+        ]
+        if detected:
+            logger.warning(
+                f"Prompt injection patterns detected in context_data: {detected}. "
+                "Replacing flagged content with a safe placeholder."
+            )
+            # Replace the entire context with a safe placeholder so the LLM
+            # never sees the injected instructions.
+            return "[Context data was removed due to policy violation.]"
+
+        return context_data
