@@ -5,10 +5,12 @@ import { getUser, logout } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/context/ThemeContext';
 import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconLink, IconLogOut, IconZap,
-    IconChevronLeft, IconChevronRight,
+    IconChevronLeft, IconChevronRight, IconFileText, IconMessageCircle, IconSettings,
+    IconSun, IconMoon
 } from './Icons';
 
 interface SidebarProps {
@@ -19,6 +21,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
+    const { theme, toggleTheme } = useTheme();
     const { selectedBrand, clearBrand } = useBrand();
     const [user, setUser] = useState<{ name: string; email: string } | null>(null);
 
@@ -38,14 +41,28 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { href: '/create', icon: <IconPenSquare size={20} />, label: 'Create Post' },
         { href: '/assets', icon: <IconImage size={20} />, label: 'Media Assets' },
         { href: '/campaigns', icon: <IconTarget size={20} />, label: 'Campaigns' },
-        { href: '/accounts', icon: <IconLink size={20} />, label: 'Accounts' },
+        { href: '/ai-hub', icon: <IconZap size={20} />, label: 'AI Hub' },
+        { href: '/settings', icon: <IconSettings size={20} />, label: 'Settings' },
     ];
 
     return (
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
             <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <span className="sidebar-logo-icon"><IconZap size={24} /></span>
+                    <span className="sidebar-logo-icon">
+                        <img
+                            src="/logo.svg"
+                            alt="SocialFlow"
+                            style={{
+                                width: collapsed ? 48 : 140,
+                                height: 'auto',
+                                maxHeight: collapsed ? 32 : 60,
+                                transition: '0.3s',
+                                marginBottom: collapsed ? 0 : 8,
+                                objectFit: 'contain'
+                            }}
+                        />
+                    </span>
                     <span className="sidebar-logo-text">SocialFlow</span>
                 </div>
                 <button className="sidebar-toggle" onClick={onToggle}
@@ -86,6 +103,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                     </div>
                 )}
+                <button className="nav-item" onClick={toggleTheme} title={collapsed ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : undefined}>
+                    <span className="nav-icon">
+                        {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+                    </span>
+                    <span className="nav-label">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                </button>
                 <button className="nav-item" onClick={logout} style={{ marginTop: 8 }}>
                     <span className="nav-icon"><IconLogOut size={18} /></span>
                     <span className="nav-label">Logout</span>

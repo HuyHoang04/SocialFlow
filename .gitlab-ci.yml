@@ -1,6 +1,46 @@
 stages:
+  - build
   - deploy
 
+variables:
+  # Registry URL se duoc build tu cac bien moi truong trong GitLab Settings
+  ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+# ─────────────────────────────────────────────
+# STAGE 1: BUILD — Build va push images len ECR
+# ─────────────────────────────────────────────
+.build_template: &build_template
+  stage: build
+  image: docker:25-dind
+  services:
+    - docker:25-dind
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+build_backend:
+  <<: *build_template
+  script:
+    - docker build -t "$ECR_REGISTRY/socialflow/backend:latest" ./backend/
+    - docker push "$ECR_REGISTRY/socialflow/backend:latest"
+
+build_frontend:
+  <<: *build_template
+  script:
+    - docker build -t "$ECR_REGISTRY/socialflow/frontend:latest" ./frontend/
+    - docker push "$ECR_REGISTRY/socialflow/frontend:latest"
+
+build_ai_service:
+  <<: *build_template
+  script:
+    - docker build -t "$ECR_REGISTRY/socialflow/ai_service:latest" ./ai-service/
+    - docker push "$ECR_REGISTRY/socialflow/ai_service:latest"
+
+# ─────────────────────────────────────────────
+# STAGE 2: DEPLOY — Chi gui lenh cap nhat len EC2
+# ─────────────────────────────────────────────
 deploy_production:
   stage: deploy
   image: alpine:3.20
@@ -8,84 +48,46 @@ deploy_production:
     - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
     - apk add --no-cache openssh-client bash coreutils git
-    - test -n "$EC2_HOST"
-    - test -n "$EC2_USER"
-    - test -n "$SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
+    - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20"
   script:
     - |
-      echo "[CI] Copying source code to EC2..."
-      timeout 180s scp $SSH_OPTS -i ~/.ssh/id_rsa -r backend frontend "$EC2_USER@$EC2_HOST:/tmp/socialflow-src/"
+      echo "[CI] Updating K8s manifests with ECR URLs..."
+      # Dung sed de thay the Account ID va Region vao manifest truoc khi gui di
+      sed -i "s|<ACCOUNT_ID>|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
+      sed -i "s|<REGION>|${AWS_REGION}|g" k8s/*.yaml
 
       echo "[CI] Copying manifests to EC2..."
-      timeout 180s scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"
+      scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"
 
-      echo "[CI] Building Docker images and deploying on EC2..."
-      timeout 1800s ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" '
+      echo "[CI] Executing remote deployment..."
+      ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
         set -euxo pipefail
-
-        # Build Docker images on EC2
-        echo "Building backend image..."
-        docker build -t socialflow-backend:latest /tmp/socialflow-src/backend/
-
-        echo "Building frontend image..."
-        docker build -t socialflow-frontend:latest /tmp/socialflow-src/frontend/
-
-        echo "Docker images built:"
-        docker images | grep socialflow
-
-        # Import images into K3s containerd
-        echo ""
-        echo "Importing Docker images into K3s containerd..."
-        docker save socialflow-backend:latest | sudo -n k3s ctr images import -
-        docker save socialflow-frontend:latest | sudo -n k3s ctr images import -
         
-        echo "Verifying images in K3s:"
-        sudo -n k3s ctr images list | grep socialflow
+        # Dang nhap ECR ngay tren EC2 de K3s co quyen keo anh
+        ECR_PASS=\$(aws ecr get-login-password --region ${AWS_REGION})
+        echo \$ECR_PASS | sudo -n k3s ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
 
-        # Deploy to K3s
-        sudo -n true
-
-        sudo -n rm -rf /opt/socialflow/k8s 2>/dev/null || true
+        # Cap nhat folder manifest
+        sudo -n rm -rf /opt/socialflow/k8s
         sudo -n mkdir -p /opt/socialflow
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
-        # Clean up old pods before redeploying - this ensures fresh initialization
-        echo "Cleaning up old pods from previous deployments..."
-        sudo -n k3s kubectl delete pods -n socialflow -l app=backend 2>/dev/null || true
-        sudo -n k3s kubectl delete pods -n socialflow -l app=frontend 2>/dev/null || true
-        sudo -n k3s kubectl delete pods -n socialflow -l app=postgres 2>/dev/null || true
-        sleep 3
-        echo "Phase 1: Creating namespace..."
-        for i in 1 2 3 4 5; do
-          if sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f /opt/socialflow/k8s/01-namespace.yaml 2>/dev/null; then
-            echo "✓ Namespace created"
-            break
-          fi
-          if [ $i -lt 5 ]; then
-            echo "Retry $i/5: waiting for K3s API..."
-            sleep 10
-          fi
-        done
-
-        sleep 5
-
-        echo "Phase 2-4: Applying all remaining manifests..."
+        # Apply K8s
+        sudo -n k3s kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
         for manifest in /opt/socialflow/k8s/*.yaml; do
-          [ "$manifest" = "/opt/socialflow/k8s/01-namespace.yaml" ] && continue
-          sudo -n k3s kubectl apply --validate=false --request-timeout=300s -f "$manifest" 2>/dev/null || true
-          sleep 1
+          [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
+          sudo -n k3s kubectl apply -f \"\$manifest\"
         done
 
-        echo ""
-        echo "Deployment status:"
-        sleep 3
-        sudo -n k3s kubectl get pods -n socialflow -o wide
-        echo ""
-        sudo -n k3s kubectl get svc -n socialflow
-      '
+        # Force restart de pod lay anh moi nhat tu ECR
+        sudo -n k3s kubectl rollout restart deployment/backend -n socialflow
+        sudo -n k3s kubectl rollout restart deployment/frontend -n socialflow
+        sudo -n k3s kubectl rollout restart deployment/ai-service -n socialflow
+        
+        echo '✓ Deployment successful!'
+      "
   environment:
     name: production

@@ -1,6 +1,7 @@
 package com.socialflow.service.publisher;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.dto.PlatformCommentDto;
 import com.socialflow.model.Post;
 import com.socialflow.model.PostMedia;
 import com.socialflow.model.PublishResult;
@@ -10,18 +11,116 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ThreadsPublisher {
+public class ThreadsPublisher implements CommentFetcher {
 
     private final WebClient.Builder webClientBuilder;
 
     @Value("${app.base-url:http://localhost:3000}")
     private String baseUrl;
+
+    // ────────────────────────────────────────────────────────────
+    // Comment Fetching
+    // ────────────────────────────────────────────────────────────
+
+    @Override
+    public List<PlatformCommentDto> fetchComments(SocialPage page) {
+        List<PlatformCommentDto> results = new ArrayList<>();
+        try {
+            String token = page.getPageAccessToken();
+
+            List<Post> posts = page.getPosts();
+            for (Post post : posts) {
+                for (PublishResult pr : post.getPublishResults()) {
+                    if (!Boolean.TRUE.equals(pr.getSuccess()) || pr.getPlatformPostId() == null) continue;
+                    String mediaId = pr.getPlatformPostId();
+
+                    fetchThreadsReplies(token, mediaId, results);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Threads comment fetch failed for page {}: {}",
+                    page.getPageName(), e.getMessage(), e);
+        }
+        return results;
+    }
+
+    private void fetchThreadsReplies(String token, String mediaId,
+                                     List<PlatformCommentDto> results) {
+        try {
+            String url = String.format(
+                    "https://graph.threads.net/v1.0/%s/replies" +
+                    "?fields=id,text,username,timestamp" +
+                    "&access_token=%s",
+                    mediaId, token
+            );
+
+            WebClient client = webClientBuilder.build();
+            JsonNode response = client.get()
+                    .uri(java.net.URI.create(url))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (response == null || !response.has("data")) return;
+
+            for (JsonNode reply : response.get("data")) {
+                String replyId = reply.has("id") ? reply.get("id").asText() : UUID.randomUUID().toString();
+                String text = reply.has("text") ? reply.get("text").asText() : "";
+                String username = reply.has("username")
+                        ? reply.get("username").asText() : "Threads User";
+                String timestamp = reply.has("timestamp")
+                        ? reply.get("timestamp").asText() : null;
+
+                if (text.isBlank()) continue;
+
+                LocalDateTime createdAt = parseThreadsTimestamp(timestamp);
+
+                results.add(PlatformCommentDto.builder()
+                        .platformMessageId(replyId)
+                        .platformPostId(mediaId)
+                        .content(text)
+                        .authorName(username)
+                        .authorId(username) // Threads uses username as identifier
+                        .createdAt(createdAt)
+                        .build());
+            }
+        } catch (WebClientResponseException e) {
+            log.warn("Threads replies fetch failed for post {} (HTTP {}): {}. " +
+                            "Ensure threads_read_replies scope is granted.",
+                    mediaId, e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.warn("Threads replies fetch failed for post {}: {}",
+                    mediaId, e.getMessage());
+        }
+    }
+
+    private LocalDateTime parseThreadsTimestamp(String timestamp) {
+        if (timestamp == null) return LocalDateTime.now();
+        try {
+            return OffsetDateTime.parse(timestamp).toLocalDateTime();
+        } catch (Exception e1) {
+            try {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+                return LocalDateTime.parse(timestamp, fmt);
+            } catch (Exception e2) {
+                return LocalDateTime.now();
+            }
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Publishing (existing, unchanged)
+    // ────────────────────────────────────────────────────────────
 
     public PublishResult publish(Post post, SocialPage page) {
         try {
@@ -107,3 +206,4 @@ public class ThreadsPublisher {
         }
     }
 }
+

@@ -1,5 +1,6 @@
 package com.socialflow.controller;
 
+import com.socialflow.ai.service.AiSuggestionService;
 import com.socialflow.dto.InboxMessageResponse;
 import com.socialflow.model.User;
 import com.socialflow.service.InboxService;
@@ -10,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class InboxController {
 
     private final InboxService inboxService;
+    private final AiSuggestionService aiSuggestionService;
 
     @Data
     public static class ReplyRequest {
@@ -45,6 +48,13 @@ public class InboxController {
             @RequestBody ReplyRequest request,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(inboxService.replyToMessage(messageId, request.getContent(), user.getId()));
+    }
+
+    @GetMapping("/inbox/{messageId}/suggest-reply")
+    public ResponseEntity<Map<String, String>> suggestReply(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(Map.of("suggestion", aiSuggestionService.suggestReply(messageId)));
     }
 
     @PutMapping("/inbox/{messageId}/read")

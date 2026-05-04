@@ -1,12 +1,13 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import Link from 'next/link';
 import {
   IconFileText, IconCheckCircle, IconClock, IconLink,
-  IconPenSquare, IconCalendar, IconSend,
+  IconPenSquare, IconCalendar, IconSend, IconSparkles,
+  IconBook, IconUsers, IconChevronLeft, IconChevronRight,
   PlatformIcon, SkeletonCard,
 } from '@/components/Icons';
 
@@ -17,14 +18,11 @@ interface Post {
   createdAt: string;
   publishedAt: string | null;
   scheduledTime: string | null;
-  campaignName?: string;
   page: { id: string; pageName: string; platform: string; brandName: string };
 }
 
 interface Connection {
-  id: string;
-  platform: string;
-  accountName: string;
+  id: string; platform: string; accountName: string;
 }
 
 export default function DashboardPage() {
@@ -32,167 +30,280 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiInfo, setAiInfo] = useState({ models: 0, docs: 0 });
+  
+  // Calendar State
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDayPosts, setSelectedDayPosts] = useState<Post[]>([]);
+  const [activeDay, setActiveDay] = useState<number | null>(new Date().getDate());
 
   const load = useCallback(async () => {
     if (!selectedBrand) return;
+    setLoading(true);
     try {
-      const [p, c] = await Promise.all([
+      const [p, c, models, docs] = await Promise.all([
         api.getPosts(),
         api.getConnections(selectedBrand.id),
+        api.getAiConfig(selectedBrand.id).catch(() => null),
+        api.ragListLibrary(selectedBrand.id, 1, 0).catch(() => ({ total: 0 }))
       ]);
-      setPosts(p.filter((post: Post) => post.page.brandName === selectedBrand.name));
+      
+      const filteredPosts = p.filter((post: Post) => post.page.brandName === selectedBrand.name);
+      setPosts(filteredPosts);
       setConnections(c);
-    } catch { /* */ }
+      
+      let modelCount = 0;
+      if (models) {
+        if (models.textModel) modelCount++;
+        if (models.imageModel) modelCount++;
+      }
+      setAiInfo({ 
+        models: modelCount, 
+        docs: Array.isArray(docs) ? docs.length : (docs?.total || 0) 
+      });
+
+      // Set initial day posts
+      const today = new Date();
+      const todayPosts = filteredPosts.filter((post: Post) => {
+        const d = new Date(post.scheduledTime || post.createdAt);
+        return d.getDate() === today.getDate() && 
+               d.getMonth() === today.getMonth() && 
+               d.getFullYear() === today.getFullYear();
+      });
+      setSelectedDayPosts(todayPosts);
+
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+    }
     setLoading(false);
   }, [selectedBrand]);
 
   useEffect(() => { load(); }, [load]);
 
-  const publishPost = async (id: string) => {
-    await api.publishPost(id);
-    load();
+  // Calendar Logic
+  const daysInMonth = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    
+    const days = [];
+    for (let i = 0; i < firstDayIndex; i++) days.push(null);
+    for (let i = 1; i <= lastDay; i++) days.push(i);
+    return days;
+  }, [currentDate]);
+
+  const handleDayClick = (day: number | null) => {
+    if (!day) return;
+    setActiveDay(day);
+    const dayPosts = posts.filter((post: Post) => {
+      const d = new Date(post.scheduledTime || post.createdAt);
+      return d.getDate() === day && 
+             d.getMonth() === currentDate.getMonth() && 
+             d.getFullYear() === currentDate.getFullYear();
+    });
+    setSelectedDayPosts(dayPosts);
+  };
+
+  const changeMonth = (offset: number) => {
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
+    setCurrentDate(newDate);
+    setActiveDay(null);
+    setSelectedDayPosts([]);
+  };
+
+  const getPostsForDay = (day: number) => {
+    return posts.filter((post: Post) => {
+      const d = new Date(post.scheduledTime || post.createdAt);
+      return d.getDate() === day && 
+             d.getMonth() === currentDate.getMonth() && 
+             d.getFullYear() === currentDate.getFullYear();
+    });
   };
 
   const badgeClass = (s: string) => {
     switch (s) {
       case 'DRAFT': return 'badge badge-draft';
       case 'SCHEDULED': return 'badge badge-scheduled';
-      case 'PUBLISHING': return 'badge badge-publishing';
       case 'PUBLISHED': return 'badge badge-published';
       case 'FAILED': return 'badge badge-failed';
       default: return 'badge';
     }
   };
 
-  const publishedPosts = posts.filter(p => p.status === 'PUBLISHED');
-  const draftPosts = posts.filter(p => p.status === 'DRAFT' || p.status === 'SCHEDULED');
-
   return (
     <AppShell>
-      {loading ? (
-        <div className="fade-in" style={{ padding: 24 }}>
-          <div className="skeleton" style={{ width: 200, height: 32, marginBottom: 8, borderRadius: 8 }} />
-          <div className="skeleton" style={{ width: 300, height: 16, marginBottom: 32, borderRadius: 6 }} />
-          <div className="bento-grid">
-            <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+      <div style={{ width: '100%', padding: '0 40px', animation: 'fadeIn 0.5s ease-out' }}>
+        {loading ? (
+          <div style={{ padding: '24px 0' }}>
+            <div className="skeleton" style={{ width: 240, height: 40, marginBottom: 32 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, marginBottom: 40 }}>
+              <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+            </div>
+            <div className="skeleton" style={{ width: '100%', height: 500 }} />
           </div>
-        </div>
-      ) : (
-        <div className="fade-in">
-          {/* Overview Stats */}
-          <div className="page-header">
-            <div>
-              <h1 className="page-title">Dashboard</h1>
-              <p className="page-subtitle">Overview for {selectedBrand?.name}</p>
-            </div>
-            <Link href="/create" className="btn btn-primary">
-              <IconPenSquare size={16} /> Create Post
-            </Link>
-          </div>
-
-          <div className="bento-grid stagger-fade" style={{ marginBottom: 32 }}>
-            <div className="card stat-card">
-              <div className="stat-card-icon" style={{ background: 'rgba(108,92,231,0.15)', color: 'var(--accent)' }}>
-                <IconFileText size={22} />
-              </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
               <div>
-                <div className="stat-card-value">{posts.length}</div>
-                <div className="stat-card-label">Total Posts</div>
+                <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>Dashboard</h1>
+                <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Overview for {selectedBrand?.name}</p>
               </div>
+              <Link href="/create" className="btn btn-primary">
+                <IconPenSquare size={18} /> <span>Create Post</span>
+              </Link>
             </div>
-            <div className="card stat-card">
-              <div className="stat-card-icon" style={{ background: 'rgba(0,184,148,0.15)', color: 'var(--success)' }}>
-                <IconCheckCircle size={22} />
-              </div>
-              <div>
-                <div className="stat-card-value">{publishedPosts.length}</div>
-                <div className="stat-card-label">Published</div>
-              </div>
-            </div>
-            <div className="card stat-card">
-              <div className="stat-card-icon" style={{ background: 'rgba(253,203,110,0.15)', color: 'var(--warning)' }}>
-                <IconClock size={22} />
-              </div>
-              <div>
-                <div className="stat-card-value">{draftPosts.length}</div>
-                <div className="stat-card-label">Drafts / Scheduled</div>
-              </div>
-            </div>
-            <div className="card stat-card">
-              <div className="stat-card-icon" style={{ background: 'rgba(116,185,255,0.15)', color: 'var(--accent-light)' }}>
-                <IconLink size={22} />
-              </div>
-              <div>
-                <div className="stat-card-value">{connections.length}</div>
-                <div className="stat-card-label">Connections</div>
-              </div>
-            </div>
-          </div>
 
-          {/* Quick Actions */}
-          {connections.length === 0 && (
-            <div className="card card-glow" style={{ marginBottom: 24, textAlign: 'center', padding: '40px 24px' }}>
-              <div style={{ marginBottom: 12 }}><IconLink size={36} color="var(--accent)" /></div>
-              <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Connect your accounts</h3>
-              <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: 14 }}>
-                Link your social media accounts to start publishing
-              </p>
-              <Link href="/accounts" className="btn btn-primary">Connect Accounts</Link>
-            </div>
-          )}
-
-          {/* Recent Posts */}
-          <div className="page-header">
-            <div>
-              <h1 className="page-title" style={{ fontSize: 22 }}>Recent Posts</h1>
-              <p className="page-subtitle">{posts.length} post{posts.length !== 1 ? 's' : ''}</p>
-            </div>
-          </div>
-
-          {posts.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon"><IconFileText size={40} color="var(--text-muted)" /></div>
-              <div className="empty-state-title">No posts yet</div>
-              <div className="empty-state-text">Create your first post and publish it across platforms</div>
-              <Link href="/create" className="btn btn-primary">Create Post</Link>
-            </div>
-          ) : (
-            <div className="bento-grid stagger-fade" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
-              {posts.slice(0, 10).map(p => (
-                <div key={p.id} className="card" style={{ cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <PlatformIcon platform={p.page.platform} size={18} />
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.page.pageName}</span>
-                    </div>
-                    <span className={badgeClass(p.status)}>{p.status}</span>
-                  </div>
-                  <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16, color: 'var(--text-secondary)' }}>
-                    {p.content.length > 120 ? p.content.substring(0, 120) + '...' : p.content}
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {p.scheduledTime
-                        ? <><IconCalendar size={12} /> {new Date(p.scheduledTime).toLocaleString('vi-VN')}</>
-                        : new Date(p.createdAt).toLocaleDateString('vi-VN')}
-                    </span>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {(p.status === 'DRAFT' || p.status === 'SCHEDULED') && (
-                        <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); publishPost(p.id); }}>
-                          <IconSend size={14} /> Publish
-                        </button>
-                      )}
-                      <Link href={`/posts/${p.id}`} className="btn btn-secondary btn-sm" onClick={e => e.stopPropagation()}>
-                        View
-                      </Link>
-                    </div>
+            {/* Content Calendar Section - FULL WIDTH */}
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.2fr', gap: 24, marginBottom: 40 }}>
+              {/* Calendar Main View */}
+              <div className="card" style={{ padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <IconCalendar color="var(--accent)" /> 
+                    {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  </h2>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-icon-small" onClick={() => changeMonth(-1)}><IconChevronLeft size={16} /></button>
+                    <button className="btn-icon-small" onClick={() => changeMonth(1)}><IconChevronRight size={16} /></button>
                   </div>
                 </div>
-              ))}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                    <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', padding: '8px 0', textTransform: 'uppercase' }}>{d}</div>
+                  ))}
+                  {daysInMonth.map((day, idx) => {
+                    const dayPosts = day ? getPostsForDay(day) : [];
+                    const isToday = day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
+                    const isActive = day === activeDay;
+
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => handleDayClick(day)}
+                        style={{ 
+                          height: 100, 
+                          padding: 8, 
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          background: isActive ? 'rgba(217, 125, 85, 0.05)' : 'transparent',
+                          borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                          cursor: day ? 'pointer' : 'default',
+                          transition: 'var(--transition)',
+                          opacity: day ? 1 : 0,
+                          position: 'relative'
+                        }}
+                        className={day ? 'platform-card-hover' : ''}
+                      >
+                        <span style={{ 
+                          fontSize: 13, 
+                          fontWeight: 700, 
+                          color: isToday ? 'var(--accent)' : 'var(--text-primary)',
+                          background: isToday ? 'var(--accent-glow)' : 'transparent',
+                          width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+                        }}>{day}</span>
+                        
+                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {dayPosts.slice(0, 3).map(p => (
+                            <div key={p.id} style={{ 
+                              fontSize: 10, 
+                              padding: '2px 6px', 
+                              borderRadius: 4, 
+                              background: p.status === 'PUBLISHED' ? 'var(--success-bg)' : 'var(--bg-glass-strong)',
+                              color: p.status === 'PUBLISHED' ? 'var(--success)' : 'var(--text-secondary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              borderLeft: `2px solid ${p.status === 'PUBLISHED' ? 'var(--success)' : 'var(--accent)'}`
+                            }}>
+                              {p.content.substring(0, 15)}
+                            </div>
+                          ))}
+                          {dayPosts.length > 3 && <div style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center' }}>+{dayPosts.length - 3} more</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day Details Sidebar */}
+              <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+                  {activeDay ? `Activity on ${activeDay} ${currentDate.toLocaleString('default', { month: 'short' })}` : 'Select a day'}
+                </h3>
+                
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {selectedDayPosts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                      <IconClock size={32} style={{ opacity: 0.2, marginBottom: 12 }} />
+                      <p style={{ fontSize: 13 }}>No activities for this day.</p>
+                    </div>
+                  ) : (
+                    selectedDayPosts.map(p => (
+                      <div key={p.id} style={{ padding: 16, borderRadius: 'var(--radius-sm)', background: 'var(--bg-glass)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <PlatformIcon platform={p.page.platform} size={16} />
+                          <span className={badgeClass(p.status)} style={{ fontSize: 9 }}>{p.status}</span>
+                        </div>
+                        <p style={{ fontSize: 12, lineHeight: 1.5, margin: '0 0 12px 0', color: 'var(--text-secondary)' }}>
+                          {p.content.length > 100 ? p.content.substring(0, 100) + '...' : p.content}
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                            {p.scheduledTime ? new Date(p.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Draft'}
+                          </span>
+                          <Link href={`/posts/${p.id}`} style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>View Details</Link>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {activeDay && (
+                  <Link href="/create" className="btn btn-secondary btn-sm" style={{ marginTop: 16, width: '100%' }}>
+                    + Schedule Post for this day
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Bottom Stats Bento */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+                 <IconSparkles color="var(--accent)" />
+                 <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AI READINESS</div>
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{aiInfo.models} Models Active</div>
+                 </div>
+              </div>
+              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+                 <IconBook color="var(--success)" />
+                 <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>KNOWLEDGE BASE</div>
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{aiInfo.docs} Documents</div>
+                 </div>
+              </div>
+              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+                 <IconUsers color="var(--warning)" />
+                 <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CONNECTIONS</div>
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{connections.length} Platforms</div>
+                 </div>
+              </div>
+              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+                 <IconCheckCircle color="var(--accent)" />
+                 <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>TOTAL POSTS</div>
+                    <div style={{ fontSize: 16, fontWeight: 800 }}>{posts.length}</div>
+                 </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </AppShell>
   );
 }

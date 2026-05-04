@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.*;
 import com.socialflow.model.User;
 import com.socialflow.repository.UserRepository;
@@ -18,7 +19,7 @@ public class AuthService {
 
     public LoginResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException(ErrorMessages.EMAIL_ALREADY_EXISTS);
         }
 
         User user = User.builder()
@@ -34,10 +35,10 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Invalid email or password");
+            throw new RuntimeException(ErrorMessages.INVALID_CREDENTIALS);
         }
 
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());

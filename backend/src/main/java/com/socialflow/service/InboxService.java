@@ -1,10 +1,12 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.InboxMessageResponse;
 import com.socialflow.dto.PlatformCommentDto;
 import com.socialflow.model.Brand;
 import com.socialflow.model.InboxMessage;
 import com.socialflow.model.SocialPage;
+import com.socialflow.model.enums.MessageType;
 import com.socialflow.model.enums.PlatformType;
 import com.socialflow.repository.BrandRepository;
 import com.socialflow.repository.InboxMessageRepository;
@@ -27,58 +29,103 @@ public class InboxService {
     private final InboxMessageRepository inboxRepository;
     private final BrandRepository brandRepository;
     private final SocialPageRepository pageRepository;
+    private final CommentFetcherService commentFetcherService;
     private final FacebookPublisher facebookPublisher;
 
     @Transactional
     public void syncMessages(UUID brandId, UUID userId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         // Fetch all connected pages for this brand
         List<SocialPage> pages = pageRepository.findByConnectionBrandId(brandId);
-        
+
         for (SocialPage page : pages) {
+            log.info("Starting sync for Page: {}", page.getPageName());
+            
+            // Fix N+1: load all existing platform message IDs into a set
+            java.util.Set<String> existingIds = inboxRepository.findPlatformMessageIdsByPageId(page.getId());
+            List<InboxMessage> batchToSave = new java.util.ArrayList<>();
+
+            // ── Comments: platform-agnostic via CommentFetcherService ──
+            log.info("Syncing {} comments for Page: {}", page.getPlatform(), page.getPageName());
+            List<PlatformCommentDto> comments = commentFetcherService.fetchComments(page);
+
+            for (PlatformCommentDto comment : comments) {
+                if (!existingIds.contains(comment.getPlatformMessageId())) {
+                    boolean isFromMe = comment.getAuthorId() != null
+                            ? page.getPlatformPageId().equals(comment.getAuthorId())
+                            : page.getPageName().equalsIgnoreCase(comment.getAuthorName());
+
+                    InboxMessage msg = InboxMessage.builder()
+                            .platformMessageId(comment.getPlatformMessageId())
+                            .platformPostId(comment.getPlatformPostId())
+                            .parentMessageId(comment.getParentMessageId())
+                            .content(comment.getContent())
+                            .authorName(comment.getAuthorName())
+                            .authorId(comment.getAuthorId())
+                            .messageType(MessageType.COMMENT)
+                            .createdAt(comment.getCreatedAt())
+                            .likeCount(comment.getLikeCount() != null ? comment.getLikeCount() : 0)
+                            .page(page)
+                            .isRead(isFromMe)
+                            .isFromMe(isFromMe)
+                            .build();
+
+                    batchToSave.add(msg);
+                    existingIds.add(comment.getPlatformMessageId());
+                }
+            }
+
+            // ── DMs: Facebook-specific (Messenger) ──
             if (page.getPlatform() == PlatformType.FACEBOOK) {
-                log.info("Syncing Facebook Inbox for Page: {}", page.getPageName());
-                List<PlatformCommentDto> comments = facebookPublisher.fetchComments(page);
-                
-                for (PlatformCommentDto comment : comments) {
-                    // Check if exists
-                    if (inboxRepository.findByPlatformMessageIdAndPageId(comment.getPlatformMessageId(), page.getId()).isEmpty()) {
-                        
-                        // Check if the comment author is the page itself
-                        boolean isFromMe = page.getPageName().equalsIgnoreCase(comment.getAuthorName());
-                        
+                log.info("Syncing Facebook DMs for Page: {}", page.getPageName());
+                List<PlatformCommentDto> dms = facebookPublisher.fetchDirectMessages(page);
+                for (PlatformCommentDto dm : dms) {
+                    if (!existingIds.contains(dm.getPlatformMessageId())) {
+                        boolean isFromMe = dm.getAuthorId() != null
+                                ? page.getPlatformPageId().equals(dm.getAuthorId())
+                                : page.getPageName().equalsIgnoreCase(dm.getAuthorName());
+
                         InboxMessage msg = InboxMessage.builder()
-                                .platformMessageId(comment.getPlatformMessageId())
-                                .platformPostId(comment.getPlatformPostId())
-                                .parentMessageId(comment.getParentMessageId())
-                                .content(comment.getContent())
-                                .authorName(comment.getAuthorName())
-                                .createdAt(comment.getCreatedAt())
+                                .platformMessageId(dm.getPlatformMessageId())
+                                .platformPostId(dm.getPlatformPostId())
+                                .parentMessageId(dm.getParentMessageId())
+                                .conversationId(dm.getConversationId())
+                                .messageType(MessageType.DIRECT_MESSAGE)
+                                .content(dm.getContent() == null ? "" : dm.getContent())
+                                .authorName(dm.getAuthorName())
+                                .authorId(dm.getAuthorId())
+                                .createdAt(dm.getCreatedAt())
                                 .page(page)
-                                .isRead(isFromMe) // auto-read our own replies
+                                .isRead(isFromMe)
                                 .isFromMe(isFromMe)
                                 .build();
-                        
-                        inboxRepository.save(msg);
+
+                        batchToSave.add(msg);
+                        existingIds.add(dm.getPlatformMessageId());
                     }
                 }
             }
-            // Add other platforms like TWITTER here later
+
+            // Perform Bulk Insert
+            if (!batchToSave.isEmpty()) {
+                log.info("Saving {} new messages in bulk for page {}", batchToSave.size(), page.getPageName());
+                inboxRepository.saveAll(batchToSave);
+            }
         }
     }
 
     public List<InboxMessageResponse> getMessages(UUID brandId, UUID userId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         if (!brand.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized: Brand does not belong to user");
+            throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
         return inboxRepository.findByPageConnectionBrandIdOrderByCreatedAtDesc(brandId).stream()
@@ -89,18 +136,30 @@ public class InboxService {
     @Transactional
     public InboxMessageResponse replyToMessage(UUID messageId, String replyContent, UUID userId) {
         InboxMessage message = inboxRepository.findById(messageId)
-                .orElseThrow(() -> new RuntimeException("Message not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
         if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 
         SocialPage page = message.getPage();
 
         if (page.getPlatform() == PlatformType.FACEBOOK) {
-            facebookPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
+            if (message.getMessageType() == MessageType.DIRECT_MESSAGE) {
+                // Find recipient PSID: the non-page author in the conversation
+                String recipientPsid = inboxRepository
+                        .findByConversationIdAndPageId(message.getConversationId(), page.getId())
+                        .stream()
+                        .filter(m -> !Boolean.TRUE.equals(m.getIsFromMe()) && m.getAuthorId() != null)
+                        .map(InboxMessage::getAuthorId)
+                        .findFirst()
+                        .orElseThrow(() -> new RuntimeException("Cannot determine DM recipient PSID"));
+                facebookPublisher.replyToDM(page, recipientPsid, replyContent);
+            } else {
+                facebookPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
+            }
         } else {
-            throw new RuntimeException("Replies not supported for platform: " + page.getPlatform());
+            throw new RuntimeException(ErrorMessages.REPLIES_NOT_SUPPORTED + page.getPlatform());
         }
 
         // After successfully replying via API, mark the original message as read
@@ -117,10 +176,10 @@ public class InboxService {
     @Transactional
     public InboxMessageResponse markAsRead(UUID messageId, UUID userId) {
         InboxMessage message = inboxRepository.findById(messageId)
-                .orElseThrow(() -> new RuntimeException("Message not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
         if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 
         message.setIsRead(true);
@@ -140,9 +199,13 @@ public class InboxService {
                 .createdAt(message.getCreatedAt())
                 .isRead(message.getIsRead())
                 .isFromMe(message.getIsFromMe())
+                .messageType(message.getMessageType() != null ? message.getMessageType() : MessageType.COMMENT)
+                .conversationId(message.getConversationId())
+                .likeCount(message.getLikeCount())
                 .pageId(message.getPage().getId())
                 .pageName(message.getPage().getPageName())
                 .platform(message.getPage().getPlatform())
                 .build();
     }
 }
+

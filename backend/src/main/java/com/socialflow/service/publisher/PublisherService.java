@@ -21,12 +21,11 @@ public class PublisherService {
         SocialPage page = post.getPage();
         PlatformType platform = page.getPlatform();
 
-        return switch (platform) {
-            case FACEBOOK -> facebookPublisher.publish(post, page);
-            case TWITTER -> twitterPublisher.publish(post, page);
-            case LINKEDIN -> linkedInPublisher.publish(post, page);
-            case BLUESKY -> blueskyPublisher.publish(post, page);
-            case THREADS -> threadsPublisher.publish(post, page);
-        };
+        if (platform == PlatformType.FACEBOOK) return facebookPublisher.publish(post, page);
+        if (platform == PlatformType.TWITTER) return twitterPublisher.publish(post, page);
+        if (platform == PlatformType.LINKEDIN) return linkedInPublisher.publish(post, page);
+        if (platform == PlatformType.BLUESKY) return blueskyPublisher.publish(post, page);
+        if (platform == PlatformType.THREADS) return threadsPublisher.publish(post, page);
+        throw new IllegalArgumentException("Unsupported platform: " + platform);
     }
 }

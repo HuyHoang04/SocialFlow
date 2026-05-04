@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.CreateBrandRequest;
 import com.socialflow.model.Brand;
 import com.socialflow.model.User;
@@ -32,14 +33,25 @@ public class BrandService {
 
     public Brand getBrandById(UUID id) {
         return brandRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
     }
 
     public void deleteBrand(UUID id, User user) {
         Brand brand = getBrandById(id);
         if (!brand.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Not authorized");
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
         }
         brandRepository.delete(brand);
+    }
+
+    public Brand updateBrand(UUID id, User user, CreateBrandRequest request) {
+        Brand brand = getBrandById(id);
+        if (!brand.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        brand.setName(request.getName());
+        brand.setDescription(request.getDescription());
+        brand.setLogoUrl(request.getLogoUrl());
+        return brandRepository.save(brand);
     }
 }

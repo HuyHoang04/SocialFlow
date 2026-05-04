@@ -1,5 +1,6 @@
 package com.socialflow.controller;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.model.PostMedia;
 import com.socialflow.repository.PostMediaRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,23 +41,48 @@ public class MediaController {
             Files.createDirectories(uploadPath);
             log.info("Upload directory: {}", uploadPath);
         } catch (IOException e) {
-            throw new RuntimeException("Cannot create upload directory", e);
+            throw new RuntimeException(ErrorMessages.UPLOAD_DIR_CREATE_FAILED, e);
         }
     }
 
     /**
      * Upload a media file (image or video).
      * Returns the saved PostMedia metadata.
+     * Media is saved locally but not persisted to database until linked to a post.
      */
     @PostMapping("/upload")
     public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file, @AuthenticationPrincipal User user) throws IOException {
         if (file.isEmpty()) {
-            throw new RuntimeException("File is empty");
+            throw new RuntimeException(ErrorMessages.FILE_EMPTY);
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || (!contentType.startsWith("image/") && !contentType.startsWith("video/"))) {
-            throw new RuntimeException("Only image and video files are allowed");
+        log.info("Upload attempt - FileName: {}, ContentType: {}, Size: {}", file.getOriginalFilename(), contentType, file.getSize());
+        
+        // If content-type is missing, try to infer from filename
+        if (contentType == null || contentType.isEmpty()) {
+            String originalName = file.getOriginalFilename();
+            if (originalName != null && (originalName.endsWith(".jpg") || originalName.endsWith(".jpeg"))) {
+                contentType = "image/jpeg";
+            } else if (originalName != null && originalName.endsWith(".png")) {
+                contentType = "image/png";
+            } else if (originalName != null && originalName.endsWith(".gif")) {
+                contentType = "image/gif";
+            } else if (originalName != null && originalName.endsWith(".webp")) {
+                contentType = "image/webp";
+            } else if (originalName != null && originalName.endsWith(".mp4")) {
+                contentType = "video/mp4";
+            } else if (originalName != null && originalName.endsWith(".mov")) {
+                contentType = "video/quicktime";
+            } else {
+                contentType = "image/jpeg"; // Default to JPEG for AI-generated images
+            }
+            log.info("Content-type inferred from filename: {}", contentType);
+        }
+        
+        if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) {
+            log.error("Invalid file type: {}", contentType);
+            throw new RuntimeException(ErrorMessages.INVALID_FILE_TYPE);
         }
 
         // Generate unique filename
@@ -67,30 +93,36 @@ public class MediaController {
         }
         String filename = UUID.randomUUID() + extension;
 
-        // Save file
+        // Save file to disk
         Path filePath = uploadPath.resolve(filename);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Uploaded file: {} ({}, {} bytes)", filename, contentType, file.getSize());
+        } catch (IOException e) {
+            log.error("Failed to save file: {}", filename, e);
+            throw new RuntimeException("Failed to save file to disk", e);
+        }
 
-        // Save metadata (not yet linked to a post)
-        PostMedia media = PostMedia.builder()
-                .filename(filename)
-                .originalName(originalName != null ? originalName : filename)
-                .contentType(contentType)
-                .fileSize(file.getSize())
-                .url("/api/media/" + filename)
-                .sortOrder(0)
-                .uploader(user)
-                .build();
-        media = mediaRepository.save(media);
+        // Save to database
+        PostMedia postMedia = new PostMedia();
+        postMedia.setFilename(filename);
+        postMedia.setOriginalName(originalName != null ? originalName : filename);
+        postMedia.setContentType(contentType);
+        postMedia.setFileSize(file.getSize());
+        postMedia.setUrl("/api/media/" + filename);
+        postMedia.setUploader(user);
+        
+        PostMedia savedMedia = mediaRepository.save(postMedia);
 
-        log.info("Uploaded: {} ({}, {} bytes)", filename, contentType, file.getSize());
+        log.info("Saved media metadata to database: id={}", savedMedia.getId());
 
         return Map.of(
-                "id", media.getId().toString(),
-                "url", media.getUrl(),
-                "contentType", media.getContentType(),
-                "originalName", media.getOriginalName(),
-                "fileSize", media.getFileSize()
+                "id", savedMedia.getId().toString(),
+                "filename", filename,
+                "url", savedMedia.getUrl(),
+                "contentType", contentType,
+                "originalName", savedMedia.getOriginalName(),
+                "fileSize", savedMedia.getFileSize()
         );
     }
 
@@ -149,14 +181,14 @@ public class MediaController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMedia(@PathVariable UUID id, @AuthenticationPrincipal User user) {
         PostMedia media = mediaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Media not found: " + id));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.MEDIA_NOT_FOUND + id));
 
         if (!media.getUploader().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this media");
+            throw new RuntimeException(ErrorMessages.MEDIA_UNAUTHORIZED);
         }
 
         if (media.getPost() != null) {
-            throw new RuntimeException("Cannot delete media that is attached to a post");
+            throw new RuntimeException(ErrorMessages.MEDIA_ATTACHED_TO_POST);
         }
 
         // Delete from filesystem

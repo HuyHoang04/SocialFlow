@@ -1,6 +1,7 @@
 package com.socialflow.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.model.*;
 import com.socialflow.model.enums.PlatformType;
 import com.socialflow.repository.*;
@@ -61,6 +62,8 @@ public class OAuthService {
     @Value("${oauth.threads.redirect-uri:${app.base-url}/api/oauth/threads/callback}")
     private String threadsRedirectUri;
 
+    public String getFrontendUrl() { return frontendUrl; }
+
     // ==================== Get OAuth URL ====================
 
     public String getOAuthUrl(PlatformType platform, UUID brandId) {
@@ -69,7 +72,7 @@ public class OAuthService {
             case FACEBOOK -> "https://www.facebook.com/v18.0/dialog/oauth?"
                     + "client_id=" + fbClientId
                     + "&redirect_uri=" + encode(fbRedirectUri)
-                    + "&scope=pages_manage_posts,pages_read_engagement,pages_show_list"
+                    + "&scope=pages_manage_posts,pages_read_engagement,pages_show_list,pages_messaging"
                     + "&state=" + state
                     + "&response_type=code";
             case TWITTER -> "https://twitter.com/i/oauth2/authorize?"
@@ -83,7 +86,7 @@ public class OAuthService {
                     + "response_type=code"
                     + "&client_id=" + liClientId
                     + "&redirect_uri=" + encode(liRedirectUri)
-                    + "&scope=w_member_social%20r_organization_admin%20w_organization_social"
+                    + "&scope=openid%20profile%20email%20w_member_social"
                     + "&state=" + state;
             case THREADS -> "https://threads.net/oauth/authorize?"
                     + "client_id=" + threadsClientId
@@ -100,7 +103,7 @@ public class OAuthService {
     public String handleFacebookCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
@@ -125,7 +128,7 @@ public class OAuthService {
     public String handleTwitterCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient tw = webClientBuilder.baseUrl("https://api.twitter.com").build();
 
@@ -187,7 +190,7 @@ public class OAuthService {
     public String handleLinkedInCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient li = webClientBuilder.baseUrl("https://www.linkedin.com").build();
 
@@ -225,7 +228,7 @@ public class OAuthService {
                         .build());
         connection.setAccountName(name);
         connection.setAccessToken(accessToken);
-        connection.setScopes("w_member_social, r_organization_admin, w_organization_social");
+        connection.setScopes("openid, profile, email, w_member_social");
         long liExpiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 5184000;
         connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(liExpiresIn));
         connection = connectionRepository.save(connection);
@@ -242,6 +245,50 @@ public class OAuthService {
         personalPage.setPageAccessToken(accessToken);
         pageRepository.save(personalPage);
 
+        // Fetch organization pages the user admins (requires w_organization_social)
+        try {
+            JsonNode orgAcls = liApi.get()
+                    .uri("/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&count=10")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("X-Restli-Protocol-Version", "2.0.0")
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (orgAcls != null && orgAcls.has("elements")) {
+                for (JsonNode element : orgAcls.get("elements")) {
+                    String orgTarget = element.get("organizationTarget").asText();
+                    // orgTarget = "urn:li:organization:12345"
+                    String orgId = orgTarget.replace("urn:li:organization:", "");
+
+                    JsonNode orgResp = liApi.get()
+                            .uri("/v2/organizations/" + orgId + "?projection=(id,localizedName,logoV2)")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .header("X-Restli-Protocol-Version", "2.0.0")
+                            .retrieve()
+                            .bodyToMono(JsonNode.class)
+                            .block();
+
+                    String orgName = orgResp != null && orgResp.has("localizedName")
+                            ? orgResp.get("localizedName").asText() : "Company Page";
+
+                    SocialPage orgPage = pageRepository
+                            .findByConnectionIdAndPlatformPageId(savedConn.getId(), orgTarget)
+                            .orElse(SocialPage.builder()
+                                    .platformPageId(orgTarget)
+                                    .platform(PlatformType.LINKEDIN)
+                                    .connection(savedConn)
+                                    .build());
+                    orgPage.setPageName(orgName + " (Company)");
+                    orgPage.setPageAccessToken(accessToken);
+                    pageRepository.save(orgPage);
+                    log.info("LinkedIn org page upserted: {} ({})", orgName, orgTarget);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch LinkedIn org pages: {}", e.getMessage());
+        }
+
         log.info("LinkedIn upserted: {} ({})", name, sub);
         return frontendUrl + "/accounts?connected=linkedin";
     }
@@ -249,7 +296,7 @@ public class OAuthService {
     public String handleThreadsCallback(String code, String state) {
         UUID brandId = UUID.fromString(state);
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient threads = webClientBuilder.baseUrl("https://graph.threads.net").build();
 
@@ -326,13 +373,36 @@ public class OAuthService {
 
     public Map<String, Object> handleFacebookToken(String accessToken, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
-        return upsertFacebookConnection(brand, accessToken, 0);
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
+
+        // Exchange short-lived JS SDK token for long-lived token (~60 days)
+        String longLivedToken = accessToken;
+        long expiresIn = 0;
+        try {
+            WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
+            JsonNode resp = fb.get()
+                    .uri(uri -> uri.path("/oauth/access_token")
+                            .queryParam("grant_type", "fb_exchange_token")
+                            .queryParam("client_id", fbClientId)
+                            .queryParam("client_secret", fbClientSecret)
+                            .queryParam("fb_exchange_token", accessToken)
+                            .build())
+                    .retrieve().bodyToMono(JsonNode.class).block();
+            if (resp != null && resp.has("access_token")) {
+                longLivedToken = resp.get("access_token").asText();
+                expiresIn = resp.has("expires_in") ? resp.get("expires_in").asLong() : 5183944;
+                log.info("Exchanged FB short-lived token for long-lived token (expires in {}s)", expiresIn);
+            }
+        } catch (Exception e) {
+            log.warn("Could not exchange FB long-lived token: {}", e.getMessage());
+        }
+
+        return upsertFacebookConnection(brand, longLivedToken, expiresIn);
     }
 
     public Map<String, Object> handleBlueskyConnect(String handle, String appPassword, UUID brandId) {
         Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new RuntimeException("Brand not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
         WebClient bsky = webClientBuilder.baseUrl("https://bsky.social/xrpc").build();
 
@@ -429,7 +499,7 @@ public class OAuthService {
                         .exchangeToMono(resp -> {
                             if (resp.statusCode().isError()) {
                                 return resp.bodyToMono(String.class).handle((body, sink) -> 
-                                    sink.error(new RuntimeException("FB debug_token error: " + body)));
+                                    sink.error(new RuntimeException(ErrorMessages.FB_DEBUG_TOKEN_ERROR + body)));
                             }
                             return resp.bodyToMono(JsonNode.class);
                         }).block();
@@ -455,7 +525,7 @@ public class OAuthService {
                 .exchangeToMono(resp -> {
                     if (resp.statusCode().isError()) {
                         return resp.bodyToMono(String.class).handle((body, sink) -> 
-                            sink.error(new RuntimeException("FB /me/accounts error: " + body)));
+                            sink.error(new RuntimeException(ErrorMessages.FB_ACCOUNTS_ERROR + body)));
                     }
                     return resp.bodyToMono(JsonNode.class);
                 }).block();
@@ -469,9 +539,25 @@ public class OAuthService {
                                 .platformPageId(platformPageId).platform(PlatformType.FACEBOOK)
                                 .connection(savedConn).build());
                 socialPage.setPageName(pageNode.get("name").asText());
-                socialPage.setPageAccessToken(pageNode.get("access_token").asText());
+                String pageAccessToken = pageNode.get("access_token").asText();
+                socialPage.setPageAccessToken(pageAccessToken);
                 pageRepository.save(socialPage);
                 pageCount++;
+
+                // Auto-subscribe page to webhook so realtime events are delivered immediately
+                try {
+                    fb.post()
+                        .uri(uri -> uri.path("/" + platformPageId + "/subscribed_apps")
+                            .queryParam("subscribed_fields", "messages,messaging_postbacks,feed,mention")
+                            .queryParam("access_token", pageAccessToken)
+                            .build())
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .subscribe(result -> log.info("Webhook subscribed for page {}: {}", platformPageId, result),
+                                   err -> log.warn("Webhook subscription failed for page {}: {}", platformPageId, err.getMessage()));
+                } catch (Exception e) {
+                    log.warn("Could not subscribe page {} to webhook: {}", platformPageId, e.getMessage());
+                }
             }
         }
 

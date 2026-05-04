@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 
+const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '949895587790556';
+console.log(FB_APP_ID);
 /* global FB */
 declare global {
     interface Window {
@@ -17,7 +19,7 @@ declare global {
     }
 }
 
-const FB_APP_ID = '1867627970477000';
+
 
 interface Connection {
     id: string; platform: string; accountName: string; accountId: string;
@@ -38,18 +40,18 @@ const PLATFORMS = [
             </svg>
         ),
     },
-    {
-        key: 'twitter',
-        name: 'X / Twitter',
-        description: 'Connect your X account to post tweets and threads. Requires paid API ($200/mo).',
-        color: '#000000',
-        gradient: 'linear-gradient(135deg, #15202b, #1d9bf0)',
-        icon: (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-        ),
-    },
+    // {
+    //     key: 'twitter',
+    //     name: 'X / Twitter',
+    //     description: 'Connect your X account to post tweets and threads. Requires paid API ($200/mo).',
+    //     color: '#000000',
+    //     gradient: 'linear-gradient(135deg, #15202b, #1d9bf0)',
+    //     icon: (
+    //         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+    //             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    //         </svg>
+    //     ),
+    // },
     {
         key: 'linkedin',
         name: 'LinkedIn',
@@ -97,6 +99,7 @@ function AccountsContent() {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState(connectedParam || '');
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const fbLoaded = useRef(false);
     // Bluesky form state
     const [bskyHandle, setBskyHandle] = useState('');
@@ -137,13 +140,16 @@ function AccountsContent() {
     // ========== Connect handlers ==========
 
     const connectFacebook = () => {
-        if (!brand || !window.FB) return;
+        if (!brand) return;
+        if (!window.FB) {
+            alert('Facebook SDK chưa tải xong. Vui lòng chờ vài giây rồi thử lại.');
+            return;
+        }
         setConnecting('facebook');
 
         window.FB.login((response) => {
             if (response.authResponse) {
                 const accessToken = response.authResponse.accessToken;
-                // Send token to backend
                 api.facebookConnect({ accessToken, brandId: brand.id })
                     .then(() => {
                         setSuccessMsg('Facebook');
@@ -156,7 +162,7 @@ function AccountsContent() {
             } else {
                 setConnecting(null);
             }
-        }, { scope: 'pages_manage_posts,pages_read_engagement,pages_show_list' });
+        }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging' });
     };
 
     const connectPlatformRedirect = async (platform: string) => {
@@ -219,13 +225,21 @@ function AccountsContent() {
             </div>
 
             {successMsg && (
-                <div className="success-msg" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>🎉</span>
-                    <div>
-                        <strong>{successMsg}</strong> connected successfully! Your pages have been imported.
+                <div className="success-msg" style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'var(--success-bg)',
+                    border: '1px solid var(--success)',
+                    padding: '12px 20px',
+                    borderRadius: 'var(--radius)',
+                    marginBottom: 24,
+                    color: 'var(--text-primary)'
+                }}>
+                    <span style={{ fontSize: 20 }}>✨</span>
+                    <div style={{ flex: 1, fontSize: 14 }}>
+                        <strong style={{ color: 'var(--success)' }}>{successMsg}</strong> connected successfully!
                     </div>
                     <button onClick={() => setSuccessMsg('')}
-                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--success)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>✕</button>
                 </div>
             )}
 
@@ -241,29 +255,32 @@ function AccountsContent() {
                             const isLoading = connecting === platform.key;
 
                             return (
-                                <div key={platform.key} style={{
-                                    background: 'var(--bg-card)',
-                                    border: `1px solid ${connectedState ? platform.color + '40' : 'var(--border)'}`,
-                                    borderRadius: 'var(--radius-lg)',
-                                    overflow: 'hidden',
-                                    transition: 'var(--transition)',
-                                }}>
+                                <div key={platform.key}
+                                    className="platform-card-hover"
+                                    style={{
+                                        background: 'var(--bg-card)',
+                                        border: `1px solid ${connectedState ? platform.color + '40' : 'var(--border)'}`,
+                                        borderRadius: 'var(--radius-lg)',
+                                        overflow: 'hidden',
+                                        transition: 'var(--transition)',
+                                    }}
+                                >
                                     {/* Platform Header */}
                                     <div style={{
                                         background: platform.gradient,
-                                        padding: '24px 24px 20px',
-                                        display: 'flex', alignItems: 'center', gap: 14,
+                                        padding: '16px 20px',
+                                        display: 'flex', alignItems: 'center', gap: 12,
                                     }}>
                                         <div style={{
-                                            width: 48, height: 48, borderRadius: 12,
+                                            width: 40, height: 40, borderRadius: 10,
                                             background: 'rgba(255,255,255,0.2)',
-                                            backdropFilter: 'blur(10px)',
+                                            backdropFilter: 'blur(8px)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
                                             {platform.icon}
                                         </div>
                                         <div>
-                                            <div style={{ fontWeight: 700, fontSize: 18, color: 'white' }}>
+                                            <div style={{ fontWeight: 700, fontSize: 16, color: 'white' }}>
                                                 {platform.name}
                                             </div>
                                             {connectedState && conn && (
@@ -343,8 +360,21 @@ function AccountsContent() {
                                                     );
                                                 })()}
 
-                                                {/* Scopes / Permissions */}
-                                                {conn.scopes && (
+                                                {/* Details Toggle */}
+                                                <div style={{ textAlign: 'right', marginBottom: 12 }}>
+                                                    <button
+                                                        onClick={() => setExpanded(prev => ({ ...prev, [platform.key]: !prev[platform.key] }))}
+                                                        style={{
+                                                            background: 'none', border: 'none', color: 'var(--accent)',
+                                                            fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0
+                                                        }}
+                                                    >
+                                                        {expanded[platform.key] ? 'Hide Details' : 'View Permissions'}
+                                                    </button>
+                                                </div>
+
+                                                {/* Scopes / Permissions (Collapsible) */}
+                                                {expanded[platform.key] && conn.scopes && (
                                                     <div style={{
                                                         padding: '8px 12px', marginBottom: 12,
                                                         borderRadius: 'var(--radius-sm)',

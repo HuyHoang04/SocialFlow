@@ -28,11 +28,32 @@ services:
       SPRING_DATASOURCE_USERNAME: socialflow
       SPRING_DATASOURCE_PASSWORD: socialflow
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      PYTHON_SERVICE_URL: http://ai-service:5000
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: socialflow-ai-service
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://socialflow:socialflow@postgres:5432/socialflow
+      FLASK_ENV: production
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -53,5 +74,37 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: socialflow-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - backend
+    networks:
+      - default
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: socialflow-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - default
 volumes:
   socialflow-postgres-data:
+  prometheus_data:
+  grafana_data:

@@ -14,4 +14,7 @@ public interface SocialPageRepository extends JpaRepository<SocialPage, UUID> {
 
     // Find all pages for a specific brand
     List<SocialPage> findByConnectionBrandId(UUID brandId);
+
+    // For webhook: find page by platform-side ID (e.g. Facebook Page ID)
+    List<SocialPage> findByPlatformPageId(String platformPageId);
 }

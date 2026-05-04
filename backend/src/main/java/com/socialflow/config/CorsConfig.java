@@ -18,6 +18,9 @@ public class CorsConfig {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    @Value("${app.ai-service-url:http://localhost:8000}")
+    private String aiServiceUrl;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -26,6 +29,7 @@ public class CorsConfig {
                 "http://localhost:30000",
                 "https://socialflow.io.vn",
                 "https://www.socialflow.io.vn",
+                aiServiceUrl,
                 baseUrl,
                 frontendUrl
         ));

@@ -18,11 +18,19 @@ export default function LandingPage() {
 
     return (
         <div className="landing">
-            {/* Animated background */}
+            {/* Video motion background */}
             <div className="landing-bg">
-                <div className="landing-orb landing-orb-1" />
-                <div className="landing-orb landing-orb-2" />
-                <div className="landing-orb landing-orb-3" />
+                <video
+                    className="landing-video-bg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                >
+                    <source src="/motion.mp4" type="video/mp4" />
+                </video>
+                <div className="landing-video-overlay" />
                 <div className="landing-grid-overlay" />
             </div>
 
@@ -30,7 +38,19 @@ export default function LandingPage() {
             <header className="landing-nav">
                 <div className="landing-nav-inner">
                     <div className="landing-logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconZap size={22} color="var(--accent)" /> SocialFlow
+                        <span className="sidebar-logo-icon">
+                            <img
+                                src="/logo.svg"
+                                alt="SocialFlow"
+                                style={{
+                                    width: 140,
+                                    height: 'auto',
+                                    maxHeight: 60,
+                                    objectFit: 'contain'
+                                }}
+                            />
+                        </span>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '2rem', marginLeft: '10px' }}>SocialFlow</span>
                     </div>
                     <div className="landing-nav-links">
                         <a href="#features" className="landing-link">Features</a>

@@ -1,6 +1,7 @@
 package com.socialflow.service.publisher;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.socialflow.dto.PlatformCommentDto;
 import com.socialflow.model.Post;
 import com.socialflow.model.PostMedia;
 import com.socialflow.model.PublishResult;
@@ -17,18 +18,36 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class TwitterPublisher {
+public class TwitterPublisher implements CommentFetcher {
 
     private final WebClient.Builder webClientBuilder;
 
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
+
+    /**
+     * Fetching Twitter/X replies requires the Basic API plan ($200/month)
+     * which provides access to the search/recent endpoint.
+     * This is currently skipped — returns an empty list with a log warning.
+     *
+     * When the paid plan is activated, implement using:
+     * GET /2/tweets/search/recent?query=conversation_id:{tweetId}
+     */
+    @Override
+    public List<PlatformCommentDto> fetchComments(SocialPage page) {
+        log.info("Twitter/X comment fetching is disabled — " +
+                "Basic API plan ($200/mo) required for search endpoint. " +
+                "Page: {}", page.getPageName());
+        return Collections.emptyList();
+    }
 
     public PublishResult publish(Post post, SocialPage page) {
         try {
@@ -107,3 +126,4 @@ public class TwitterPublisher {
         }
     }
 }
+

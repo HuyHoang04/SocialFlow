@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, api, logout } from '@/lib/api';
+import { getUser, isTokenExpired, api, logout } from '@/lib/api';
 import { useBrand, Brand } from '@/lib/brand-context';
 
 export default function BrandsPage() {
@@ -14,19 +14,32 @@ export default function BrandsPage() {
     const [creating, setCreating] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
-    const user = getUser();
+    const [error, setError] = useState<string | null>(null);
+    // useState(null) ensures server & client both start with null → no hydration mismatch
+    const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
 
     const load = useCallback(async () => {
+        setError(null);
         try {
             const b = await api.getBrands();
             setLocalBrands(b);
             await reloadBrands();
-        } catch { /* */ }
+        } catch (err: any) {
+            // 401 → api.ts already calls logout() and redirects — no need to handle here
+            // Other errors: surface them so the user knows what happened
+            if (err?.message !== 'Unauthorized') {
+                setError(err?.message || 'Failed to load brands. Please try again.');
+            }
+        }
         setLoading(false);
     }, [reloadBrands]);
 
     useEffect(() => {
-        if (!getUser()) { router.replace('/login'); return; }
+        const u = getUser();
+        if (!u) { router.replace('/login'); return; }
+        // Proactive token expiry check — redirect before making any API call
+        if (isTokenExpired()) { logout(); return; }
+        setUser(u);
         load();
     }, [load, router]);
 
@@ -106,6 +119,38 @@ export default function BrandsPage() {
                     </div>
                 ) : (
                     <>
+                        {/* Error banner */}
+                        {error && (
+                            <div style={{
+                                background: 'rgba(220,38,38,0.12)',
+                                border: '1px solid rgba(220,38,38,0.35)',
+                                borderRadius: 10,
+                                padding: '12px 16px',
+                                marginBottom: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                color: '#fca5a5',
+                                fontSize: 14,
+                            }}>
+                                <span>⚠️ {error}</span>
+                                <button
+                                    onClick={load}
+                                    style={{
+                                        background: 'rgba(220,38,38,0.2)',
+                                        border: '1px solid rgba(220,38,38,0.4)',
+                                        borderRadius: 6,
+                                        color: '#fca5a5',
+                                        padding: '4px 12px',
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >Retry</button>
+                            </div>
+                        )}
+
                         {/* Brands grid */}
                         <div className="brand-select-grid">
                             {localBrands.map((brand, index) => {

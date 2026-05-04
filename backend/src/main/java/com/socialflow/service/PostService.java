@@ -1,5 +1,6 @@
 package com.socialflow.service;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.CreatePostRequest;
 import com.socialflow.dto.PostResponse;
 import com.socialflow.model.*;
@@ -7,15 +8,18 @@ import com.socialflow.model.enums.PostStatus;
 import com.socialflow.repository.*;
 import com.socialflow.service.publisher.PublisherService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PostService {
@@ -38,20 +42,29 @@ public class PostService {
 
     public PostResponse getPostById(UUID id) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
         return toResponse(post);
     }
 
     @Transactional
-    public List<PostResponse> createPost(CreatePostRequest request) {
-        // Load media files if provided
+    public List<PostResponse> createPost(CreatePostRequest request, User currentUser) {
+        // Create media records from filenames (save from cache to DB)
         List<PostMedia> mediaFiles = new ArrayList<>();
-        if (request.getMediaIds() != null && !request.getMediaIds().isEmpty()) {
-            for (int i = 0; i < request.getMediaIds().size(); i++) {
-                UUID mediaId = request.getMediaIds().get(i);
-                PostMedia media = mediaRepository.findById(mediaId)
-                        .orElseThrow(() -> new RuntimeException("Media not found: " + mediaId));
-                media.setSortOrder(i);
+        if (request.getMediaFilenames() != null && !request.getMediaFilenames().isEmpty()) {
+            for (int i = 0; i < request.getMediaFilenames().size(); i++) {
+                String filename = request.getMediaFilenames().get(i);
+                
+                // Create media record with current user (files were already saved to disk during upload)
+                PostMedia media = PostMedia.builder()
+                        .filename(filename)
+                        .originalName(filename)  // Can be improved with metadata later
+                        .contentType("image/jpeg")  // Should be passed from frontend
+                        .fileSize(0L)  // Should be tracked from upload
+                        .url("/api/media/" + filename)
+                        .sortOrder(i)
+                        .uploader(currentUser)
+                        .build();
+                media = mediaRepository.save(media);
                 mediaFiles.add(media);
             }
         }
@@ -60,13 +73,14 @@ public class PostService {
 
         for (UUID pageId : request.getPageIds()) {
             SocialPage page = pageRepository.findById(pageId)
-                    .orElseThrow(() -> new RuntimeException("Page not found: " + pageId));
+                    .orElseThrow(() -> new RuntimeException(ErrorMessages.PAGE_NOT_FOUND + pageId));
 
             LocalDateTime scheduledTime = null;
             PostStatus initialStatus = PostStatus.DRAFT;
             if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
-                scheduledTime = LocalDateTime.parse(request.getScheduledTime());
-                if (scheduledTime.isAfter(LocalDateTime.now())) {
+                // Parse as OffsetDateTime and convert to LocalDateTime (UTC)
+                scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
+                if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
                     initialStatus = PostStatus.SCHEDULED;
                 }
             }
@@ -74,11 +88,17 @@ public class PostService {
             Campaign campaign = null;
             if (request.getCampaignId() != null) {
                 campaign = campaignRepository.findById(request.getCampaignId())
-                        .orElseThrow(() -> new RuntimeException("Campaign not found: " + request.getCampaignId()));
+                        .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND_WITH_ID + request.getCampaignId()));
+            }
+
+            // Get platform-specific content or fallback to common content
+            String postContent = request.getContent();
+            if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(pageId)) {
+                postContent = request.getPlatformContent().get(pageId);
             }
 
             Post post = Post.builder()
-                    .content(request.getContent())
+                    .content(postContent)
                     .status(initialStatus)
                     .scheduledTime(scheduledTime)
                     .campaign(campaign)
@@ -103,6 +123,7 @@ public class PostService {
                             .fileSize(media.getFileSize())
                             .url(media.getUrl())
                             .sortOrder(media.getSortOrder())
+                            .uploader(media.getUploader())
                             .post(post)
                             .build();
                     mediaRepository.save(copy);
@@ -117,9 +138,78 @@ public class PostService {
     }
 
     @Transactional
+    public PostResponse updatePost(UUID postId, CreatePostRequest request, User currentUser) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
+
+        // Update content (use platform-specific if available, else fallback to common)
+        String postContent = request.getContent();
+        if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(post.getPage().getId())) {
+            postContent = request.getPlatformContent().get(post.getPage().getId());
+        }
+        post.setContent(postContent);
+
+        // Update scheduled time if provided
+        if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
+            LocalDateTime scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
+            post.setScheduledTime(scheduledTime);
+            if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
+                post.setStatus(PostStatus.SCHEDULED);
+            } else {
+                post.setStatus(PostStatus.DRAFT);
+            }
+        } else {
+            post.setScheduledTime(null);
+            post.setStatus(PostStatus.DRAFT);
+        }
+
+        // Update campaign if provided
+        if (request.getCampaignId() != null) {
+            Campaign campaign = campaignRepository.findById(request.getCampaignId())
+                    .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND_WITH_ID + request.getCampaignId()));
+            post.setCampaign(campaign);
+        } else {
+            post.setCampaign(null);
+        }
+
+        // Update media files if provided
+        if (request.getMediaFilenames() != null) {
+            // Delete existing media
+            List<PostMedia> existingMedia = new ArrayList<>(post.getMediaFiles());
+            for (PostMedia media : existingMedia) {
+                post.getMediaFiles().remove(media);
+                mediaRepository.delete(media);
+            }
+
+            // Create new media records from filenames
+            if (!request.getMediaFilenames().isEmpty()) {
+                for (int i = 0; i < request.getMediaFilenames().size(); i++) {
+                    String filename = request.getMediaFilenames().get(i);
+                    
+                    PostMedia media = PostMedia.builder()
+                            .filename(filename)
+                            .originalName(filename)
+                            .contentType("image/jpeg")
+                            .fileSize(0L)
+                            .url("/api/media/" + filename)
+                            .sortOrder(i)
+                            .post(post)
+                            .uploader(currentUser)
+                            .build();
+                    media = mediaRepository.save(media);
+                    post.getMediaFiles().add(media);
+                }
+            }
+        }
+
+        post = postRepository.save(post);
+        return toResponse(post);
+    }
+
+    @Transactional
     public PostResponse publishPost(UUID postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
 
         post.setStatus(PostStatus.PUBLISHING);
         postRepository.save(post);
@@ -150,6 +240,70 @@ public class PostService {
 
     public void deletePost(UUID id) {
         postRepository.deleteById(id);
+    }
+
+    /**
+     * Creates an AI-generated DRAFT post without requiring a target page.
+     * Used exclusively by the AI callback flow — the user will assign a page
+     * later when they decide to publish the draft.
+     *
+     * @param content        Post content generated by the AI
+     * @param campaign       Optional campaign to associate the post with
+     * @param scheduledTime  Optional scheduled time string (ISO-8601)
+     * @param mediaFilenames Optional list of AI-generated image filenames
+     * @param uploader       The user who owns this brand/session
+     * @return saved Post entity
+     */
+    @Transactional
+    public Post createAiDraftPost(
+            String content,
+            Campaign campaign,
+            String scheduledTime,
+            List<String> mediaFilenames,
+            User uploader
+    ) {
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("AI draft post content must not be blank");
+        }
+
+        LocalDateTime parsedScheduledTime = null;
+        if (scheduledTime != null && !scheduledTime.isBlank()) {
+            try {
+                parsedScheduledTime = OffsetDateTime.parse(scheduledTime).toLocalDateTime();
+            } catch (Exception e) {
+                log.warn("Could not parse AI scheduledTime '{}', ignoring: {}", scheduledTime, e.getMessage());
+            }
+        }
+
+        Post post = Post.builder()
+                .content(content)
+                .status(PostStatus.DRAFT)
+                .campaign(campaign)
+                .scheduledTime(parsedScheduledTime)
+                // page is intentionally null — user assigns page on publish
+                .build();
+        post = postRepository.save(post);
+
+        if (mediaFilenames != null && uploader != null) {
+            for (int i = 0; i < mediaFilenames.size(); i++) {
+                String filename = mediaFilenames.get(i);
+                PostMedia media = PostMedia.builder()
+                        .post(post)
+                        .uploader(uploader)
+                        .filename(filename)
+                        .originalName("ai_gen_" + i + ".png")
+                        .contentType("image/png")
+                        .url("/api/media/" + filename)
+                        .fileSize(0L)
+                        .sortOrder(i)
+                        .build();
+                mediaRepository.save(media);
+            }
+            log.info("  ✓ Linked {} AI-generated media assets to draft post {}", mediaFilenames.size(), post.getId());
+        }
+
+        log.info("✓ AI draft post created via PostService: {}", post.getId());
+        return post;
     }
 
     private PostResponse toResponse(Post post) {

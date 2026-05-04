@@ -1,12 +1,17 @@
 'use client';
+import { Suspense } from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import {
-    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave,
+    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX, IconEdit,
 } from '@/components/Icons';
+import ImageEditor from '@/components/ImageEditor';
+import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews, BlueskyPostPreview, LinkedInPostPreview, ThreadsPostPreview } from '@automattic/social-previews';
+import '@automattic/social-previews/style.css';
+import '@/styles/create-page.css';
 
 interface PageItem {
     id: string;
@@ -18,14 +23,205 @@ interface PageItem {
 
 interface UploadedMedia {
     id: string;
+    filename: string;
     url: string;
     contentType: string;
     originalName: string;
     fileSize: number;
 }
 
-export default function CreatePostPage() {
+// Platform Preview Component using @automattic/social-previews
+function PlatformPreview({
+    platform,
+    pageInfo,
+    caption,
+    mediaFiles,
+    onEdit,
+    hasCustomContent
+}: {
+    platform: string;
+    pageInfo: any;
+    caption: string;
+    mediaFiles: UploadedMedia[];
+    onEdit: () => void;
+    hasCustomContent: boolean;
+}) {
+    const platformLower = platform.toLowerCase();
+    const currentMedia = mediaFiles.length > 0 ? mediaFiles[0] : null;
+    const allMediaArray = mediaFiles.length > 0 ? mediaFiles.map(file => ({
+        url: file.url,
+        type: file.contentType,
+        alt: file.originalName
+    })) : undefined;
+
+    return (
+        <div className="mockup-wrapper">
+            {platformLower === 'facebook' && (
+                <div style={{ padding: '16px 0' }}>
+                    <FacebookPostPreview
+                        url=""
+                        title={caption || 'New Post'}
+                        customText={caption}
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                        user={{ displayName: pageInfo.pageName }}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'twitter' && (
+                <div style={{ padding: '16px 0' }}>
+                    <TwitterPostPreview
+                        url=""
+                        title={caption || 'Tweet'}
+                        text={caption}
+                        name={pageInfo.pageName}
+                        screenName={`@${pageInfo.pageName.toLowerCase().replace(/\s+/g, '')}`}
+                        profileImage="https://abs.twimg.com/sticky/default_profile_images/default_profile_bigger.png"
+                        date={Date.now()}
+                        image={currentMedia?.url}
+                        media={mediaFiles.length > 0 ? mediaFiles.slice(0, 4).map(file => ({
+                            url: file.url,
+                            alt: file.originalName,
+                            type: file.contentType
+                        })) : undefined}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'instagram' && (
+                <div style={{ padding: '16px 0' }}>
+                    <InstagramPreviews
+                        url=""
+                        name={pageInfo.pageName}
+                        profileImage="https://via.placeholder.com/40?text=PP"
+                        caption={caption}
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'tiktok' && (
+                <div className="mockup-tiktok">
+                    <div style={{ position: 'relative' }}>
+                        {mediaFiles.length > 0 ? (
+                            <img src={mediaFiles[0].url} alt="preview" style={{ width: '100%', borderRadius: 12, aspectRatio: '9/16', objectFit: 'cover' }} />
+                        ) : (
+                            <div style={{ width: '100%', aspectRatio: '9/16', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }}>
+                                <span style={{ fontSize: 32, color: 'var(--text-muted)' }}>🎵</span>
+                            </div>
+                        )}
+                        <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'white', textAlign: 'center' }}>
+                            <div>❤️<br /><span style={{ fontSize: 10 }}>234</span></div>
+                            <div>💬<br /><span style={{ fontSize: 10 }}>45</span></div>
+                            <div>↗️<br /><span style={{ fontSize: 10 }}>89</span></div>
+                        </div>
+                    </div>
+                    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-primary)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{pageInfo.pageName}</div>
+                        <p style={{ margin: 0, lineHeight: 1.4 }}>{caption || 'Your TikTok caption...'}</p>
+                    </div>
+                </div>
+            )}
+
+            {platformLower === 'bluesky' && (
+                <div style={{ padding: '16px 0' }}>
+                    <BlueskyPostPreview
+                        url=""
+                        title={caption || 'Bluesky Post'}
+                        customText={caption}
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                        user={{
+                            displayName: pageInfo.pageName,
+                            avatarUrl: "https://via.placeholder.com/48?text=BS",
+                            address: `@${pageInfo.pageName.toLowerCase().replace(/\s+/g, '')}`
+                        }}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'linkedin' && (
+                <div style={{ padding: '16px 0' }}>
+                    <LinkedInPostPreview
+                        url="#"
+                        title={caption || 'LinkedIn Post'}
+                        description={caption}
+                        name={pageInfo.pageName}
+                        profileImage="https://via.placeholder.com/48?text=LI"
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                    />
+                </div>
+            )}
+
+            {platformLower === 'threads' && (
+                <div style={{ padding: '16px 0' }}>
+                    <ThreadsPostPreview
+                        url=""
+                        title={caption || 'Threads Post'}
+                        name={pageInfo.pageName}
+                        profileImage="https://via.placeholder.com/48?text=TH"
+                        image={currentMedia?.url}
+                        media={allMediaArray}
+                    />
+                </div>
+            )}
+
+            {/* Fallback for unsupported platforms */}
+            {!['facebook', 'twitter', 'instagram', 'tiktok', 'bluesky', 'linkedin', 'threads'].includes(platformLower) && (
+                <div style={{
+                    padding: '16px',
+                    background: 'var(--bg-glass)',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--border)',
+                    textAlign: 'center',
+                    color: 'var(--text-muted)'
+                }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>📱</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Platform Preview</div>
+                    <p style={{ margin: 0, fontSize: 11, lineHeight: 1.4 }}>
+                        Preview not available for <strong>{platform}</strong>
+                    </p>
+                    <p style={{ margin: '8px 0 0 0', fontSize: 11, color: 'var(--accent)' }}>
+                        Caption: {caption || '(no caption)'}
+                    </p>
+                </div>
+            )}
+
+            {/* Edit button and custom content indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button
+                    onClick={onEdit}
+                    style={{
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-glass)',
+                        color: 'var(--accent)',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer',
+                        transition: 'var(--transition)',
+                    }}
+                >
+                    Custom Edit for {platform}
+                </button>
+                {hasCustomContent && (
+                    <span style={{ fontSize: 11, color: 'var(--accent-light)', fontWeight: 600 }}>
+                        Custom content
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function CreatePostContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const postId = searchParams.get('postId');
     const { selectedBrand: brand } = useBrand();
     const [pages, setPages] = useState<PageItem[]>([]);
     const [selectedPages, setSelectedPages] = useState<string[]>([]);
@@ -34,6 +230,8 @@ export default function CreatePostPage() {
     const [publishing, setPublishing] = useState(false);
     const [error, setError] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
+    const [isEditingPost, setIsEditingPost] = useState(false);
+    const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
     // Campaigns state
     const [campaigns, setCampaigns] = useState<{ id: string, name: string }[]>([]);
@@ -45,23 +243,403 @@ export default function CreatePostPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
 
+    // Platform-specific content state
+    const [platformContent, setPlatformContent] = useState<{ [pageId: string]: string }>({});
+    const [selectedPageForPreview, setSelectedPageForPreview] = useState<string | null>(null);
+    const [editingModal, setEditingModal] = useState<{ isOpen: boolean; pageId: string | null }>({ isOpen: false, pageId: null });
+    const [tempEditContent, setTempEditContent] = useState('');
+
+    // AI modal state
+    const [aiModal, setAiModal] = useState<{ isOpen: boolean; type: 'generate' | 'enhance' | 'hashtags' | null }>({ isOpen: false, type: null });
+    const [aiOptions, setAiOptions] = useState({
+        provider: 'groq',
+        model: '',
+        tone: 'casual',
+        length: 'medium',
+        customPrompt: '',
+        useRag: false
+    });
+    const [aiLoading, setAiLoading] = useState(false);
+    const [generatedContent, setGeneratedContent] = useState('');
+    const [ragResults, setRagResults] = useState<any[]>([]);
+    const [isGenerationComplete, setIsGenerationComplete] = useState(false);
+
+    // Image generation state
+    const [imageModal, setImageModal] = useState<{ isOpen: boolean; mode: 'generate' | 'search' | null }>({ isOpen: false, mode: null });
+    const [imagePrompt, setImagePrompt] = useState('');
+    const [imageSearchQuery, setImageSearchQuery] = useState('');
+    const [imageCount, setImageCount] = useState(1);
+    const [generatedImages, setGeneratedImages] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set()); // Track selected image indices
+    const [imageLoading, setImageLoading] = useState(false);
+    const [isImageGenerationComplete, setIsImageGenerationComplete] = useState(false);
+
+    // Image editing state
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [editingMediaIndex, setEditingMediaIndex] = useState<number | null>(null);
+    const [isStockOpen, setIsStockOpen] = useState(false);
+    const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+    const [libraryAssets, setLibraryAssets] = useState<any[]>([]);
+    const [loadingLibrary, setLoadingLibrary] = useState(false);
+
     useEffect(() => {
         if (!brand) return;
         setLoading(true);
         Promise.all([
             api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
-            api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); })
+            api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); }),
         ]).finally(() => setLoading(false));
     }, [brand]);
 
+    // Load post data if editing
+    useEffect(() => {
+        if (!postId || !brand) return;
+
+        setLoading(true);
+        api.getPost(postId)
+            .then((post: any) => {
+                setContent(post.content);
+                setEditingPostId(postId);
+                setIsEditingPost(true);
+                if (post.mediaFiles && post.mediaFiles.length > 0) {
+                    setMediaFiles(post.mediaFiles.map((m: any) => ({
+                        id: m.id,
+                        filename: m.url.split('/').pop() || '',  // Extract filename from URL
+                        url: m.url,
+                        contentType: m.contentType,
+                        originalName: m.originalName,
+                        fileSize: 0  // Not provided by API
+                    })));
+                }
+                if (post.page) {
+                    setSelectedPages([post.page.id]);
+                    setSelectedPageForPreview(post.page.id);
+                }
+                if (post.campaign) {
+                    setSelectedCampaign(post.campaign.id);
+                }
+                if (post.scheduledTime) {
+                    setScheduledTime(post.scheduledTime);
+                }
+            })
+            .catch((err: any) => setError(err instanceof Error ? err.message : 'Failed to load post'))
+            .finally(() => setLoading(false));
+    }, [postId, brand]);
+
+    // Auto-replicate content when pages are selected
+    useEffect(() => {
+        if (selectedPages.length > 0 && content.trim() && Object.keys(platformContent).length === 0) {
+            const newPlatformContent: { [key: string]: string } = {};
+            selectedPages.forEach(pageId => {
+                newPlatformContent[pageId] = content;
+            });
+            setPlatformContent(newPlatformContent);
+            if (!selectedPageForPreview) setSelectedPageForPreview(selectedPages[0]);
+        }
+    }, [selectedPages]);
+
     const togglePage = (id: string) => {
-        setSelectedPages(prev =>
-            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-        );
+        const newSelected = selectedPages.includes(id)
+            ? selectedPages.filter(p => p !== id)
+            : [...selectedPages, id];
+
+        setSelectedPages(newSelected);
+
+        // Remove from platformContent if deselected
+        if (!newSelected.includes(id)) {
+            setPlatformContent(prev => {
+                const updated = { ...prev };
+                delete updated[id];
+                return updated;
+            });
+            if (selectedPageForPreview === id && newSelected.length > 0) {
+                setSelectedPageForPreview(newSelected[0]);
+            }
+        }
+    };
+
+    const handleEditPlatform = (pageId: string) => {
+        const currentContent = platformContent[pageId] || content;
+        setTempEditContent(currentContent);
+        setEditingModal({ isOpen: true, pageId });
+    };
+
+    const savePlatformContent = () => {
+        if (editingModal.pageId) {
+            setPlatformContent(prev => ({
+                ...prev,
+                [editingModal.pageId!]: tempEditContent
+            }));
+        }
+        setEditingModal({ isOpen: false, pageId: null });
+        setTempEditContent('');
     };
 
     const platformIcon = (p: string) => {
         return <PlatformIcon platform={p} size={18} />;
+    };
+
+    const getPageInfo = (pageId: string) => {
+        return pages.find(p => p.id === pageId);
+    };
+
+    const getCurrentPreviewContent = () => {
+        if (!selectedPageForPreview) return content;
+        return platformContent[selectedPageForPreview] || content;
+    };
+
+    // ===== AI Functions =====
+    const handleAiGenerate = async () => {
+        if (!brand) return;
+        setAiLoading(true);
+        try {
+            if (aiOptions.useRag) {
+                // Use RAG endpoint
+                const result = await api.ragGenerateContent({
+                    brand_id: brand.id,
+                    prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
+                    tone: aiOptions.tone,
+                    rag_limit: 5,
+                    rag_threshold: 0.7
+                });
+                setGeneratedContent(result.caption || result.content || '');
+                setRagResults(result.rag_results || []);
+                setIsGenerationComplete(true);
+            } else {
+                // Use regular generation
+                const result = await api.generateContent({
+                    brand_id: brand.id,
+                    prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
+                    tone: aiOptions.tone,
+                    platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
+                    max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
+                });
+                setGeneratedContent(result.caption || result.content || '');
+                setRagResults([]);
+                setIsGenerationComplete(true);
+            }
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'AI generation failed');
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const confirmGeneratedContent = () => {
+        setContent(generatedContent);
+        setGeneratedContent('');
+        setRagResults([]);
+        setIsGenerationComplete(false);
+        setAiModal({ isOpen: false, type: null });
+    };
+
+    const cancelGeneration = () => {
+        setGeneratedContent('');
+        setRagResults([]);
+        setIsGenerationComplete(false);
+        setAiModal({ isOpen: false, type: null });
+    };
+
+    const handleGenerateImage = async () => {
+        if (!brand) return;
+        if (!imagePrompt.trim()) return setError('Please enter image prompt');
+        setImageLoading(true);
+        try {
+            const result = await api.generateImage({
+                brand_id: brand.id,
+                prompt: imagePrompt,
+                count: imageCount
+            });
+            // Extract images array from response
+            console.log('Generate image response:', result);
+            const images = result?.images || (Array.isArray(result) ? result : []);
+            setGeneratedImages(images);
+            setIsImageGenerationComplete(true);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Image generation failed');
+        } finally {
+            setImageLoading(false);
+        }
+    };
+
+    const confirmGeneratedImages = async () => {
+        if (generatedImages.length === 0) return;
+        try {
+            // Add first generated image to media (user can add more by regenerating)
+            await addImageToMedia(generatedImages[0].url || generatedImages[0]);
+            setIsImageGenerationComplete(false);
+            setGeneratedImages([]);
+            setImagePrompt('');
+            setImageCount(1);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to add image');
+        }
+    };
+
+    const regenerateImages = async () => {
+        setIsImageGenerationComplete(false);
+        await handleGenerateImage();
+    };
+
+    const cancelImageGeneration = () => {
+        setIsImageGenerationComplete(false);
+        setGeneratedImages([]);
+        setImageModal({ isOpen: false, mode: null });
+    };
+
+    const handleSearchPhotos = async (query: string) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            setSelectedImages(new Set());
+            return;
+        }
+        setImageLoading(true);
+        try {
+            console.log('🔍 Searching photos for:', query);
+            const results = await api.searchStockPhotos(query, 12);
+            console.log('📷 Search results:', results);
+            setSearchResults(results);
+            setSelectedImages(new Set()); // Reset selection on new search
+        } catch (err: unknown) {
+            console.error('❌ Search failed:', err);
+            setError(err instanceof Error ? err.message : 'Photo search failed');
+        } finally {
+            setImageLoading(false);
+        }
+    };
+
+    // Real-time search as user types
+    useEffect(() => {
+        if (imageModal.mode === 'search' && imageSearchQuery.trim()) {
+            handleSearchPhotos(imageSearchQuery);
+        } else if (!imageSearchQuery.trim()) {
+            setSearchResults([]);
+            setSelectedImages(new Set());
+        }
+    }, [imageSearchQuery, imageModal.mode]);
+
+    const toggleImageSelection = (idx: number) => {
+        const newSelected = new Set(selectedImages);
+        if (newSelected.has(idx)) {
+            newSelected.delete(idx);
+        } else {
+            newSelected.add(idx);
+        }
+        setSelectedImages(newSelected);
+    };
+
+    const addSelectedImages = async () => {
+        if (selectedImages.size === 0) return;
+
+        try {
+            setUploading(true);
+            const selectedImagesList = Array.from(selectedImages)
+                .sort((a, b) => a - b)
+                .map(idx => searchResults[idx]);
+
+            // Add all selected images
+            for (const img of selectedImagesList) {
+                await addImageToMedia(img.url);
+            }
+
+            // Clear and close
+            setImageModal({ isOpen: false, mode: null });
+            setImageSearchQuery('');
+            setSelectedImages(new Set());
+            setSearchResults([]);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to add images');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const addImageToMedia = async (imageUrl: string, alt: string = 'Generated/Stock Image') => {
+        try {
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            // Determine correct MIME type from blob or URL
+            let mimeType = blob.type || 'image/jpeg';
+            if (!mimeType || mimeType === '') {
+                if (imageUrl.endsWith('.png')) mimeType = 'image/png';
+                else if (imageUrl.endsWith('.gif')) mimeType = 'image/gif';
+                else if (imageUrl.endsWith('.webp')) mimeType = 'image/webp';
+                else mimeType = 'image/jpeg';
+            }
+
+            const filename = `image-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`;
+            const file = new File([blob], filename, { type: mimeType });
+
+            // Use existing upload handler
+            setUploading(true);
+            const result = await api.uploadMedia(file);
+            setMediaFiles(prev => [...prev, result]);
+            setImageModal({ isOpen: false, mode: null });
+            setImagePrompt('');
+            setImageSearchQuery('');
+            setGeneratedImages([]);
+            setSearchResults([]);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to add image');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleAiEnhance = async () => {
+        if (!brand) return;
+        setAiLoading(true);
+        try {
+            const result = await api.rewriteContent({
+                brand_id: brand.id,
+                content: content,
+                tone: aiOptions.tone,
+                platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
+                max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
+            });
+            setGeneratedContent(result.rewritten || result.content || '');
+            setRagResults([]);
+            setIsGenerationComplete(true);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'AI enhancement failed');
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const handleAiHashtags = async () => {
+        if (!brand) return;
+        setAiLoading(true);
+        try {
+            const result = await api.optimizeKeywords({
+                brand_id: brand.id,
+                content: content,
+                max_hashtags: aiOptions.length === 'short' ? 3 : aiOptions.length === 'long' ? 15 : 8
+            });
+            setGeneratedContent(content + '\n\n' + (result.hashtags || result.keywords || []).map((tag: string) => `#${tag}`).join(' '));
+            setRagResults([]);
+            setIsGenerationComplete(true);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to generate hashtags');
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const insertText = (before: string, after: string = '') => {
+        const textarea = document.querySelector('.caption-textarea') as HTMLTextAreaElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selected = content.substring(start, end);
+        const newContent = content.substring(0, start) + before + selected + after + content.substring(end);
+        setContent(newContent);
     };
 
     // ===== Media Upload =====
@@ -96,6 +674,61 @@ export default function CreatePostPage() {
         setMediaFiles(prev => prev.filter(m => m.id !== id));
     };
 
+    const handleEditImage = (index: number) => {
+        setEditingMediaIndex(index);
+        setIsEditorOpen(true);
+    };
+
+    const handleSaveEditedImage = async (editedData: { imageBase64: string; filename: string }) => {
+        if (editingMediaIndex === null) return;
+
+        setIsEditorOpen(false);
+        setUploading(true);
+        try {
+            const res = await fetch(editedData.imageBase64);
+            const blob = await res.blob();
+            const file = new File([blob], editedData.filename, { type: 'image/png' });
+
+            const result = await api.uploadMedia(file);
+
+            // Replace the old media with the new one
+            setMediaFiles(prev => {
+                const updated = [...prev];
+                updated[editingMediaIndex] = result;
+                return updated;
+            });
+        } catch (err) {
+            setError('Failed to save edited image');
+        } finally {
+            setUploading(false);
+            setEditingMediaIndex(null);
+        }
+    };
+
+    const openLibrary = async () => {
+        setIsLibraryOpen(true);
+        setLoadingLibrary(true);
+        try {
+            const data = await api.getMedia();
+            setLibraryAssets(data);
+        } catch (err) {
+            setError('Failed to load library');
+        } finally {
+            setLoadingLibrary(false);
+        }
+    };
+
+    const handleSelectFromLibrary = (asset: any) => {
+        setMediaFiles(prev => {
+            const isSelected = prev.find(m => m.id === asset.id);
+            if (isSelected) {
+                return prev.filter(m => m.id !== asset.id);
+            } else {
+                return [...prev, asset];
+            }
+        });
+    };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setDragOver(false);
@@ -117,17 +750,31 @@ export default function CreatePostPage() {
         setError('');
         setPublishing(true);
         try {
-            const posts = await api.createPost({
+            const postData = {
                 content,
                 pageIds: selectedPages,
-                mediaIds: mediaFiles.map(m => m.id),
+                mediaFilenames: mediaFiles.map(m => m.filename),
                 scheduledTime: ISOStringTime,
-                campaignId: selectedCampaign || undefined
-            });
+                campaignId: selectedCampaign || undefined,
+                platformContent // Include platform-specific content
+            };
 
-            // If not scheduled, publish immediately
-            if (!ISOStringTime) {
-                await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+            if (isEditingPost && editingPostId) {
+                // Update existing draft
+                await api.updatePost(editingPostId, postData);
+
+                // If not scheduled, publish immediately
+                if (!ISOStringTime) {
+                    await api.publishPost(editingPostId);
+                }
+            } else {
+                // Create new post
+                const posts = await api.createPost(postData);
+
+                // If not scheduled, publish immediately
+                if (!ISOStringTime) {
+                    await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+                }
             }
             router.push('/dashboard');
         } catch (err: unknown) {
@@ -142,12 +789,19 @@ export default function CreatePostPage() {
         if (selectedPages.length === 0) return setError('Please select at least one page');
         setError('');
         try {
-            await api.createPost({
+            const postData = {
                 content,
                 pageIds: selectedPages,
-                mediaIds: mediaFiles.map(m => m.id),
-                campaignId: selectedCampaign || undefined
-            });
+                mediaFilenames: mediaFiles.map(m => m.filename),
+                campaignId: selectedCampaign || undefined,
+                platformContent // Include platform-specific content
+            };
+
+            if (isEditingPost && editingPostId) {
+                await api.updatePost(editingPostId, postData);
+            } else {
+                await api.createPost(postData);
+            }
             router.push('/dashboard');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Save failed');
@@ -162,200 +816,1046 @@ export default function CreatePostPage() {
 
     return (
         <AppShell>
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">Create Post</h1>
-                    <p className="page-subtitle">Write once, publish everywhere</p>
-                </div>
-            </div>
-
-            {error && <div className="error-msg">{error}</div>}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 32 }}>
-                {/* Left: Content + Media */}
-                <div>
-                    <div className="form-group">
-                        <label className="form-label">Content</label>
-                        <textarea className="form-textarea" rows={8} value={content}
-                            onChange={e => setContent(e.target.value)}
-                            placeholder="What do you want to share?" />
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                            {content.length} characters
-                            {content.length > 280 && <span style={{ color: 'var(--warning)' }}> (may be truncated on X/Twitter)</span>}
-                        </p>
-                    </div>
-
-                    {/* Schedule Picker Area */}
-                    <div className="form-group">
-                        <label className="form-label">Schedule Post (optional)</label>
-                        <input
-                            type="datetime-local"
-                            className="form-input"
-                            style={{ maxWidth: 250 }}
-                            value={scheduledTime}
-                            onChange={(e) => setScheduledTime(e.target.value)}
-                        />
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                            Leave empty to publish immediately.
-                        </p>
-                    </div>
-
-                    {/* Media Upload Area */}
-                    <div className="form-group">
-                        <label className="form-label">Media (optional)</label>
-                        <div
-                            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                            onDragLeave={() => setDragOver(false)}
-                            onDrop={handleDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{
-                                border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
-                                borderRadius: 'var(--radius)',
-                                padding: '28px 20px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'var(--transition)',
-                                background: dragOver ? 'rgba(99,102,241,0.08)' : 'var(--bg-glass)',
-                            }}
+            <div className="create-page-container">
+                {/* Header with title and action buttons */}
+                <div className="create-header">
+                    <h1 className="create-title">{isEditingPost ? 'Edit Draft' : 'Create Post'}</h1>
+                    <div className="create-actions">
+                        <button
+                            className="btn-action save"
+                            onClick={handleSaveDraft}
+                            disabled={publishing || !content.trim() || selectedPages.length === 0}
                         >
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*,video/*"
-                                multiple
-                                onChange={e => handleFileUpload(e.target.files)}
-                                style={{ display: 'none' }}
-                            />
-                            {uploading ? (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                    <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
-                                    <span style={{ color: 'var(--text-muted)' }}>Uploading...</span>
-                                </div>
+                            <IconSave size={14} /> {isEditingPost ? 'Update Draft' : 'Save Draft'}
+                        </button>
+                        <button
+                            className="btn-action publish"
+                            onClick={handleSubmit}
+                            disabled={publishing || !content.trim() || selectedPages.length === 0}
+                        >
+                            {publishing ? (
+                                scheduledTime ? <><IconClock size={14} /> Scheduling...</> : <><IconSend size={14} /> Publishing...</>
                             ) : (
-                                <>
-                                    <div style={{ marginBottom: 8 }}><IconCamera size={32} color="var(--text-muted)" /></div>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                        Drop files here or click to browse
-                                    </div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                                        Images (JPG, PNG, GIF) and Videos (MP4, MOV) up to 50MB
-                                    </div>
-                                </>
+                                scheduledTime ? <><IconClock size={14} /> Schedule</> : <><IconSend size={14} /> Publish</>
                             )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Error alert */}
+                {error && <div className="error-alert">{error}</div>}
+
+                {/* Main content grid - Left: Editor, Right: Preview */}
+                <div className="create-main-grid">
+                    {/* ===== LEFT COLUMN: EDITOR ===== */}
+                    <div className="create-left-column">
+                        {/* SECTION 1: COMMON EDITOR */}
+                        <div className="composer-card">
+                            <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                    Common Caption (Replicate to all selected platforms)
+                                </label>
+
+                                {/* Text Format Toolbar */}
+                                <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {/* <button onClick={() => insertText('**', '**')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }} title="Bold">B</button>
+                                    <button onClick={() => insertText('_', '_')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer', fontStyle: 'italic' }} title="Italic">I</button>
+                                    <button onClick={() => insertText('[', '](url)')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, cursor: 'pointer' }} title="Link">🔗</button> */}
+                                    <button onClick={() => insertText(' #')} style={{ padding: '6px 10px', fontSize: 12, background: 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }} title="Hashtag">#tag</button>
+                                    <div style={{ flex: 1 }} />
+                                    <button onClick={() => setAiModal({ isOpen: true, type: 'generate' })} style={{ padding: '6px 12px', fontSize: 12, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }} title="Generate Caption">✨ Generate</button>
+                                    <button onClick={() => setAiModal({ isOpen: true, type: 'enhance' })} style={{ padding: '6px 12px', fontSize: 12, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }} title="Enhance Caption">⚡ Enhance</button>
+                                    <button onClick={() => setAiModal({ isOpen: true, type: 'hashtags' })} style={{ padding: '6px 12px', fontSize: 12, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }} title="Suggest Hashtags">🏷️ Hashtags</button>
+                                </div>
+
+                                <textarea
+                                    className="caption-textarea"
+                                    value={content}
+                                    onChange={e => {
+                                        setContent(e.target.value);
+                                        // Auto-replicate updates to platformContent
+                                        const updated: { [key: string]: string } = {};
+                                        selectedPages.forEach(pageId => {
+                                            updated[pageId] = e.target.value;
+                                        });
+                                        setPlatformContent(updated);
+                                    }}
+                                    placeholder="Write your common caption here..."
+                                    rows={5}
+                                />
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, textAlign: 'right' }}>
+                                    {content.length} characters
+                                </div>
+                            </div>
+
+                            {/* Platform selector - horizontal pill buttons */}
+                            <div className="platforms-section">
+                                {loading ? (
+                                    <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                                        <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                                    </div>
+                                ) : pages.length === 0 ? (
+                                    <div style={{ padding: '12px 0', fontSize: 13, color: 'var(--text-muted)' }}>
+                                        No connected pages. <a href="/accounts" style={{ color: 'var(--accent)' }}>Connect platforms</a>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        {pages.map(page => (
+                                            <button
+                                                key={page.id}
+                                                onClick={() => togglePage(page.id)}
+                                                className={`platform-pill ${selectedPages.includes(page.id) ? 'active' : ''}`}
+                                                title={`${page.pageName} (${page.platform})`}
+                                            >
+                                                {platformIcon(page.platform)}
+                                                <span style={{ fontSize: 12, marginLeft: 4 }}>{page.pageName.substring(0, 15)}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Media Previews */}
-                        {mediaFiles.length > 0 && (
-                            <div style={{
-                                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                                gap: 12, marginTop: 16,
-                            }}>
-                                {mediaFiles.map(media => (
-                                    <div key={media.id} style={{
-                                        position: 'relative',
-                                        borderRadius: 'var(--radius-sm)',
-                                        overflow: 'hidden',
+                        {/* Media upload section */}
+                        <div className="composer-card" style={{ marginTop: 20 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 12 }}>
+                                Media (optional)
+                            </label>
+
+                            {/* Quick image tools */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                                <button
+                                    className="ai-tool-btn"
+                                    onClick={() => setImageModal({ isOpen: true, mode: 'generate' })}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                                >
+                                    🎨 AI Generate
+                                </button>
+                                <button
+                                    className="ai-tool-btn"
+                                    onClick={openLibrary}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                                >
+                                    📁 My Library
+                                </button>
+                                <button
+                                    className="ai-tool-btn"
+                                    onClick={() => setIsStockOpen(true)}
+                                    style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                                >
+                                    🖼️ Stock Photos
+                                </button>
+                            </div>
+
+                            <div className="media-section">
+                                <div
+                                    className={`media-upload-zone ${dragOver ? 'drag-over' : ''}`}
+                                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                                    onDragLeave={() => setDragOver(false)}
+                                    onDrop={handleDrop}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*,video/*"
+                                        multiple
+                                        onChange={e => handleFileUpload(e.target.files)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    {uploading ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Uploading...</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div style={{ marginBottom: 6 }}><IconCamera size={24} color="var(--text-muted)" /></div>
+                                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                Add photo or video
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                or drag and drop
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Media previews */}
+                                {mediaFiles.length > 0 && (
+                                    <div className="media-grid">
+                                        {mediaFiles.map(media => (
+                                            <div key={media.id} className="media-preview">
+                                                {media.contentType.startsWith('image/') ? (
+                                                    <img
+                                                        src={media.url}
+                                                        alt={media.originalName}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '100%', height: '100%',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        background: 'var(--bg-glass)',
+                                                    }}>
+                                                        <IconFilm size={24} color="var(--text-muted)" />
+                                                    </div>
+                                                )}
+                                                <button
+                                                    className="media-remove"
+                                                    onClick={(e) => { e.stopPropagation(); removeMedia(media.id); }}
+                                                    title="Remove"
+                                                    style={{ right: 8 }}
+                                                >
+                                                    <IconX size={14} />
+                                                </button>
+                                                {media.contentType.startsWith('image/') && (
+                                                    <button
+                                                        className="media-remove"
+                                                        onClick={(e) => { e.stopPropagation(); handleEditImage(mediaFiles.indexOf(media)); }}
+                                                        title="Edit"
+                                                        style={{ right: 36, background: 'white', color: 'var(--accent)' }}
+                                                    >
+                                                        <IconEdit size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Schedule & Campaign section */}
+                        <div className="composer-card" style={{ marginTop: 20 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    Schedule:
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={scheduledTime}
+                                    onChange={(e) => setScheduledTime(e.target.value)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        fontSize: 12,
                                         border: '1px solid var(--border)',
-                                        background: 'var(--bg-card)',
-                                    }}>
-                                        {media.contentType.startsWith('image/') ? (
-                                            <img
-                                                src={media.url}
-                                                alt={media.originalName}
-                                                style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }}
-                                            />
-                                        ) : (
-                                            <div style={{
-                                                width: '100%', height: 120,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background: 'var(--bg-glass)',
-                                            }}>
-                                                <span style={{ fontSize: 36 }}><IconFilm size={36} color="var(--text-muted)" /></span>
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: 'var(--bg-glass)',
+                                        color: 'var(--text-primary)',
+                                        fontFamily: 'inherit',
+                                    }}
+                                />
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                Leave empty to publish immediately
+                            </div>
+
+                            {campaigns.length > 0 && (
+                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
+                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>
+                                        Campaign (optional)
+                                    </label>
+                                    <select
+                                        value={selectedCampaign || ''}
+                                        onChange={e => setSelectedCampaign(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px',
+                                            fontSize: 12,
+                                            border: '1px solid var(--border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: 'var(--bg-glass)',
+                                            color: 'var(--text-primary)',
+                                            fontFamily: 'inherit',
+                                        }}
+                                    >
+                                        <option style={{ color: "black" }} value="">No Campaign</option>
+                                        {campaigns.map(c => (
+                                            <option style={{ color: "black" }} key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ===== RIGHT COLUMN: PLATFORM PREVIEWS ===== */}
+                    {selectedPages.length > 0 && (
+                        <div className="create-right-column">
+                            <div className="platform-preview-section">
+                                {/* Platform tabs */}
+                                <div className="platform-tabs">
+                                    {selectedPages.map(pageId => {
+                                        const pageInfo = getPageInfo(pageId);
+                                        if (!pageInfo) return null;
+                                        const isActive = selectedPageForPreview === pageId;
+                                        const hasCustom = platformContent[pageId] && platformContent[pageId] !== content;
+
+                                        return (
+                                            <button
+                                                key={pageId}
+                                                className={`platform-tab ${isActive ? 'active' : ''} ${hasCustom ? 'custom' : ''}`}
+                                                onClick={() => setSelectedPageForPreview(pageId)}
+                                            >
+                                                {platformIcon(pageInfo.platform)}
+                                                <span>{pageInfo.pageName.substring(0, 12)}</span>
+                                                {hasCustom && <span className="custom-badge">✓</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Active platform preview */}
+                                {selectedPageForPreview && getPageInfo(selectedPageForPreview) && (
+                                    <div className="platform-preview-container">
+                                        <PlatformPreview
+                                            platform={getPageInfo(selectedPageForPreview)!.platform}
+                                            pageInfo={getPageInfo(selectedPageForPreview)!}
+                                            caption={getCurrentPreviewContent()}
+                                            mediaFiles={mediaFiles}
+                                            onEdit={() => handleEditPlatform(selectedPageForPreview)}
+                                            hasCustomContent={!!platformContent[selectedPageForPreview] && platformContent[selectedPageForPreview] !== content}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Edit Platform Modal */}
+                {editingModal.isOpen && editingModal.pageId && (
+                    <div className="modal-overlay" onClick={() => setEditingModal({ isOpen: false, pageId: null })}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+                                    Customize for {getPageInfo(editingModal.pageId)?.pageName}
+                                </h2>
+                                <button
+                                    className="modal-close"
+                                    onClick={() => setEditingModal({ isOpen: false, pageId: null })}
+                                >
+                                    <IconX size={18} />
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                <textarea
+                                    value={tempEditContent}
+                                    onChange={e => setTempEditContent(e.target.value)}
+                                    placeholder="Edit caption for this platform..."
+                                    rows={8}
+                                    style={{
+                                        width: '100%',
+                                        padding: 12,
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: 'var(--bg-glass)',
+                                        color: 'var(--text-primary)',
+                                        fontFamily: 'inherit',
+                                        fontSize: 14,
+                                        resize: 'vertical',
+                                    }}
+                                />
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, textAlign: 'right' }}>
+                                    {tempEditContent.length} characters
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button
+                                    className="btn-modal-cancel"
+                                    onClick={() => setEditingModal({ isOpen: false, pageId: null })}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn-modal-save"
+                                    onClick={savePlatformContent}
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* AI Modal */}
+                {aiModal.isOpen && aiModal.type && (
+                    <div className="modal-overlay" onClick={() => setAiModal({ isOpen: false, type: null })}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+                                    {aiModal.type === 'generate' && '✨ Generate Caption'}
+                                    {aiModal.type === 'enhance' && '⚡ Enhance Caption'}
+                                    {aiModal.type === 'hashtags' && '🏷️ Suggest Hashtags'}
+                                </h2>
+                                <button
+                                    className="modal-close"
+                                    onClick={() => setAiModal({ isOpen: false, type: null })}
+                                >
+                                    <IconX size={18} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                                {/* TOP SECTION: AI PARAMETERS (Full Width) */}
+                                {!isGenerationComplete && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                        <div>
+                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                Tone
+                                            </label>
+                                            <select
+                                                value={aiOptions.tone}
+                                                onChange={e => setAiOptions({ ...aiOptions, tone: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    background: 'var(--bg-glass)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: 14,
+                                                    fontFamily: 'inherit',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option style={{ color: "black" }} value="casual">Casual & Friendly</option>
+                                                <option style={{ color: "black" }} value="professional">Professional</option>
+                                                <option style={{ color: "black" }} value="exciting">Exciting & Energetic</option>
+                                                <option style={{ color: "black" }} value="humorous">Humorous</option>
+                                                <option style={{ color: "black" }} value="informative">Informative</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                Length
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {['short', 'medium', 'long'].map(len => (
+                                                    <button
+                                                        key={len}
+                                                        onClick={() => setAiOptions({ ...aiOptions, length: len })}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '10px 12px',
+                                                            border: aiOptions.length === len ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            background: aiOptions.length === len ? 'var(--accent)' : 'var(--bg-glass)',
+                                                            color: aiOptions.length === len ? 'white' : 'var(--text-primary)',
+                                                            fontSize: 12,
+                                                            fontWeight: aiOptions.length === len ? 600 : 500,
+                                                            cursor: 'pointer',
+                                                            textTransform: 'capitalize'
+                                                        }}
+                                                    >
+                                                        {len}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {(aiModal.type === 'generate' || aiModal.type === 'enhance') && (
+                                            <div style={{ gridColumn: 'span 2' }}>
+                                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                    Instructions (optional)
+                                                </label>
+                                                <textarea
+                                                    value={aiOptions.customPrompt}
+                                                    onChange={e => setAiOptions({ ...aiOptions, customPrompt: e.target.value })}
+                                                    placeholder={aiModal.type === 'generate' ? 'E.g., Create a caption about our new product launch...' : 'E.g., Make it more funny and engaging...'}
+                                                    rows={2}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: 12,
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-glass)',
+                                                        color: 'var(--text-primary)',
+                                                        fontFamily: 'inherit',
+                                                        fontSize: 14,
+                                                        resize: 'none'
+                                                    }}
+                                                />
                                             </div>
                                         )}
-                                        <div style={{ padding: '6px 8px' }}>
+
+                                        {aiModal.type === 'generate' && (
                                             <div style={{
-                                                fontSize: 11, fontWeight: 600, color: 'var(--text-primary)',
-                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                gridColumn: 'span 2',
+                                                padding: '10px 12px',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-glass)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10
                                             }}>
-                                                {media.originalName}
+                                                <input
+                                                    type="checkbox"
+                                                    id="rag-toggle"
+                                                    checked={aiOptions.useRag}
+                                                    onChange={e => setAiOptions({ ...aiOptions, useRag: e.target.checked })}
+                                                    style={{ cursor: 'pointer', width: 16, height: 16 }}
+                                                />
+                                                <label htmlFor="rag-toggle" style={{ cursor: 'pointer', flex: 1, margin: 0, fontSize: 13, color: 'var(--text-primary)' }}>
+                                                    Use Content Library (RAG)
+                                                </label>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                    📚 Reference brand context
+                                                </span>
                                             </div>
-                                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                                {formatFileSize(media.fileSize)}
-                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* BOTTOM SECTION: 2 COLUMNS (ORIGIN vs RESULT) */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
+                                    gap: 20,
+                                    borderTop: '1px solid var(--border)',
+                                    paddingTop: 20,
+                                    flex: 1, // Let this section grow
+                                    minHeight: 350
+                                }}>
+                                    {/* Left Column: Origin */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                            Original Content
+                                        </label>
+                                        <div style={{
+                                            flex: 1, // Grow to fill
+                                            padding: 12,
+                                            background: 'var(--bg-glass)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 12,
+                                            color: 'var(--text-muted)',
+                                            lineHeight: 1.5,
+                                            minHeight: 150,
+                                            maxHeight: 300,
+                                            overflow: 'auto',
+                                            border: '1px solid var(--border)'
+                                        }}>
+                                            {content || '(empty)'}
                                         </div>
-                                        {/* Remove button */}
+
+                                        {ragResults.length > 0 && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                                    📚 Knowledge Source
+                                                </label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 120, overflow: 'auto' }}>
+                                                    {ragResults.map((res, idx) => (
+                                                        <div key={idx} style={{
+                                                            padding: 8,
+                                                            background: 'rgba(255, 255, 255, 0.03)',
+                                                            borderRadius: 4,
+                                                            fontSize: 10,
+                                                            color: 'var(--text-muted)',
+                                                            border: '1px solid var(--border)',
+                                                            lineHeight: 1.4
+                                                        }}>
+                                                            {res.content?.substring(0, 150)}...
+                                                            <div style={{ marginTop: 4, fontSize: 9, opacity: 0.6 }}>
+                                                                Source: {res.filename || 'Unknown'}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right Column: Result */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <label style={{ fontSize: 11, color: isGenerationComplete ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                                            {isGenerationComplete ? '✨ AI Suggested' : 'AI Result'}
+                                        </label>
+                                        <div style={{
+                                            flex: 1, // Grow to fill
+                                            padding: 12,
+                                            background: isGenerationComplete ? 'white' : 'var(--bg-glass)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 13,
+                                            color: isGenerationComplete ? 'black' : 'var(--text-muted)',
+                                            lineHeight: 1.6,
+                                            minHeight: 150,
+                                            maxHeight: 300,
+                                            overflow: 'auto',
+                                            fontWeight: isGenerationComplete ? 500 : 400,
+                                            border: isGenerationComplete ? '2px solid var(--accent)' : '1px dotted var(--border)',
+                                            display: 'flex',
+                                            alignItems: !isGenerationComplete ? 'center' : 'stretch',
+                                            justifyContent: !isGenerationComplete ? 'center' : 'stretch',
+                                            textAlign: !isGenerationComplete ? 'center' : 'left'
+                                        }}>
+                                            {isGenerationComplete ? generatedContent : 'Results will appear here after generation'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                {isGenerationComplete ? (
+                                    <>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); removeMedia(media.id); }}
+                                            className="btn-modal-cancel"
+                                            onClick={cancelGeneration}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            className="btn-modal-save"
+                                            onClick={handleAiGenerate}
+                                            disabled={aiLoading}
+                                            style={{ opacity: aiLoading ? 0.6 : 1 }}
+                                        >
+                                            {aiLoading ? 'Regenerating...' : 'Regenerate'}
+                                        </button>
+                                        <button
+                                            className="btn-modal-save"
+                                            onClick={confirmGeneratedContent}
+                                            style={{ background: 'var(--accent)' }}
+                                        >
+                                            Accept
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            className="btn-modal-cancel"
+                                            onClick={() => setAiModal({ isOpen: false, type: null })}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            className="btn-modal-save"
+                                            onClick={aiModal.type === 'generate' ? handleAiGenerate : aiModal.type === 'enhance' ? handleAiEnhance : handleAiHashtags}
+                                            disabled={aiLoading}
+                                            style={{ opacity: aiLoading ? 0.6 : 1 }}
+                                        >
+                                            {aiLoading ? 'Generating...' : 'Generate'}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Image Modal - Generate or Search */}
+                {imageModal.isOpen && imageModal.mode && (
+                    <div className="modal-overlay" onClick={() => setImageModal({ isOpen: false, mode: null })}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxHeight: '90vh', overflow: 'auto' }}>
+                            <div className="modal-header">
+                                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+                                    {imageModal.mode === 'generate' ? '🎨 Generate Image' : '🖼️ Search Stock Photos'}
+                                </h2>
+                                <button
+                                    className="modal-close"
+                                    onClick={() => setImageModal({ isOpen: false, mode: null })}
+                                >
+                                    <IconX size={18} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {imageModal.mode === 'generate' && !isImageGenerationComplete && (
+                                    <div>
+                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                            Number of Images
+                                        </label>
+                                        <select
+                                            value={imageCount}
+                                            onChange={e => setImageCount(parseInt(e.target.value))}
                                             style={{
-                                                position: 'absolute', top: 4, right: 4,
-                                                width: 24, height: 24, borderRadius: '50%',
-                                                background: 'rgba(0,0,0,0.6)', border: 'none',
-                                                color: 'white', fontSize: 14, cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                width: '100%',
+                                                padding: '10px 12px',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-glass)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: 14,
+                                                fontFamily: 'inherit',
+                                                cursor: 'pointer'
                                             }}
                                         >
-                                            ✕
-                                        </button>
+                                            {[1, 2, 3, 4].map(n => (
+                                                <option style={{ color: "black" }} key={n} value={n}>{n} {n === 1 ? 'image' : 'images'}</option>
+                                            ))}
+                                        </select>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                )}
 
-                    <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                        <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={publishing}>
-                            {publishing
-                                ? (scheduledTime ? <><IconClock size={16} /> Scheduling...</> : <><IconSend size={16} /> Publishing...</>)
-                                : (scheduledTime ? <><IconClock size={16} /> Schedule Post</> : <><IconSend size={16} /> Publish Now</>)}
-                        </button>
-                        <button className="btn btn-secondary btn-lg" onClick={handleSaveDraft}>
-                            <IconSave size={16} /> Save Draft
-                        </button>
-                    </div>
-                </div>
+                                {/* Search/Prompt input - Hide when showing preview */}
+                                {!isImageGenerationComplete && (
+                                    <div>
+                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                            {imageModal.mode === 'generate' ? 'Describe the image you want' : 'Search for photos'}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={imageModal.mode === 'generate' ? imagePrompt : imageSearchQuery}
+                                            onChange={e => imageModal.mode === 'generate' ? setImagePrompt(e.target.value) : setImageSearchQuery(e.target.value)}
+                                            placeholder={imageModal.mode === 'generate' ? 'E.g., sunset over ocean with palm trees' : 'E.g., coffee, nature, urban'}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                fontSize: 14,
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-glass)',
+                                                color: 'var(--text-primary)',
+                                                fontFamily: 'inherit'
+                                            }}
+                                        />
+                                    </div>
+                                )}
 
-                {/* Right: Platform Selector */}
-                <div>
-                    <div className="form-group">
-                        <label className="form-label">Campaign (optional)</label>
-                        <select className="form-input" value={selectedCampaign || ''}
-                            onChange={e => setSelectedCampaign(e.target.value)}
-                            disabled={campaigns.length === 0}>
-                            <option value="">No Campaign</option>
-                            {campaigns.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label">Publish To</label>
-                        {loading ? (
-                            <div className="loading-center"><div className="spinner" /></div>
-                        ) : pages.length === 0 ? (
-                            <div className="empty-state" style={{ padding: 24 }}>
-                                <div className="empty-state-text">No connected pages. Go to Accounts to connect platforms.</div>
-                            </div>
-                        ) : (
-                            <div className="platform-list">
-                                {pages.map(page => (
-                                    <label key={page.id}
-                                        className={`platform-option ${selectedPages.includes(page.id) ? 'selected' : ''}`}>
-                                        <input type="checkbox" checked={selectedPages.includes(page.id)}
-                                            onChange={() => togglePage(page.id)} />
-                                        <span>{platformIcon(page.platform)}</span>
-                                        <div>
-                                            <div className="platform-option-name">{page.pageName}</div>
-                                            <div className="platform-option-page">{page.platform} · {page.connectionName}</div>
+                                {/* Results Grid - Only show when complete */}
+                                {isImageGenerationComplete && (generatedImages.length > 0 || searchResults.length > 0) && (
+                                    <div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 10 }}>
+                                            {imageModal.mode === 'generate' ? 'Generated Images' : `Select images (${selectedImages.size} selected)`}
                                         </div>
-                                    </label>
-                                ))}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                            gap: 12
+                                        }}>
+                                            {(imageModal.mode === 'generate' ? generatedImages : searchResults).map((img, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => imageModal.mode === 'search' && toggleImageSelection(idx)}
+                                                    style={{
+                                                        cursor: imageModal.mode === 'search' ? 'pointer' : 'default',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        overflow: 'hidden',
+                                                        border: imageModal.mode === 'search' && selectedImages.has(idx) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                        transition: 'var(--transition)',
+                                                        position: 'relative',
+                                                        background: imageModal.mode === 'search' && selectedImages.has(idx) ? 'rgba(108, 92, 231, 0.1)' : 'transparent'
+                                                    }}
+                                                    onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
+                                                    onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                                                >
+                                                    <img
+                                                        src={img.thumbUrl || img.url}
+                                                        alt={img.alt || 'image'}
+                                                        style={{
+                                                            width: '100%',
+                                                            aspectRatio: '1',
+                                                            objectFit: 'cover'
+                                                        }}
+                                                    />
+                                                    {imageModal.mode === 'search' && (
+                                                        <div style={{
+                                                            position: 'absolute',
+                                                            top: 8,
+                                                            left: 8,
+                                                            width: 20,
+                                                            height: 20,
+                                                            border: '2px solid var(--accent)',
+                                                            borderRadius: 4,
+                                                            background: selectedImages.has(idx) ? 'var(--accent)' : 'transparent',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            cursor: 'pointer',
+                                                            transition: 'var(--transition)'
+                                                        }}>
+                                                            {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                                                        </div>
+                                                    )}
+                                                    {imageModal.mode === 'search' && img.photographer && (
+                                                        <div style={{
+                                                            padding: '6px',
+                                                            fontSize: 10,
+                                                            color: 'var(--text-muted)',
+                                                            background: 'var(--bg-glass)',
+                                                            textAlign: 'center',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                        }}>
+                                                            by {img.photographer}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Stock photos search results (no preview state) */}
+                                {imageModal.mode === 'search' && !isImageGenerationComplete && (
+                                    <>
+                                        {imageLoading && (
+                                            <div style={{
+                                                textAlign: 'center',
+                                                padding: '20px',
+                                                color: 'var(--text-secondary)',
+                                                fontSize: 14
+                                            }}>
+                                                Searching photos...
+                                            </div>
+                                        )}
+                                        {!imageLoading && searchResults.length === 0 && imageSearchQuery.trim() && (
+                                            <div style={{
+                                                textAlign: 'center',
+                                                padding: '20px',
+                                                color: 'var(--text-secondary)',
+                                                fontSize: 14
+                                            }}>
+                                                No photos found
+                                            </div>
+                                        )}
+                                        {searchResults.length > 0 && (
+                                            <div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 10 }}>
+                                                    Select images to add ({selectedImages.size} selected)
+                                                </div>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                                    gap: 12
+                                                }}>
+                                                    {searchResults.map((img, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => toggleImageSelection(idx)}
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                borderRadius: 'var(--radius-sm)',
+                                                                overflow: 'hidden',
+                                                                border: selectedImages.has(idx) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                                transition: 'var(--transition)',
+                                                                position: 'relative',
+                                                                background: selectedImages.has(idx) ? 'rgba(108, 92, 231, 0.1)' : 'transparent'
+                                                            }}
+                                                            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
+                                                            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                                                        >
+                                                            <img
+                                                                src={img.thumbUrl || img.url}
+                                                                alt={img.alt || 'image'}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    aspectRatio: '1',
+                                                                    objectFit: 'cover'
+                                                                }}
+                                                            />
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: 8,
+                                                                left: 8,
+                                                                width: 20,
+                                                                height: 20,
+                                                                border: '2px solid var(--accent)',
+                                                                borderRadius: 4,
+                                                                background: selectedImages.has(idx) ? 'var(--accent)' : 'transparent',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                cursor: 'pointer',
+                                                                transition: 'var(--transition)'
+                                                            }}>
+                                                                {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                                                            </div>
+                                                            {img.photographer && (
+                                                                <div style={{
+                                                                    padding: '6px',
+                                                                    fontSize: 10,
+                                                                    color: 'var(--text-muted)',
+                                                                    background: 'var(--bg-glass)',
+                                                                    textAlign: 'center',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}>
+                                                                    by {img.photographer}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                        )}
+                            <div className="modal-footer">
+                                <button
+                                    className="btn-modal-cancel"
+                                    onClick={() => {
+                                        if (isImageGenerationComplete) {
+                                            cancelImageGeneration();
+                                        } else {
+                                            setImageModal({ isOpen: false, mode: null });
+                                            setImageSearchQuery('');
+                                            setSelectedImages(new Set());
+                                            setSearchResults([]);
+                                        }
+                                    }}
+                                >
+                                    {isImageGenerationComplete ? 'Discard' : 'Cancel'}
+                                </button>
+                                {isImageGenerationComplete && imageModal.mode === 'generate' && (
+                                    <button
+                                        className="btn-modal-action"
+                                        onClick={regenerateImages}
+                                        disabled={imageLoading}
+                                        style={{
+                                            opacity: imageLoading ? 0.6 : 1,
+                                            background: 'var(--text-secondary)',
+                                            color: 'white',
+                                            padding: '10px 16px',
+                                            border: 'none',
+                                            borderRadius: 'var(--radius-sm)',
+                                            cursor: 'pointer',
+                                            fontSize: 14,
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        {imageLoading ? 'Generating...' : 'Regenerate'}
+                                    </button>
+                                )}
+                                <button
+                                    className={isImageGenerationComplete || imageModal.mode === 'search' ? 'btn-modal-save' : ''}
+                                    onClick={
+                                        imageModal.mode === 'search'
+                                            ? addSelectedImages
+                                            : isImageGenerationComplete
+                                                ? confirmGeneratedImages
+                                                : handleGenerateImage
+                                    }
+                                    disabled={imageLoading || (imageModal.mode === 'search' && selectedImages.size === 0) || (isImageGenerationComplete && generatedImages.length === 0)}
+                                    style={{
+                                        opacity: (imageLoading || (imageModal.mode === 'search' && selectedImages.size === 0) || (isImageGenerationComplete && generatedImages.length === 0)) ? 0.6 : 1,
+                                        ...(isImageGenerationComplete || imageModal.mode === 'search' ? {
+                                            background: 'var(--accent)',
+                                            color: 'white',
+                                            padding: '10px 16px',
+                                            border: 'none',
+                                            borderRadius: 'var(--radius-sm)',
+                                            cursor: 'pointer',
+                                            fontSize: 14,
+                                            fontWeight: 600
+                                        } : {})
+                                    }}
+                                >
+                                    {imageLoading ? 'Loading...' : (
+                                        imageModal.mode === 'search'
+                                            ? `Add Selected (${selectedImages.size})`
+                                            : isImageGenerationComplete
+                                                ? 'Accept'
+                                                : 'Generate'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
+                {/* Image Editor Modal */}
+                {editingMediaIndex !== null && mediaFiles[editingMediaIndex] && (
+                    <ImageEditor
+                        isOpen={isEditorOpen}
+                        onClose={() => {
+                            setIsEditorOpen(false);
+                            setEditingMediaIndex(null);
+                        }}
+                        onSave={handleSaveEditedImage}
+                        imageUrl={mediaFiles[editingMediaIndex].url}
+                        filename={mediaFiles[editingMediaIndex].originalName}
+                    />
+                )}
+
+                {/* Media Library Modal */}
+                {isLibraryOpen && (
+                    <div className="modal-overlay" style={{ zIndex: 10000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+                        <div className="modal-container" style={{ maxWidth: 900, width: '95%', height: '85vh', display: 'flex', flexDirection: 'column', background: '#09090b', border: '1px solid #27272a' }}>
+                            <div className="modal-header" style={{ borderBottom: '1px solid #27272a', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <h3 style={{ margin: 0, fontSize: 16, color: 'white' }}>Media Assets Library</h3>
+                                <button
+                                    onClick={() => setIsLibraryOpen(false)}
+                                    style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.color = 'white')}
+                                    onMouseOut={(e) => (e.currentTarget.style.color = '#71717a')}
+                                >
+                                    <IconX size={24} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ overflowY: 'auto', padding: 20, background: '#09090b', flex: 1 }}>
+                                {loadingLibrary ? (
+                                    <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" /></div>
+                                ) : libraryAssets.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>No media found in library</div>
+                                ) : (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+                                        {libraryAssets.map(asset => (
+                                            <div
+                                                key={asset.id}
+                                                className={`library-item ${mediaFiles.find(m => m.id === asset.id) ? 'selected' : ''}`}
+                                                onClick={() => handleSelectFromLibrary(asset)}
+                                                style={{
+                                                    aspectRatio: '1',
+                                                    borderRadius: 12,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer',
+                                                    position: 'relative',
+                                                    transition: '0.2s',
+                                                    transform: mediaFiles.find(m => m.id === asset.id) ? 'scale(0.95)' : 'scale(1)',
+                                                    border: mediaFiles.find(m => m.id === asset.id) ? '3px solid #6c5ce7' : '1px solid #27272a',
+                                                    boxShadow: mediaFiles.find(m => m.id === asset.id) ? '0 0 20px rgba(108, 92, 231, 0.3)' : 'none'
+                                                }}
+                                            >
+                                                {asset.contentType.startsWith('image/') ? (
+                                                    <img src={asset.url} alt={asset.originalName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#18181b' }}>
+                                                        <IconFilm size={40} color="var(--text-muted)" />
+                                                    </div>
+                                                )}
+                                                {mediaFiles.find(m => m.id === asset.id) && (
+                                                    <div style={{ position: 'absolute', top: 12, right: 12, background: '#6c5ce7', color: 'white', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>✓</div>
+                                                )}
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: 10, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {asset.originalName}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', borderTop: '1px solid #27272a', background: '#09090b' }}>
+                                <button
+                                    onClick={() => setIsLibraryOpen(false)}
+                                    style={{ background: '#6c5ce7', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = '#5b4bc4')}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = '#6c5ce7')}
+                                >
+                                    Confirm Selection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </AppShell>
+    );
+}
+
+export default function CreatePostPage() {
+    return (
+        <Suspense fallback={<div className="loading-center"><div className="spinner" /></div>}>
+            <CreatePostContent />
+        </Suspense>
     );
 }

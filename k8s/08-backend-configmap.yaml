@@ -8,3 +8,6 @@ data:
   SPRING_DATASOURCE_USERNAME: "socialflow"
   SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
   SERVER_PORT: "8080"
+  FRONTEND_URL: "https://socialflow.io.vn"
+  BASE_URL: "https://socialflow.io.vn"
+  PYTHON_SERVICE_URL: "http://ai-service:5000"

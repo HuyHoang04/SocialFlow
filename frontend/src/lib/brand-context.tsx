@@ -5,6 +5,7 @@ export interface Brand {
     id: string;
     name: string;
     description?: string;
+    logoUrl?: string;
     connectionCount: number;
 }
 
@@ -12,6 +13,7 @@ interface BrandContextType {
     brands: Brand[];
     selectedBrand: Brand | null;
     selectBrand: (brand: Brand) => void;
+    setSelectedBrand: (brand: Brand | null) => void;
     clearBrand: () => void;
     reloadBrands: () => Promise<void>;
     loading: boolean;
@@ -66,7 +68,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }, [selectedBrand, clearBrand]);
 
     return (
-        <BrandContext.Provider value={{ brands, selectedBrand, selectBrand, clearBrand, reloadBrands, loading }}>
+        <BrandContext.Provider value={{ brands, selectedBrand, selectBrand, setSelectedBrand, clearBrand, reloadBrands, loading }}>
             {children}
         </BrandContext.Provider>
     );

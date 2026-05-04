@@ -1,5 +1,6 @@
 package com.socialflow.model;
 
+import com.socialflow.model.enums.MessageType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -46,6 +47,21 @@ public class InboxMessage {
     @Column(name = "is_from_me", nullable = false)
     @Builder.Default
     private Boolean isFromMe = false;
+
+    @Column(name = "message_type", length = 50)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private MessageType messageType = MessageType.COMMENT;
+
+    @Column(name = "conversation_id")
+    private String conversationId;
+
+    @Column(name = "author_id")
+    private String authorId;
+
+    @Column(name = "like_count")
+    @Builder.Default
+    private Integer likeCount = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "page_id", nullable = false)

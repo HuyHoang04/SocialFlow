@@ -42,6 +42,15 @@ public class BrandController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateBrand(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateBrandRequest request) {
+        Brand brand = brandService.updateBrand(id, user, request);
+        return ResponseEntity.ok(toMap(brand));
+    }
+
     private Map<String, Object> toMap(Brand brand) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", brand.getId());
