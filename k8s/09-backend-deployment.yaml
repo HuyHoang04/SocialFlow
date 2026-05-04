@@ -15,34 +15,16 @@ spec:
     spec:
       containers:
       - name: backend
-        image: socialflow-backend:latest
-        imagePullPolicy: Never
+        # Image placeholder se duoc thay the boi CI/CD
+        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/backend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
-          name: http
         envFrom:
         - configMapRef:
             name: backend-config
         - secretRef:
             name: postgres-secret
-        env:
-        - name: SPRING_DATASOURCE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: POSTGRES_PASSWORD
-        livenessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 120
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 90
-          periodSeconds: 10
         resources:
           requests:
             memory: "256Mi"

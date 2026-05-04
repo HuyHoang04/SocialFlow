@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: frontend
   namespace: socialflow
-  labels:
-    app: frontend
 spec:
   replicas: 1
   selector:
@@ -17,32 +15,15 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: socialflow-frontend:latest
-        imagePullPolicy: Never
+        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
-          name: http
         env:
         - name: API_URL
           value: "http://backend:8080"
         - name: NEXT_PUBLIC_API_URL
-          value: "http://backend:8080"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 20
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
+          value: "https://socialflow.io.vn"
         resources:
           requests:
             memory: "256Mi"
