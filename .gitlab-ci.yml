@@ -79,16 +79,21 @@ deploy_production:
         AWS_BIN=\"/usr/local/bin/aws\"
         K3S_BIN=\"/usr/local/bin/k3s\"
 
-        # Doi mot chut neu server dang trong qua trinh khoi tao lan dau
-        for i in {1..12}; do
-          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then break; fi
-          echo 'Waiting for K3s/AWS CLI installation... (5s)'
-          sleep 5
+        # Tang thoi gian doi len 5 phut (30 lan x 10 giay) vi t3.small cai dat hoi cham
+        echo 'Waiting for server initialization...'
+        for i in \$(seq 1 30); do
+          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then 
+            echo '✓ K3s and AWS CLI are ready!'
+            break 
+          fi
+          echo \"Attempt \$i/30: Still waiting for K3s/AWS CLI... (10s)\"
+          sleep 10
+          if [ \$i -eq 30 ]; then echo 'Error: Installation timed out!'; exit 1; fi
         done
 
         # Dang nhap ECR ngay tren EC2
-        ECR_PASS=\$($AWS_BIN ecr get-login-password --region ${AWS_REGION})
-        echo \$ECR_PASS | sudo -n \$K3S_BIN ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
+        ECR_PASS=\$([ -f \"\$AWS_BIN\" ] && \"\$AWS_BIN\" ecr get-login-password --region ${AWS_REGION})
+        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
 
         # Cap nhat folder manifest
         sudo -n rm -rf /opt/socialflow/k8s
@@ -96,16 +101,16 @@ deploy_production:
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
         # Apply K8s
-        sudo -n \$K3S_BIN kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
+        sudo -n \"\$K3S_BIN\" kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
         for manifest in /opt/socialflow/k8s/*.yaml; do
           [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
-          sudo -n \$K3S_BIN kubectl apply -f \"\$manifest\"
+          sudo -n \"\$K3S_BIN\" kubectl apply -f \"\$manifest\"
         done
 
         # Force restart
-        sudo -n \$K3S_BIN kubectl rollout restart deployment/backend -n socialflow
-        sudo -n \$K3S_BIN kubectl rollout restart deployment/frontend -n socialflow
-        sudo -n \$K3S_BIN kubectl rollout restart deployment/ai-service -n socialflow
+        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/backend -n socialflow
+        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/frontend -n socialflow
+        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/ai-service -n socialflow
         
         echo '✓ Deployment successful!'
       "
