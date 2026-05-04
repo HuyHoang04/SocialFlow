@@ -73,8 +73,12 @@ deploy_production:
         set -euxo pipefail
         
         # Dang nhap ECR ngay tren EC2 de K3s co quyen keo anh
-        ECR_PASS=\$(aws ecr get-login-password --region ${AWS_REGION})
-        echo \$ECR_PASS | sudo -n k3s ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
+        # Dung duong dan tuyet doi de chac chan tim thay lenh aws
+        AWS_CLI="/usr/local/bin/aws"
+        if [ ! -f "$AWS_CLI" ]; then AWS_CLI="aws"; fi
+        
+        ECR_PASS=$($AWS_CLI ecr get-login-password --region ${AWS_REGION})
+        echo $ECR_PASS | sudo -n k3s ctr images pull --user AWS:$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
 
         # Cap nhat folder manifest
         sudo -n rm -rf /opt/socialflow/k8s
