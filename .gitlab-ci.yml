@@ -50,6 +50,10 @@ build_ai_service:
 deploy_production:
   stage: deploy
   image: alpine:3.20
+  needs:
+    - build_backend
+    - build_frontend
+    - build_ai_service
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
@@ -61,7 +65,6 @@ deploy_production:
   script:
     - |
       echo "[CI] Updating K8s manifests with ECR URLs..."
-      # Dung sed de thay the Account ID va Region vao manifest truoc khi gui di
       sed -i "s|<ACCOUNT_ID>|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
       sed -i "s|<REGION>|${AWS_REGION}|g" k8s/*.yaml
 
@@ -72,13 +75,20 @@ deploy_production:
       ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
         set -euxo pipefail
         
-        # Dang nhap ECR ngay tren EC2 de K3s co quyen keo anh
-        # Dung duong dan tuyet doi de chac chan tim thay lenh aws
-        AWS_CLI="/usr/local/bin/aws"
-        if [ ! -f "$AWS_CLI" ]; then AWS_CLI="aws"; fi
-        
-        ECR_PASS=$($AWS_CLI ecr get-login-password --region ${AWS_REGION})
-        echo $ECR_PASS | sudo -n k3s ctr images pull --user AWS:$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
+        # Dung duong dan tuyet doi de tranh loi PATH va fix loi escaping bien
+        AWS_BIN=\"/usr/local/bin/aws\"
+        K3S_BIN=\"/usr/local/bin/k3s\"
+
+        # Doi mot chut neu server dang trong qua trinh khoi tao lan dau
+        for i in {1..12}; do
+          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then break; fi
+          echo 'Waiting for K3s/AWS CLI installation... (5s)'
+          sleep 5
+        done
+
+        # Dang nhap ECR ngay tren EC2
+        ECR_PASS=\$($AWS_BIN ecr get-login-password --region ${AWS_REGION})
+        echo \$ECR_PASS | sudo -n \$K3S_BIN ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
 
         # Cap nhat folder manifest
         sudo -n rm -rf /opt/socialflow/k8s
@@ -86,16 +96,16 @@ deploy_production:
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
         # Apply K8s
-        sudo -n k3s kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
+        sudo -n \$K3S_BIN kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
         for manifest in /opt/socialflow/k8s/*.yaml; do
           [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
-          sudo -n k3s kubectl apply -f \"\$manifest\"
+          sudo -n \$K3S_BIN kubectl apply -f \"\$manifest\"
         done
 
-        # Force restart de pod lay anh moi nhat tu ECR
-        sudo -n k3s kubectl rollout restart deployment/backend -n socialflow
-        sudo -n k3s kubectl rollout restart deployment/frontend -n socialflow
-        sudo -n k3s kubectl rollout restart deployment/ai-service -n socialflow
+        # Force restart
+        sudo -n \$K3S_BIN kubectl rollout restart deployment/backend -n socialflow
+        sudo -n \$K3S_BIN kubectl rollout restart deployment/frontend -n socialflow
+        sudo -n \$K3S_BIN kubectl rollout restart deployment/ai-service -n socialflow
         
         echo '✓ Deployment successful!'
       "
