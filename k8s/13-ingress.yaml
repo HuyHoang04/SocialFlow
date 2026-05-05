@@ -7,7 +7,6 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
     traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.tls.options: "default"
 spec:
   ingressClassName: traefik
   tls:
@@ -79,15 +78,3 @@ spec:
             name: grafana
             port:
               number: 3000
----
-# Traefik TLS Options untuk Cloudflare
-apiVersion: traefik.containo.us/v1alpha1
-kind: TLSOption
-metadata:
-  name: default
-  namespace: socialflow
-spec:
-  minVersion: VersionTLS12
-  cipherSuites:
-    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
