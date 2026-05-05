@@ -64,6 +64,10 @@ resource "aws_instance" "main" {
 		mkdir -p /home/ubuntu/.kube
 		cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
 		chown -R ubuntu:ubuntu /home/ubuntu/.kube
+
+		# Cai dat Cert Manager (Can thiet cho ClusterIssuer va SSL)
+		echo "Installing Cert Manager..."
+		/usr/local/bin/k3s kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
 		
 		echo "Setup complete!"
 	EOF
