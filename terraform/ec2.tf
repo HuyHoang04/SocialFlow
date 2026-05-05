@@ -62,6 +62,7 @@ rm -rf awscliv2.zip aws
 echo "Installing K3s..."
 export K3S_KUBECONFIG_MODE="644"
 curl -sfL https://get.k3s.io | sh -s - 
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 
 # Configure kubectl for ubuntu user
 mkdir -p /home/ubuntu/.kube
