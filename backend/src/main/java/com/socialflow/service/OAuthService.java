@@ -530,8 +530,13 @@ public class OAuthService {
                     return resp.bodyToMono(JsonNode.class);
                 }).block();
 
+        log.info("Facebook /me/accounts raw response: {}", pagesResp);
         if (pagesResp != null && pagesResp.has("data")) {
+            log.info("Facebook returned {} pages from /me/accounts", pagesResp.get("data").size());
             for (JsonNode pageNode : pagesResp.get("data")) {
+                log.info("  -> Page found: name='{}', id='{}'", 
+                    pageNode.has("name") ? pageNode.get("name").asText() : "N/A",
+                    pageNode.has("id") ? pageNode.get("id").asText() : "N/A");
                 String platformPageId = pageNode.get("id").asText();
                 SocialPage socialPage = pageRepository
                         .findByConnectionIdAndPlatformPageId(savedConn.getId(), platformPageId)
