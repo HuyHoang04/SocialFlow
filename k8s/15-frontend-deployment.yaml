@@ -17,19 +17,17 @@ spec:
       - name: ecr-regcred
       containers:
       - name: frontend
-        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/frontend:latest
+        image: __AWS_ACCOUNT_ID__.dkr.ecr.__AWS_REGION__.amazonaws.com/socialflow/frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
-        env:
-        - name: API_URL
-          value: "http://backend:8080"
-        - name: NEXT_PUBLIC_API_URL
-          value: "https://socialflow.io.vn"
+        envFrom:
+        - configMapRef:
+            name: frontend-config
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "256Mi"
+            cpu: "250m"
           limits:
             memory: "512Mi"
             cpu: "500m"

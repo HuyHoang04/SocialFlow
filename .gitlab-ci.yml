@@ -56,9 +56,32 @@ deploy_production:
     - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20"
   script:
     - |
-      echo "[CI] Updating K8s manifests with ECR URLs..."
-      sed -i "s|<ACCOUNT_ID>|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
-      sed -i "s|<REGION>|${AWS_REGION}|g" k8s/*.yaml
+      echo "[CI] Securing K8s manifests with environment variables..."
+      # Thay the cac placeholder trong manifests bang bien tu GitLab
+      sed -i "s|__AWS_ACCOUNT_ID__|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
+      sed -i "s|__AWS_REGION__|${AWS_REGION}|g" k8s/*.yaml
+      
+      # Giấu Key AI & Database
+      sed -i "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" k8s/*.yaml
+      sed -i "s|__GROQ_API_KEY__|${GROQ_API_KEY}|g" k8s/*.yaml
+      sed -i "s|__OPENROUTER_API_KEY__|${OPENROUTER_API_KEY}|g" k8s/*.yaml
+      sed -i "s|__PIXAZO_API_KEY__|${PIXAZO_API_KEY}|g" k8s/*.yaml
+      
+      # Giấu Key Frontend
+      sed -i "s|__UNSPLASH_ACCESS_KEY__|${UNSPLASH_ACCESS_KEY}|g" k8s/*.yaml
+      sed -i "s|__UNSPLASH_SECRET_KEY__|${UNSPLASH_SECRET_KEY}|g" k8s/*.yaml
+      sed -i "s|__UNSPLASH_APP_ID__|${UNSPLASH_APP_ID}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_APP_ID__|${FACEBOOK_APP_ID}|g" k8s/*.yaml
+      
+      # Giấu Key Backend (JWT, APIs, OAuth)
+      sed -i "s|__JWT_SECRET__|${JWT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__RAPIDAPI_KEY__|${RAPIDAPI_KEY}|g" k8s/*.yaml
+      sed -i "s|__SERPAPI_KEY__|${SERPAPI_KEY}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_CLIENT_ID__|${FACEBOOK_CLIENT_ID}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_CLIENT_SECRET__|${FACEBOOK_CLIENT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__LINKEDIN_CLIENT_ID__|${LINKEDIN_CLIENT_ID}|g" k8s/*.yaml
+      sed -i "s|__LINKEDIN_CLIENT_SECRET__|${LINKEDIN_CLIENT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__WEBHOOK_VERIFY_TOKEN__|${WEBHOOK_VERIFY_TOKEN}|g" k8s/*.yaml
 
       echo "[CI] Copying manifests to EC2..."
       scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"

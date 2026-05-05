@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-config
+  namespace: socialflow
+data:
+  # Cac bien cau hinh cong khai cho AI Service
+  ENABLE_FALLBACK: "true"
+  ENABLE_IMAGE_FALLBACK: "true"
+  
+  # ==============================
+  # SECRETS
+  # ==============================
+  GROQ_API_KEY: "__GROQ_API_KEY__"
+  OPENROUTER_API_KEY: "__OPENROUTER_API_KEY__"
+  PIXAZO_API_KEY: "__PIXAZO_API_KEY__"

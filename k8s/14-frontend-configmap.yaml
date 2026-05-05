@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: socialflow
+data:
+  # Cac thong tin nay se duoc GitLab CI tu dong dien vao
+  NEXT_PUBLIC_UNSPLASH_APP_ID: "__UNSPLASH_APP_ID__"
+  NEXT_PUBLIC_FACEBOOK_APP_ID: "__FACEBOOK_APP_ID__"
+  API_URL: "http://backend:8080"
+  NEXT_PUBLIC_API_URL: "https://socialflow.io.vn"
+  
+  # ==============================
+  # SECRETS
+  # ==============================
+  NEXT_PUBLIC_UNSPLASH_ACCESS_KEY: "__UNSPLASH_ACCESS_KEY__"
+  NEXT_PUBLIC_UNSPLASH_SECRET_KEY: "__UNSPLASH_SECRET_KEY__"

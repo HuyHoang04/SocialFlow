@@ -18,7 +18,7 @@ spec:
       containers:
       - name: backend
         # Image placeholder se duoc thay the boi CI/CD
-        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/backend:latest
+        image: __AWS_ACCOUNT_ID__.dkr.ecr.__AWS_REGION__.amazonaws.com/socialflow/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -29,8 +29,8 @@ spec:
             name: postgres-secret
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "256Mi"
+            cpu: "200m"
           limits:
             memory: "512Mi"
             cpu: "500m"

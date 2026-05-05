@@ -1,5 +1,5 @@
 const API_BASE = '/api';
-const NEXT_PUBLIC_UNPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNPLASH_ACCESS_KEY || '';
+const NEXT_PUBLIC_UNSPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNPLASH_ACCESS_KEY || '';
 const NEXT_PUBLIC_UNSPLASH_SECRET_KEY = process.env.NEXT_PUBLIC_UNSPLASH_SECRET_KEY || '';
 
 function getToken(): string | null {
@@ -239,7 +239,7 @@ export const api = {
 
     // Stock Photos Search (Unsplash API)
     searchStockPhotos: async (query: string, count: number = 6) => {
-        const unsplashKey = NEXT_PUBLIC_UNPLASH_ACCESS_KEY;
+        const unsplashKey = NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
         console.log('🔑 Unsplash Key loaded:', unsplashKey ? `${unsplashKey.slice(0, 8)}...` : 'EMPTY');
         const response = await fetch(
             `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&client_id=${unsplashKey}`

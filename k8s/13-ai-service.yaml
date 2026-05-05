@@ -17,16 +17,15 @@ spec:
       - name: ecr-regcred
       containers:
       - name: ai-service
-        image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/ai_service:latest
+        image: __AWS_ACCOUNT_ID__.dkr.ecr.__AWS_REGION__.amazonaws.com/socialflow/ai_service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: DATABASE_URL
+        envFrom:
+        - configMapRef:
+            name: ai-config
+        - secretRef:
+            name: postgres-secret
         resources:
           requests:
             memory: "128Mi"
