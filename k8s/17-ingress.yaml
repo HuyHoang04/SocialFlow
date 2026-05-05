@@ -41,6 +41,13 @@ spec:
             name: backend
             port:
               number: 8080
+      - path: /auth/
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8080
   - host: www.socialflow.io.vn
     http:
       paths:
