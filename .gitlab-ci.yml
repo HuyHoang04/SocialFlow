@@ -91,9 +91,11 @@ deploy_production:
           if [ \$i -eq 30 ]; then echo 'Error: Installation timed out!'; exit 1; fi
         done
 
-        # Dang nhap ECR ngay tren EC2
+        # Dang nhap ECR ngay tren EC2 va pull anh vao namespace k8s.io
         ECR_PASS=\$([ -f \"\$AWS_BIN\" ] && \"\$AWS_BIN\" ecr get-login-password --region ${AWS_REGION})
-        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
+        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
+        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/frontend:latest || true
+        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/ai_service:latest || true
 
         # Cap nhat folder manifest
         sudo -n rm -rf /opt/socialflow/k8s
