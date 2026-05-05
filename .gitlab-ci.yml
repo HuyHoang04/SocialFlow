@@ -62,73 +62,49 @@ deploy_production:
     - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20"
   script:
     - |
-      echo "[CI] Securing K8s manifests with environment variables..."
-      # Thay the cac placeholder trong manifests bang bien tu GitLab
-      sed -i "s|__AWS_ACCOUNT_ID__|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
-      sed -i "s|__AWS_REGION__|${AWS_REGION}|g" k8s/*.yaml
-      
-      # Giấu Key AI & Database
-      sed -i "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" k8s/*.yaml
-      sed -i "s|__GROQ_API_KEY__|${GROQ_API_KEY}|g" k8s/*.yaml
-      sed -i "s|__OPENROUTER_API_KEY__|${OPENROUTER_API_KEY}|g" k8s/*.yaml
-      sed -i "s|__PIXAZO_API_KEY__|${PIXAZO_API_KEY}|g" k8s/*.yaml
-      
-      # Giấu Key Frontend
-      sed -i "s|__UNSPLASH_ACCESS_KEY__|${UNSPLASH_ACCESS_KEY}|g" k8s/*.yaml
-      sed -i "s|__UNSPLASH_SECRET_KEY__|${UNSPLASH_SECRET_KEY}|g" k8s/*.yaml
-      sed -i "s|__UNSPLASH_APP_ID__|${UNSPLASH_APP_ID}|g" k8s/*.yaml
-      sed -i "s|__FACEBOOK_APP_ID__|${FACEBOOK_APP_ID}|g" k8s/*.yaml
-      
-      # Giấu Key Backend (JWT, APIs, OAuth)
-      sed -i "s|__JWT_SECRET__|${JWT_SECRET}|g" k8s/*.yaml
-      sed -i "s|__RAPIDAPI_KEY__|${RAPIDAPI_KEY}|g" k8s/*.yaml
-      sed -i "s|__SERPAPI_KEY__|${SERPAPI_KEY}|g" k8s/*.yaml
-      sed -i "s|__FACEBOOK_CLIENT_ID__|${FACEBOOK_CLIENT_ID}|g" k8s/*.yaml
-      sed -i "s|__FACEBOOK_CLIENT_SECRET__|${FACEBOOK_CLIENT_SECRET}|g" k8s/*.yaml
-      sed -i "s|__LINKEDIN_CLIENT_ID__|${LINKEDIN_CLIENT_ID}|g" k8s/*.yaml
-      sed -i "s|__LINKEDIN_CLIENT_SECRET__|${LINKEDIN_CLIENT_SECRET}|g" k8s/*.yaml
-      sed -i "s|__WEBHOOK_VERIFY_TOKEN__|${WEBHOOK_VERIFY_TOKEN}|g" k8s/*.yaml
+      echo "[CI] Preparing .env file for Docker Compose..."
+      cat <<EOF > .env
+      AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
+      AWS_REGION=${AWS_REGION}
+      SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      JWT_SECRET=${JWT_SECRET}
+      GROQ_API_KEY=${GROQ_API_KEY}
+      OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      PIXAZO_API_KEY=${PIXAZO_API_KEY}
+      FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
+      FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
+      UNSPLASH_APP_ID=${UNSPLASH_APP_ID}
+      UNSPLASH_ACCESS_KEY=${UNSPLASH_ACCESS_KEY}
+      UNSPLASH_SECRET_KEY=${UNSPLASH_SECRET_KEY}
+      RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      SERPAPI_KEY=${SERPAPI_KEY}
+      LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
+      NEXT_PUBLIC_API_URL=https://socialflow.io.vn
+      EOF
 
-      echo "[CI] Copying manifests to EC2..."
-      scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"
+      echo "[CI] Copying Docker Compose files to EC2..."
+      scp $SSH_OPTS -i ~/.ssh/id_rsa docker-compose.yml nginx.conf .env "$EC2_USER@$EC2_HOST:/home/ubuntu/socialflow/"
 
-      echo "[CI] Executing remote deployment..."
+      echo "[CI] Executing remote deployment with Docker Compose..."
       ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
         set -euxo pipefail
-        K3S_BIN=\"/usr/local/bin/k3s\"
-        AWS_BIN=\"/usr/local/bin/aws\"
-
-        echo 'Waiting for server initialization...'
-        for i in \$(seq 1 30); do
-          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then break; fi
-          sleep 10
-        done
-
-        # 1. Xoa va tao moi Namespace (De lam sach RAM va xoa Pod cu bi loi)
-        sudo -n \$K3S_BIN kubectl delete namespace socialflow --timeout=45s || true
-        sudo -n \$K3S_BIN kubectl create namespace socialflow || true
-
-        # 2. Tao Secret de K3s co quyen tai anh tu ECR
-        ECR_PASS=\$([ -f \"\$AWS_BIN\" ] && \"\$AWS_BIN\" ecr get-login-password --region ${AWS_REGION})
-        sudo -n \$K3S_BIN kubectl create secret docker-registry ecr-regcred \
-          --docker-server=${ECR_REGISTRY} \
-          --docker-username=AWS \
-          --docker-password=\$ECR_PASS \
-          --namespace socialflow || true
-
-        # 3. Cap nhat manifests
-        sudo -n rm -rf /opt/socialflow/k8s
-        sudo -n mkdir -p /opt/socialflow
-        sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
-
-        # 4. Apply manifests (Bo qua cac file trong disabled)
-        sudo -n \$K3S_BIN kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
-        for manifest in /opt/socialflow/k8s/*.yaml; do
-          [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
-          sudo -n \$K3S_BIN kubectl apply -f \"\$manifest\"
-        done
+        cd /home/ubuntu/socialflow
         
-        echo '✓ Deployment successful!'
+        # Login to ECR
+        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+        
+        # Stop and remove old containers to save RAM
+        docker compose down || true
+        
+        # Pull and Start
+        docker compose pull
+        docker compose up -d
+        
+        echo '✓ Deployment successful with Docker Compose!'
       "
   environment:
     name: production

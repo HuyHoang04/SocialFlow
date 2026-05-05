@@ -1,110 +1,50 @@
+version: '3.8'
 
-services: 
-  postgres:
-    image: postgres:16-alpine
-    container_name: socialflow-postgres
-    environment:
-      POSTGRES_USER: socialflow
-      POSTGRES_PASSWORD: socialflow
-      POSTGRES_DB: socialflow
-    ports:
-      - "5432:5432"
-    volumes:
-      - socialflow-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U socialflow -d socialflow"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+services:
   backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/backend:latest
     container_name: socialflow-backend
+    restart: always
+    environment:
+      # Su dung link Neon duoc truyen tu GitLab
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_FLYWAY_ENABLED: "false"
+      JWT_SECRET: ${JWT_SECRET}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
     ports:
       - "8080:8080"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/socialflow
-      SPRING_DATASOURCE_USERNAME: socialflow
-      SPRING_DATASOURCE_PASSWORD: socialflow
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      PYTHON_SERVICE_URL: http://ai-service:5000
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   ai-service:
-    build:
-      context: ./ai-service
-      dockerfile: Dockerfile
-    container_name: socialflow-ai-service
-    ports:
-      - "5000:5000"
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/ai_service:latest
+    container_name: socialflow-ai
+    restart: always
     environment:
-      DATABASE_URL: postgresql://socialflow:socialflow@postgres:5432/socialflow
-      FLASK_ENV: production
-      LOG_LEVEL: INFO
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      # Su dung link Neon cho AI Service (Python format)
+      DATABASE_URL: postgresql://${SPRING_DATASOURCE_USERNAME}:${SPRING_DATASOURCE_PASSWORD}@ep-super-frost-amjd7bup-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/frontend:latest
     container_name: socialflow-frontend
+    restart: always
     ports:
       - "3000:3000"
-    environment:
-      API_URL: http://backend:8080
-      NEXT_PUBLIC_API_URL: http://backend:8080
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: socialflow-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    depends_on:
-      - backend
-    networks:
-      - default
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: socialflow-grafana
+  nginx:
+    image: nginx:alpine
+    container_name: socialflow-proxy
+    restart: always
     ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - "80:80"
+      - "443:443"
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - prometheus
-    networks:
-      - default
-volumes:
-  socialflow-postgres-data:
-  prometheus_data:
-  grafana_data:
+      - frontend
+      - backend
