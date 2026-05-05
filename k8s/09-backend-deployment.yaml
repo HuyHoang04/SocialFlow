@@ -13,6 +13,8 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+      - name: ecr-regcred
       containers:
       - name: backend
         # Image placeholder se duoc thay the boi CI/CD
@@ -27,8 +29,8 @@ spec:
             name: postgres-secret
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "200m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"

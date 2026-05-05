@@ -13,6 +13,8 @@ spec:
       labels:
         app: frontend
     spec:
+      imagePullSecrets:
+      - name: ecr-regcred
       containers:
       - name: frontend
         image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/frontend:latest
@@ -26,8 +28,8 @@ spec:
           value: "https://socialflow.io.vn"
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"

@@ -3,12 +3,8 @@ stages:
   - deploy
 
 variables:
-  # Registry URL se duoc build tu cac bien moi truong trong GitLab Settings
   ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-# ─────────────────────────────────────────────
-# STAGE 1: BUILD — Build va push images len ECR
-# ─────────────────────────────────────────────
 .build_template: &build_template
   stage: build
   image: docker:25-dind
@@ -17,7 +13,6 @@ variables:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
-    # Dung Docker de chay AWS CLI chinh chu, tranh loi thu vien tren Alpine
     - |
       docker run --rm \
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
@@ -44,9 +39,6 @@ build_ai_service:
     - docker build -t "$ECR_REGISTRY/socialflow/ai_service:latest" ./ai-service/
     - docker push "$ECR_REGISTRY/socialflow/ai_service:latest"
 
-# ─────────────────────────────────────────────
-# STAGE 2: DEPLOY — Chi gui lenh cap nhat len EC2
-# ─────────────────────────────────────────────
 deploy_production:
   stage: deploy
   image: alpine:3.20
@@ -74,45 +66,38 @@ deploy_production:
       echo "[CI] Executing remote deployment..."
       ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
         set -euxo pipefail
-        
-        # Dung duong dan tuyet doi de tranh loi PATH va fix loi escaping bien
-        AWS_BIN=\"/usr/local/bin/aws\"
         K3S_BIN=\"/usr/local/bin/k3s\"
+        AWS_BIN=\"/usr/local/bin/aws\"
 
-        # Tang thoi gian doi len 5 phut (30 lan x 10 giay) vi t3.small cai dat hoi cham
         echo 'Waiting for server initialization...'
         for i in \$(seq 1 30); do
-          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then 
-            echo '✓ K3s and AWS CLI are ready!'
-            break 
-          fi
-          echo \"Attempt \$i/30: Still waiting for K3s/AWS CLI... (10s)\"
+          if [ -f \"\$K3S_BIN\" ] && [ -f \"\$AWS_BIN\" ]; then break; fi
           sleep 10
-          if [ \$i -eq 30 ]; then echo 'Error: Installation timed out!'; exit 1; fi
         done
 
-        # Dang nhap ECR ngay tren EC2 va pull anh vao namespace k8s.io
-        ECR_PASS=\$([ -f \"\$AWS_BIN\" ] && \"\$AWS_BIN\" ecr get-login-password --region ${AWS_REGION})
-        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/backend:latest || true
-        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/frontend:latest || true
-        echo \$ECR_PASS | sudo -n \"\$K3S_BIN\" ctr -n k8s.io images pull --user AWS:\$ECR_PASS ${ECR_REGISTRY}/socialflow/ai_service:latest || true
+        # 1. Xoa va tao moi Namespace (De lam sach RAM va xoa Pod cu bi loi)
+        sudo -n \$K3S_BIN kubectl delete namespace socialflow --timeout=45s || true
+        sudo -n \$K3S_BIN kubectl create namespace socialflow || true
 
-        # Cap nhat folder manifest
+        # 2. Tao Secret de K3s co quyen tai anh tu ECR
+        ECR_PASS=\$([ -f \"\$AWS_BIN\" ] && \"\$AWS_BIN\" ecr get-login-password --region ${AWS_REGION})
+        sudo -n \$K3S_BIN kubectl create secret docker-registry ecr-regcred \
+          --docker-server=${ECR_REGISTRY} \
+          --docker-username=AWS \
+          --docker-password=\$ECR_PASS \
+          --namespace socialflow || true
+
+        # 3. Cap nhat manifests
         sudo -n rm -rf /opt/socialflow/k8s
         sudo -n mkdir -p /opt/socialflow
         sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
 
-        # Apply K8s
-        sudo -n \"\$K3S_BIN\" kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
+        # 4. Apply manifests (Bo qua cac file trong disabled)
+        sudo -n \$K3S_BIN kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
         for manifest in /opt/socialflow/k8s/*.yaml; do
           [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
-          sudo -n \"\$K3S_BIN\" kubectl apply -f \"\$manifest\"
+          sudo -n \$K3S_BIN kubectl apply -f \"\$manifest\"
         done
-
-        # Force restart
-        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/backend -n socialflow
-        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/frontend -n socialflow
-        sudo -n \"\$K3S_BIN\" kubectl rollout restart deployment/ai-service -n socialflow
         
         echo '✓ Deployment successful!'
       "

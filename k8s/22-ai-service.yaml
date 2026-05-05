@@ -13,6 +13,8 @@ spec:
       labels:
         app: ai-service
     spec:
+      imagePullSecrets:
+      - name: ecr-regcred
       containers:
       - name: ai-service
         image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/socialflow/ai_service:latest
@@ -27,8 +29,8 @@ spec:
               key: DATABASE_URL
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "200m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"
