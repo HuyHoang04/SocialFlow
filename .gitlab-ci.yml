@@ -30,7 +30,13 @@ build_backend:
 build_frontend:
   <<: *build_template
   script:
-    - docker build -t "$ECR_REGISTRY/socialflow/frontend:latest" ./frontend/
+    - >
+      docker build 
+      --build-arg NEXT_PUBLIC_API_URL=https://socialflow.io.vn 
+      --build-arg NEXT_PUBLIC_FACEBOOK_APP_ID=$FACEBOOK_APP_ID 
+      --build-arg NEXT_PUBLIC_UNSPLASH_APP_ID=$UNSPLASH_APP_ID 
+      --build-arg NEXT_PUBLIC_UNSPLASH_ACCESS_KEY=$UNSPLASH_ACCESS_KEY 
+      -t "$ECR_REGISTRY/socialflow/frontend:latest" ./frontend/
     - docker push "$ECR_REGISTRY/socialflow/frontend:latest"
 
 build_ai_service:
