@@ -32,6 +32,11 @@ exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "--- Starting Initialization ---"
 
+# Tao RAM ao (Swap) 4GB de ho tro chay nhieu pod tren t3.small
+echo "Creating 4GB Swap file..."
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
 # Wait for apt lock
 until apt-get update -y; do
     echo "Waiting for apt lock..."
@@ -53,10 +58,10 @@ unzip awscliv2.zip
 ./aws/install
 rm -rf awscliv2.zip aws
 
-# Install K3s
+# Install K3s (Enabled Traefik and ServiceLB for Ingress support)
 echo "Installing K3s..."
 export K3S_KUBECONFIG_MODE="644"
-curl -sfL https://get.k3s.io | sh -s - --disable servicelb
+curl -sfL https://get.k3s.io | sh -s - 
 
 # Configure kubectl for ubuntu user
 mkdir -p /home/ubuntu/.kube
@@ -78,6 +83,6 @@ EOF
   }
 
   tags = {
-    Name = "socialflow-ec2"
+    Name = "socialflow-ec2-optimized"
   }
 }
