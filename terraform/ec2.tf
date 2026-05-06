@@ -39,7 +39,13 @@ resource "aws_instance" "main" {
               unzip awscliv2.zip
               ./aws/install
 
-              # 5. Prepare project directory
+              # 5. Install K3s (Stopped by default)
+              export K3S_KUBECONFIG_MODE="644"
+              curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+              systemctl stop k3s
+              systemctl disable k3s
+
+              # 6. Prepare project directory
               mkdir -p /home/ubuntu/socialflow
               chown -R ubuntu:ubuntu /home/ubuntu/socialflow
               EOF

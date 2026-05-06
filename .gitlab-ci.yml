@@ -3,6 +3,7 @@ stages:
   - deploy
 
 variables:
+  DEPLOY_TARGET: "compose" # Thay đổi thành "k8s" nếu bạn muốn dùng Kubernetes
   ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 .build_template: &build_template
@@ -62,6 +63,7 @@ deploy_production:
     - export SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20"
   script:
     - |
+      echo "[CI] Deploy Target is $DEPLOY_TARGET"
       echo "[CI] Preparing .env file for Docker Compose..."
       cat <<EOF > .env
       AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}
@@ -86,28 +88,88 @@ deploy_production:
       NEXT_PUBLIC_API_URL=https://socialflow.io.vn
       EOF
 
-      echo "[CI] Copying Docker Compose files to EC2..."
-      scp $SSH_OPTS -i ~/.ssh/id_rsa docker-compose.yml nginx.conf .env "$EC2_USER@$EC2_HOST:/home/ubuntu/socialflow/"
+      echo "[CI] Securing K8s manifests with environment variables..."
+      sed -i "s|__AWS_ACCOUNT_ID__|${AWS_ACCOUNT_ID}|g" k8s/*.yaml
+      sed -i "s|__AWS_REGION__|${AWS_REGION}|g" k8s/*.yaml
+      sed -i "s|__POSTGRES_PASSWORD__|${SPRING_DATASOURCE_PASSWORD}|g" k8s/*.yaml
+      sed -i "s|__JWT_SECRET__|${JWT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__RAPIDAPI_KEY__|${RAPIDAPI_KEY}|g" k8s/*.yaml
+      sed -i "s|__SERPAPI_KEY__|${SERPAPI_KEY}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_CLIENT_ID__|${FACEBOOK_CLIENT_ID}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_CLIENT_SECRET__|${FACEBOOK_CLIENT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__LINKEDIN_CLIENT_ID__|${LINKEDIN_CLIENT_ID}|g" k8s/*.yaml
+      sed -i "s|__LINKEDIN_CLIENT_SECRET__|${LINKEDIN_CLIENT_SECRET}|g" k8s/*.yaml
+      sed -i "s|__WEBHOOK_VERIFY_TOKEN__|${WEBHOOK_VERIFY_TOKEN}|g" k8s/*.yaml
+      sed -i "s|__GROQ_API_KEY__|${GROQ_API_KEY}|g" k8s/*.yaml
+      sed -i "s|__OPENROUTER_API_KEY__|${OPENROUTER_API_KEY}|g" k8s/*.yaml
+      sed -i "s|__PIXAZO_API_KEY__|${PIXAZO_API_KEY}|g" k8s/*.yaml
+      sed -i "s|__UNSPLASH_APP_ID__|${UNSPLASH_APP_ID}|g" k8s/*.yaml
+      sed -i "s|__UNSPLASH_ACCESS_KEY__|${UNSPLASH_ACCESS_KEY}|g" k8s/*.yaml
+      sed -i "s|__UNSPLASH_SECRET_KEY__|${UNSPLASH_SECRET_KEY}|g" k8s/*.yaml
+      sed -i "s|__FACEBOOK_APP_ID__|${FACEBOOK_APP_ID}|g" k8s/*.yaml
 
-      echo "[CI] Executing remote deployment with Docker Compose..."
-      # Lay Token ngay tai may GitLab Runner
+      echo "[CI] Copying files to EC2..."
+      scp $SSH_OPTS -i ~/.ssh/id_rsa docker-compose.yml nginx.conf .env "$EC2_USER@$EC2_HOST:/home/ubuntu/socialflow/"
+      scp $SSH_OPTS -i ~/.ssh/id_rsa -r k8s "$EC2_USER@$EC2_HOST:/tmp/socialflow-k8s"
+
+      echo "[CI] Executing remote deployment..."
       ECR_PASS=$(aws ecr get-login-password --region $AWS_REGION)
 
       ssh $SSH_OPTS -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
         set -euxo pipefail
-        cd /home/ubuntu/socialflow
         
-        # Dung Token duoc truyen tu GitLab sang de Login
-        echo '$ECR_PASS' | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-        
-        # Stop and remove old containers to save RAM
-        docker compose down || true
-        
-        # Pull and Start
-        docker compose pull
-        docker compose up -d
-        
-        echo '✓ Deployment successful with Docker Compose!'
+        if [ \"$DEPLOY_TARGET\" = \"compose\" ]; then
+            echo '===== DEPLOYING WITH DOCKER COMPOSE ====='
+            # 1. Tat K3s (Neu dang chay)
+            sudo systemctl stop k3s || true
+            sudo systemctl disable k3s || true
+            
+            # 2. Deploy
+            cd /home/ubuntu/socialflow
+            echo '$ECR_PASS' | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+            docker compose down || true
+            docker compose pull
+            docker compose up -d
+            echo '✓ Deployment successful with Docker Compose!'
+            
+        else
+            echo '===== DEPLOYING WITH KUBERNETES (K3S) ====='
+            # 1. Tat Docker Compose (Neu dang chay)
+            cd /home/ubuntu/socialflow
+            docker compose down || true
+            
+            # 2. Bat K3s
+            sudo systemctl enable k3s || true
+            sudo systemctl start k3s || true
+            
+            # Doi K3s len
+            K3S_BIN=\"/usr/local/bin/k3s\"
+            echo 'Waiting for K3s initialization...'
+            for i in \$(seq 1 30); do
+              if sudo -n \$K3S_BIN kubectl get nodes >/dev/null 2>&1; then break; fi
+              sleep 5
+            done
+            
+            # 3. Deploy
+            sudo -n \$K3S_BIN kubectl create namespace socialflow || true
+            sudo -n \$K3S_BIN kubectl delete secret ecr-regcred --namespace socialflow || true
+            sudo -n \$K3S_BIN kubectl create secret docker-registry ecr-regcred \
+              --docker-server=${ECR_REGISTRY} \
+              --docker-username=AWS \
+              --docker-password='$ECR_PASS' \
+              --namespace socialflow
+              
+            sudo -n rm -rf /opt/socialflow/k8s
+            sudo -n mkdir -p /opt/socialflow
+            sudo -n mv /tmp/socialflow-k8s /opt/socialflow/k8s
+            
+            sudo -n \$K3S_BIN kubectl apply -f /opt/socialflow/k8s/01-namespace.yaml
+            for manifest in /opt/socialflow/k8s/*.yaml; do
+              [ \"\$manifest\" = '/opt/socialflow/k8s/01-namespace.yaml' ] && continue
+              sudo -n \$K3S_BIN kubectl apply -f \"\$manifest\"
+            done
+            echo '✓ Deployment successful with Kubernetes!'
+        fi
       "
   environment:
     name: production
