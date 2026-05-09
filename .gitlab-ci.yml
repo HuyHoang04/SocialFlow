@@ -126,6 +126,17 @@ deploy_production:
             
             # 2. Deploy
             cd /home/ubuntu/socialflow
+            
+            # Tao SSL Certificate tu dong de Nginx hoat dong tren port 443
+            mkdir -p /home/ubuntu/socialflow/certs
+            if [ ! -f /home/ubuntu/socialflow/certs/cert.pem ]; then
+              echo "Generating self-signed SSL certificate..."
+              openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /home/ubuntu/socialflow/certs/key.pem \
+                -out /home/ubuntu/socialflow/certs/cert.pem \
+                -subj "/C=VN/ST=HCM/L=HCM/O=SocialFlow/CN=socialflow.io.vn"
+            fi
+            
             echo '$ECR_PASS' | docker login --username AWS --password-stdin ${ECR_REGISTRY}
             docker compose down || true
             docker compose pull
