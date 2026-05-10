@@ -24,6 +24,10 @@ public class Post {
     @JoinColumn(name = "campaign_id")
     private Campaign campaign;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id", nullable = true)
+    private User createdBy;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PostStatus status;
@@ -47,6 +51,10 @@ public class Post {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PublishResult> publishResults = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PostApproval> approvals = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

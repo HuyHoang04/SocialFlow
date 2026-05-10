@@ -283,13 +283,45 @@ function CreatePostContent() {
     const [libraryAssets, setLibraryAssets] = useState<any[]>([]);
     const [loadingLibrary, setLoadingLibrary] = useState(false);
 
+    // Approval workflow state
+    const [workflowConfig, setWorkflowConfig] = useState<{ enabled: boolean; approvalLevels: number } | null>(null);
+    const [teamMembers, setTeamMembers] = useState<Array<{ userId: string; name: string; email: string; role: string }>>([]);
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [selectedApprover, setSelectedApprover] = useState<string | null>(null);
+    const [loadingWorkflow, setLoadingWorkflow] = useState(false);
+
     useEffect(() => {
         if (!brand) return;
         setLoading(true);
+        setLoadingWorkflow(true);
+        
         Promise.all([
             api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
             api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); }),
-        ]).finally(() => setLoading(false));
+            // Load workflow config
+            api.getWorkflowConfig(brand.id).then(config => { 
+                setWorkflowConfig(config); 
+                // Load team members only if workflow enabled
+                if (config?.enabled) {
+                    return api.getTeamMembers(brand.id).then(members => {
+                        // Filter to MANAGER and ADMIN roles (who can approve)
+                        const approvers = members.filter((m: any) => m.role === 'MANAGER' || m.role === 'ADMIN');
+                        setTeamMembers(approvers);
+                        // Auto-select first approver if available
+                        if (approvers.length > 0) {
+                            setSelectedApprover(approvers[0].userId);
+                        }
+                    });
+                }
+            }).catch((err: any) => {
+                console.warn('Failed to load workflow config:', err);
+                // Workflow config might not exist yet, that's ok
+                setWorkflowConfig(null);
+            }),
+        ]).finally(() => {
+            setLoading(false);
+            setLoadingWorkflow(false);
+        });
     }, [brand]);
 
     // Load post data if editing
@@ -735,10 +767,24 @@ function CreatePostContent() {
         handleFileUpload(e.dataTransfer.files);
     };
 
-    // ===== Publish/Schedule/Draft =====
+    // ===== Publish/Schedule/Draft/Submit for Approval =====
     const handleSubmit = async () => {
         if (!content.trim()) return setError('Please enter post content');
         if (selectedPages.length === 0) return setError('Please select at least one page');
+
+        // Check if approval workflow is enabled and not scheduled
+        const needsApproval = workflowConfig?.enabled && !scheduledTime;
+        
+        // If approval needed and no approver selected, show modal
+        if (needsApproval && !selectedApprover) {
+            setShowApprovalModal(true);
+            return;
+        }
+
+        // If approval needed but no approvers available
+        if (needsApproval && teamMembers.length === 0) {
+            return setError('No team members available for approval. Add team members first.');
+        }
 
         let ISOStringTime = undefined;
         if (scheduledTime) {
@@ -756,29 +802,46 @@ function CreatePostContent() {
                 mediaFilenames: mediaFiles.map(m => m.filename),
                 scheduledTime: ISOStringTime,
                 campaignId: selectedCampaign || undefined,
-                platformContent // Include platform-specific content
+                platformContent
             };
 
             if (isEditingPost && editingPostId) {
                 // Update existing draft
                 await api.updatePost(editingPostId, postData);
 
-                // If not scheduled, publish immediately
-                if (!ISOStringTime) {
+                // Handle publish vs approval workflow
+                if (needsApproval) {
+                    // Submit for approval
+                    await api.submitForApproval(editingPostId, selectedApprover!);
+                } else if (!ISOStringTime) {
+                    // Direct publish (no schedule, no approval)
                     await api.publishPost(editingPostId);
                 }
+                // If scheduled, just save and let scheduler handle it later
             } else {
                 // Create new post
                 const posts = await api.createPost(postData);
 
-                // If not scheduled, publish immediately
-                if (!ISOStringTime) {
-                    await Promise.all(posts.map((p: { id: string }) => api.publishPost(p.id)));
+                // Handle publish vs approval workflow for each post
+                if (needsApproval) {
+                    // Submit for approval
+                    await Promise.all(posts.map((p: { id: string }) => 
+                        api.submitForApproval(p.id, selectedApprover!)
+                    ));
+                } else if (!ISOStringTime) {
+                    // Direct publish (no schedule, no approval)
+                    await Promise.all(posts.map((p: { id: string }) => 
+                        api.publishPost(p.id)
+                    ));
                 }
+                // If scheduled, just save and let scheduler handle it later
             }
+            
+            setShowApprovalModal(false);
             router.push('/dashboard');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Publish failed');
+            const errorMsg = err instanceof Error ? err.message : 'Operation failed';
+            setError(errorMsg);
         } finally {
             setPublishing(false);
         }
@@ -819,7 +882,14 @@ function CreatePostContent() {
             <div className="create-page-container">
                 {/* Header with title and action buttons */}
                 <div className="create-header">
-                    <h1 className="create-title">{isEditingPost ? 'Edit Draft' : 'Create Post'}</h1>
+                    <div style={{ flex: 1 }}>
+                        <h1 className="create-title">{isEditingPost ? 'Edit Draft' : 'Create Post'}</h1>
+                        {workflowConfig?.enabled && (
+                            <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span>✓</span> Post will require approval before publishing
+                            </div>
+                        )}
+                    </div>
                     <div className="create-actions">
                         <button
                             className="btn-action save"
@@ -828,22 +898,112 @@ function CreatePostContent() {
                         >
                             <IconSave size={14} /> {isEditingPost ? 'Update Draft' : 'Save Draft'}
                         </button>
-                        <button
-                            className="btn-action publish"
-                            onClick={handleSubmit}
-                            disabled={publishing || !content.trim() || selectedPages.length === 0}
-                        >
-                            {publishing ? (
-                                scheduledTime ? <><IconClock size={14} /> Scheduling...</> : <><IconSend size={14} /> Publishing...</>
-                            ) : (
-                                scheduledTime ? <><IconClock size={14} /> Schedule</> : <><IconSend size={14} /> Publish</>
-                            )}
-                        </button>
+                        
+                        {/* Conditional button based on workflow */}
+                        {workflowConfig?.enabled ? (
+                            // Approval workflow enabled - show "Submit for Approval"
+                            <>
+                                <button
+                                    className="btn-action submit-approval"
+                                    onClick={handleSubmit}
+                                    disabled={publishing || !content.trim() || selectedPages.length === 0 || teamMembers.length === 0 || !!scheduledTime}
+                                    title={scheduledTime ? "Cannot submit scheduled posts for approval" : ""}
+                                >
+                                    {publishing ? (
+                                        <><IconSend size={14} /> Submitting...</>
+                                    ) : (
+                                        <><IconSend size={14} /> Submit for Approval</>
+                                    )}
+                                </button>
+                                {scheduledTime && (
+                                    <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>
+                                        Note: Cannot schedule posts that require approval
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            // No approval workflow - show "Publish" / "Schedule"
+                            <button
+                                className="btn-action publish"
+                                onClick={handleSubmit}
+                                disabled={publishing || !content.trim() || selectedPages.length === 0}
+                            >
+                                {publishing ? (
+                                    scheduledTime ? <><IconClock size={14} /> Scheduling...</> : <><IconSend size={14} /> Publishing...</>
+                                ) : (
+                                    scheduledTime ? <><IconClock size={14} /> Schedule</> : <><IconSend size={14} /> Publish</>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
 
                 {/* Error alert */}
                 {error && <div className="error-alert">{error}</div>}
+
+                {/* Approval Selection Modal */}
+                {showApprovalModal && (
+                    <div className="approval-modal-overlay" onClick={() => setShowApprovalModal(false)}>
+                        <div className="approval-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="approval-modal-header">
+                                <h2>Select Approver</h2>
+                                <button 
+                                    onClick={() => setShowApprovalModal(false)}
+                                    style={{ background: 'none', border: 'none', font: 'inherit', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <div className="approval-modal-body">
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+                                    Select a team member to review your post before publishing:
+                                </p>
+                                {teamMembers.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 20 }}>
+                                        <p>No team members available for approval</p>
+                                    </div>
+                                ) : (
+                                    <div className="approver-list">
+                                        {teamMembers.map((member) => (
+                                            <div 
+                                                key={member.userId}
+                                                className={`approver-option ${selectedApprover === member.userId ? 'selected' : ''}`}
+                                                onClick={() => setSelectedApprover(member.userId)}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                                                    <div className="approver-avatar">{member.name.charAt(0).toUpperCase()}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{member.name}</div>
+                                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{member.email}</div>
+                                                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{member.role}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="approver-radio">
+                                                    {selectedApprover === member.userId && <span>✓</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="approval-modal-footer">
+                                <button 
+                                    className="btn-secondary"
+                                    onClick={() => setShowApprovalModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    className="btn-primary"
+                                    onClick={handleSubmit}
+                                    disabled={!selectedApprover}
+                                >
+                                    Submit for Approval
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Main content grid - Left: Editor, Right: Preview */}
                 <div className="create-main-grid">
@@ -1080,6 +1240,38 @@ function CreatePostContent() {
                                         <option style={{ color: "black" }} value="">No Campaign</option>
                                         {campaigns.map(c => (
                                             <option style={{ color: "black" }} key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {workflowConfig?.enabled && (
+                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
+                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>
+                                        Approver
+                                    </label>
+                                    <select
+                                        value={selectedApprover || ''}
+                                        onChange={e => setSelectedApprover(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 12px',
+                                            fontSize: 12,
+                                            border: '1px solid var(--border)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: 'var(--bg-glass)',
+                                            color: 'var(--text-primary)',
+                                            fontFamily: 'inherit',
+                                        }}
+                                        disabled={teamMembers.length === 0}
+                                    >
+                                        <option style={{ color: "black" }} value="" disabled>
+                                            {teamMembers.length === 0 ? 'No approvers available' : 'Select an approver'}
+                                        </option>
+                                        {teamMembers.map(m => (
+                                            <option style={{ color: "black" }} key={m.userId} value={m.userId}>
+                                                {m.name} ({m.role})
+                                            </option>
                                         ))}
                                     </select>
                                 </div>

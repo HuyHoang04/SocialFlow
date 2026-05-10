@@ -18,9 +18,12 @@ public class PostResponse {
     private LocalDateTime scheduledTime;
     private UUID campaignId;
     private String campaignName;
+    private UUID createdByUserId;
+    private String createdByName;
     private PageInfo page;
     private List<MediaInfo> mediaFiles;
     private List<PublishResultResponse> publishResults;
+    private List<PostApprovalResponse> approvals;  // Approval history
 
     @Data @Builder
     public static class PageInfo {

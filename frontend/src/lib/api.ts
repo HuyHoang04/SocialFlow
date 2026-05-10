@@ -23,6 +23,43 @@ export function isTokenExpired(): boolean {
     }
 }
 
+/**
+ * Get brand roles from JWT token (e.g., { "brandId1": "ADMIN", "brandId2": "MANAGER" })
+ */
+export function getBrandRolesFromToken(): Record<string, string> | null {
+    const token = getToken();
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.brandRoles || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get user's role in a specific brand from token
+ */
+export function getRoleInBrand(brandId: string): string | null {
+    const brandRoles = getBrandRolesFromToken();
+    return brandRoles ? brandRoles[brandId] || null : null;
+}
+
+/**
+ * Check if user is ADMIN in a specific brand from token
+ */
+export function isAdminInBrand(brandId: string): boolean {
+    return getRoleInBrand(brandId) === 'ADMIN';
+}
+
+/**
+ * Check if user is MANAGER or ADMIN in a specific brand (can manage team)
+ */
+export function canManageBrand(brandId: string): boolean {
+    const role = getRoleInBrand(brandId);
+    return role === 'ADMIN' || role === 'MANAGER';
+}
+
 export function setToken(token: string) {
     localStorage.setItem('sf_token', token);
 }
@@ -412,4 +449,84 @@ export const api = {
     /** Delete a config by id. */
     deleteTrendingConfig: (id: number) =>
         request(`/trending/config/${id}`, { method: 'DELETE' }),
+
+    // ============= TEAM & RBAC ENDPOINTS =============
+
+    // Team Members
+    getTeamMembers: (brandId: string) =>
+        request(`/brands/${brandId}/team`),
+
+    addTeamMember: (brandId: string, email: string, role: string) =>
+        request(`/brands/${brandId}/team`, {
+            method: 'POST',
+            body: JSON.stringify({ email, role })
+        }),
+
+    updateTeamMemberRole: (brandId: string, userId: string, role: string) =>
+        request(`/brands/${brandId}/team/${userId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role })
+        }),
+
+    removeTeamMember: (brandId: string, userId: string) =>
+        request(`/brands/${brandId}/team/${userId}`, { method: 'DELETE' }),
+
+    // Invitations
+    createInvitation: (brandId: string, email: string, role: string) =>
+        request(`/brands/${brandId}/invitations`, {
+            method: 'POST',
+            body: JSON.stringify({ email, role })
+        }),
+
+    getPendingInvitations: (brandId: string) =>
+        request(`/brands/${brandId}/invitations`),
+
+    getInvitationByToken: (token: string) =>
+        request(`/invitations/token/${token}`),
+
+    acceptInvitation: (token: string) =>
+        request(`/invitations/token/${token}/accept`, {
+            method: 'POST',
+            body: JSON.stringify({})
+        }),
+
+    cancelInvitation: (invitationId: string) =>
+        request(`/invitations/${invitationId}`, { method: 'DELETE' }),
+
+    // Approval Workflow
+    getWorkflowConfig: (brandId: string) =>
+        request(`/brands/${brandId}/workflow-config`),
+
+    updateWorkflowConfig: (brandId: string, enabled: boolean, approvalLevels: number) =>
+        request(`/brands/${brandId}/workflow-config`, {
+            method: 'PUT',
+            body: JSON.stringify({ enabled, approvalLevels })
+        }),
+
+    submitForApproval: (postId: string, assignedToUserId: string) =>
+        request(`/posts/${postId}/submit-approval`, {
+            method: 'POST',
+            body: JSON.stringify({ assignedToUserId })
+        }),
+
+    getPendingApprovals: (userId: string, brandId: string) =>
+        request(`/approvals/user/${userId}/brand/${brandId}`),
+
+    getAllApprovals: (userId: string, brandId: string) =>
+        request(`/approvals/user/${userId}/brand/${brandId}/kanban`),
+
+    getPostApprovals: (postId: string) =>
+        request(`/approvals/post/${postId}`),
+
+    approvePost: (approvalId: string, comment?: string) =>
+        request(`/approvals/${approvalId}/approve`, {
+            method: 'POST',
+            body: JSON.stringify({ comment })
+        }),
+
+    rejectPost: (approvalId: string, comment: string) =>
+        request(`/approvals/${approvalId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ comment })
+        }),
 };

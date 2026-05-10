@@ -39,6 +39,9 @@ public class PostMedia {
     @Column(nullable = false)
     private int sortOrder;          // ordering within a post
 
+    @Column(nullable = true)
+    private String storageProvider; // "LOCAL", "CLOUDINARY", "S3" (default: LOCAL)
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
@@ -46,6 +49,9 @@ public class PostMedia {
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (storageProvider == null) {
+            storageProvider = "LOCAL";
         }
     }
 }

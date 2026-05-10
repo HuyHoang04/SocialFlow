@@ -10,7 +10,7 @@ import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconLink, IconLogOut, IconZap,
     IconChevronLeft, IconChevronRight, IconFileText, IconMessageCircle, IconSettings,
-    IconSun, IconMoon
+    IconSun, IconMoon, IconUsers, IconCheckCircle
 } from './Icons';
 
 interface SidebarProps {
@@ -42,6 +42,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         { href: '/assets', icon: <IconImage size={20} />, label: 'Media Assets' },
         { href: '/campaigns', icon: <IconTarget size={20} />, label: 'Campaigns' },
         { href: '/ai-hub', icon: <IconZap size={20} />, label: 'AI Hub' },
+        { href: '/team', icon: <IconUsers size={20} />, label: 'Team' },
+        { href: '/approvals', icon: <IconCheckCircle size={20} />, label: 'Approvals' },
         { href: '/settings', icon: <IconSettings size={20} />, label: 'Settings' },
     ];
 

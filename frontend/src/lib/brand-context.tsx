@@ -36,7 +36,29 @@ export function BrandProvider({ children }: { children: ReactNode }) {
                 setSelectedBrand(JSON.parse(saved));
             } catch { /* ignore */ }
         }
-        setLoading(false);
+    }, []);
+
+    // Load brands from API on mount
+    useEffect(() => {
+        const loadBrands = async () => {
+            try {
+                const token = localStorage.getItem('sf_token');
+                if (!token) {
+                    setLoading(false);
+                    return;
+                }
+                const res = await fetch('/api/brands', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setBrands(data);
+                }
+            } catch { /* ignore */ }
+            setLoading(false);
+        };
+
+        loadBrands();
     }, []);
 
     const selectBrand = useCallback((brand: Brand) => {

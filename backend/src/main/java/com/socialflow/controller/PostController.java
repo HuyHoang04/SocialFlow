@@ -2,6 +2,7 @@ package com.socialflow.controller;
 
 import com.socialflow.dto.CreatePostRequest;
 import com.socialflow.dto.PostResponse;
+import com.socialflow.dto.SubmitForApprovalRequest;
 import com.socialflow.model.User;
 import com.socialflow.service.PostService;
 import jakarta.validation.Valid;
@@ -50,9 +51,18 @@ public class PostController {
         return ResponseEntity.ok(postService.publishPost(id));
     }
 
+    @PostMapping("/posts/{id}/submit-approval")
+    public ResponseEntity<Void> submitForApproval(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id,
+            @Valid @RequestBody SubmitForApprovalRequest request) {
+        postService.submitForApproval(id, request.getAssignedToUserId(), user);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/posts/{id}")
-    public ResponseEntity<Void> deletePost(@PathVariable UUID id) {
-        postService.deletePost(id);
+    public ResponseEntity<Void> deletePost(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        postService.deletePost(id, user);
         return ResponseEntity.noContent().build();
     }
 }

@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import BrandSettingsContent from './brand-content';
 import AccountsContent from './accounts-content';
+import WorkflowContent from './workflow-content';
 
 function SettingsContent() {
     const searchParams = useSearchParams();
@@ -19,6 +20,7 @@ function SettingsContent() {
     const tabs = [
         { id: 'brand', label: 'Brand Identity', icon: '👤' },
         { id: 'accounts', label: 'Connected Accounts', icon: '🔗' },
+        { id: 'workflow', label: 'Approval Workflow', icon: '✓' },
     ];
 
     return (
@@ -64,7 +66,9 @@ function SettingsContent() {
             </div>
 
             <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                {activeTab === 'brand' ? <BrandSettingsContent /> : <AccountsContent />}
+                {activeTab === 'brand' && <BrandSettingsContent />}
+                {activeTab === 'accounts' && <AccountsContent />}
+                {activeTab === 'workflow' && <WorkflowContent />}
             </div>
         </div>
     );

@@ -20,7 +20,8 @@ public class PostScheduler {
     private final PostService postService;
 
     // Run every minute
-    @Scheduled(fixedDelay = 60000)
+    // TODO: Re-enable after database migration V4 is applied
+    // @Scheduled(fixedDelay = 60000)
     public void publishScheduledPosts() {
         // Use UTC time to match stored scheduledTime
         LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);

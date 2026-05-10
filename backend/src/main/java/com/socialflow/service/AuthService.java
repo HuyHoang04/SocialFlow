@@ -4,18 +4,31 @@ import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.*;
 import com.socialflow.model.User;
 import com.socialflow.repository.UserRepository;
+import com.socialflow.repository.BrandTeamMemberRepository;
 import com.socialflow.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final BrandTeamMemberRepository brandTeamMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+
+    private Map<String, String> getBrandRolesForUser(User user) {
+        Map<String, String> brandRoles = new HashMap<>();
+        brandTeamMemberRepository.findByUserId(user.getId()).forEach(member -> 
+            brandRoles.put(member.getBrand().getId().toString(), member.getRole().name())
+        );
+        return brandRoles;
+    }
 
     public LoginResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -29,7 +42,8 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail());
+        Map<String, String> brandRoles = getBrandRolesForUser(user);
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), brandRoles);
         return new LoginResponse(token, user.getEmail(), user.getName(), user.getId());
     }
 
@@ -41,7 +55,8 @@ public class AuthService {
             throw new RuntimeException(ErrorMessages.INVALID_CREDENTIALS);
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail());
+        Map<String, String> brandRoles = getBrandRolesForUser(user);
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), brandRoles);
         return new LoginResponse(token, user.getEmail(), user.getName(), user.getId());
     }
 }

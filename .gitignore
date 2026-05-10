@@ -26,3 +26,6 @@ Thumbs.db
 # Node Modules
 node_modules/
 
+# Backend
+backend/target/*
+

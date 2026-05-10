@@ -20,12 +20,14 @@ public class CampaignService {
 
     private final CampaignRepository campaignRepository;
     private final BrandRepository brandRepository;
+    private final BrandTeamService brandTeamService;
 
     public CampaignResponse createCampaign(UUID brandId, UUID userId, CampaignRequest request) {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
-        if (!brand.getUser().getId().equals(userId)) {
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
@@ -45,7 +47,8 @@ public class CampaignService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
-        if (!brand.getUser().getId().equals(userId)) {
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
@@ -58,7 +61,9 @@ public class CampaignService {
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.CAMPAIGN_NOT_FOUND));
 
-        if (!campaign.getBrand().getUser().getId().equals(userId)) {
+        UUID brandId = campaign.getBrand().getId();
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.CAMPAIGN_UNAUTHORIZED);
         }
 

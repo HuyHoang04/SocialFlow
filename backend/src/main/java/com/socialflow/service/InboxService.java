@@ -28,6 +28,7 @@ public class InboxService {
 
     private final InboxMessageRepository inboxRepository;
     private final BrandRepository brandRepository;
+    private final BrandTeamService brandTeamService;
     private final SocialPageRepository pageRepository;
     private final CommentFetcherService commentFetcherService;
     private final FacebookPublisher facebookPublisher;
@@ -37,7 +38,8 @@ public class InboxService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
-        if (!brand.getUser().getId().equals(userId)) {
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
@@ -124,7 +126,8 @@ public class InboxService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
-        if (!brand.getUser().getId().equals(userId)) {
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.BRAND_UNAUTHORIZED);
         }
 
@@ -138,7 +141,9 @@ public class InboxService {
         InboxMessage message = inboxRepository.findById(messageId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
-        if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
+        UUID brandId = message.getPage().getConnection().getBrand().getId();
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 
@@ -178,7 +183,9 @@ public class InboxService {
         InboxMessage message = inboxRepository.findById(messageId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.MESSAGE_NOT_FOUND));
 
-        if (!message.getPage().getConnection().getBrand().getUser().getId().equals(userId)) {
+        UUID brandId = message.getPage().getConnection().getBrand().getId();
+        // Check if user is a team member of this brand
+        if (!brandTeamService.canUserAccessBrand(userId, brandId)) {
             throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
         }
 

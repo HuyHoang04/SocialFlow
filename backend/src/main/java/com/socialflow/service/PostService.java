@@ -2,6 +2,7 @@ package com.socialflow.service;
 
 import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.CreatePostRequest;
+import com.socialflow.dto.PostApprovalResponse;
 import com.socialflow.dto.PostResponse;
 import com.socialflow.model.*;
 import com.socialflow.model.enums.PostStatus;
@@ -29,9 +30,24 @@ public class PostService {
     private final PostMediaRepository mediaRepository;
     private final PublisherService publisherService;
     private final CampaignRepository campaignRepository;
+    private final ApprovalWorkflowService approvalWorkflowService;
+    private final PostApprovalRepository postApprovalRepository;
+    private final BrandTeamMemberRepository brandTeamMemberRepository;
 
     public List<PostResponse> getPostsByUser(User user) {
-        List<Post> posts = postRepository.findByPageConnectionBrandUserIdOrderByCreatedAtDesc(user.getId());
+        // Get all brands where user is a team member
+        List<UUID> brandIds = brandTeamMemberRepository.findByUserId(user.getId())
+                .stream()
+                .map(member -> member.getBrand().getId())
+                .collect(Collectors.toList());
+        
+        // If user is not a member of any brand, return empty list
+        if (brandIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // Get all posts from those brands
+        List<Post> posts = postRepository.findByPageConnectionBrandIdInOrderByCreatedAtDesc(brandIds);
         return posts.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
@@ -76,13 +92,9 @@ public class PostService {
                     .orElseThrow(() -> new RuntimeException(ErrorMessages.PAGE_NOT_FOUND + pageId));
 
             LocalDateTime scheduledTime = null;
-            PostStatus initialStatus = PostStatus.DRAFT;
             if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
                 // Parse as OffsetDateTime and convert to LocalDateTime (UTC)
                 scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
-                if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
-                    initialStatus = PostStatus.SCHEDULED;
-                }
             }
 
             Campaign campaign = null;
@@ -99,7 +111,8 @@ public class PostService {
 
             Post post = Post.builder()
                     .content(postContent)
-                    .status(initialStatus)
+                    .createdBy(currentUser)
+                    .status(PostStatus.DRAFT)
                     .scheduledTime(scheduledTime)
                     .campaign(campaign)
                     .page(page)
@@ -142,6 +155,11 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
 
+        // Check if user is the creator
+        if (!post.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
+        }
+
         // Update content (use platform-specific if available, else fallback to common)
         String postContent = request.getContent();
         if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(post.getPage().getId())) {
@@ -153,15 +171,12 @@ public class PostService {
         if (request.getScheduledTime() != null && !request.getScheduledTime().isBlank()) {
             LocalDateTime scheduledTime = OffsetDateTime.parse(request.getScheduledTime()).toLocalDateTime();
             post.setScheduledTime(scheduledTime);
-            if (scheduledTime.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC))) {
-                post.setStatus(PostStatus.SCHEDULED);
-            } else {
-                post.setStatus(PostStatus.DRAFT);
-            }
         } else {
             post.setScheduledTime(null);
-            post.setStatus(PostStatus.DRAFT);
         }
+        
+        // Always reset to DRAFT when editing
+        post.setStatus(PostStatus.DRAFT);
 
         // Update campaign if provided
         if (request.getCampaignId() != null) {
@@ -211,6 +226,19 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
 
+        // Check if post requires approval and has all required approvals
+        Brand brand = post.getPage().getConnection().getBrand();
+        if (approvalWorkflowService.requiresApprovalForBrand(brand.getId())) {
+            if (!approvalWorkflowService.hasAllApprovalsRequired(postId)) {
+                throw new RuntimeException("Post requires approval before publishing");
+            }
+        }
+
+        // Set scheduled time to now if not already scheduled
+        if (post.getScheduledTime() == null) {
+            post.setScheduledTime(LocalDateTime.now());
+        }
+
         post.setStatus(PostStatus.PUBLISHING);
         postRepository.save(post);
 
@@ -238,8 +266,52 @@ public class PostService {
         return toResponse(post);
     }
 
-    public void deletePost(UUID id) {
+    public void deletePost(UUID id, User user) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
+        
+        // Check if user is the creator
+        if (!post.getCreatedBy().getId().equals(user.getId())) {
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
+        }
+        
         postRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void submitForApproval(UUID postId, UUID assignedToManagerId, User user) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
+
+        // Check if user is the creator
+        if (!post.getCreatedBy().getId().equals(user.getId())) {
+            throw new RuntimeException(ErrorMessages.UNAUTHORIZED);
+        }
+
+        if (!post.getStatus().equals(PostStatus.DRAFT)) {
+            throw new RuntimeException("Only DRAFT posts can be submitted for approval");
+        }
+
+        Brand brand = post.getPage().getConnection().getBrand();
+        approvalWorkflowService.submitForApproval(postId, assignedToManagerId);
+    }
+
+    public List<PostResponse> getPendingApprovalsForUser(UUID userId, UUID brandId) {
+        List<PostApproval> approvals = postApprovalRepository.findByAssignedToId(userId).stream()
+                .filter(a -> a.getPost().getPage().getConnection().getBrand().getId().equals(brandId))
+                .filter(a -> a.getStatus().equals(com.socialflow.model.enums.ApprovalStatus.PENDING))
+                .collect(Collectors.toList());
+
+        return approvals.stream()
+                .map(approval -> toResponse(approval.getPost()))
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    public List<PostResponse> getPostsByStatus(PostStatus status, UUID brandId) {
+        return postRepository.findByStatusAndPageConnectionBrandIdOrderByCreatedAtDesc(status, brandId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -277,6 +349,7 @@ public class PostService {
 
         Post post = Post.builder()
                 .content(content)
+                .createdBy(uploader)
                 .status(PostStatus.DRAFT)
                 .campaign(campaign)
                 .scheduledTime(parsedScheduledTime)
@@ -310,6 +383,25 @@ public class PostService {
         SocialPage page = post.getPage();
         SocialConnection conn = page.getConnection();
 
+        // Build approvals list
+        List<PostApprovalResponse> approvalResponses = new ArrayList<>();
+        if (post.getApprovals() != null) {
+            for (PostApproval approval : post.getApprovals()) {
+                approvalResponses.add(PostApprovalResponse.builder()
+                        .id(approval.getId())
+                        .postId(approval.getPost().getId())
+                        .assignedToUserId(approval.getAssignedTo().getId())
+                        .assignedToName(approval.getAssignedTo().getName())
+                        .assignedToEmail(approval.getAssignedTo().getEmail())
+                        .approvalLevel(approval.getApprovalLevel())
+                        .status(approval.getStatus())
+                        .createdAt(approval.getCreatedAt())
+                        .comment(approval.getComment())
+                        .approvedAt(approval.getApprovedAt())
+                        .build());
+            }
+        }
+
         return PostResponse.builder()
                 .id(post.getId())
                 .content(post.getContent())
@@ -319,6 +411,8 @@ public class PostService {
                 .scheduledTime(post.getScheduledTime())
                 .campaignId(post.getCampaign() != null ? post.getCampaign().getId() : null)
                 .campaignName(post.getCampaign() != null ? post.getCampaign().getName() : null)
+                .createdByUserId(post.getCreatedBy() != null ? post.getCreatedBy().getId() : null)
+                .createdByName(post.getCreatedBy() != null ? post.getCreatedBy().getName() : null)
                 .page(PostResponse.PageInfo.builder()
                         .id(page.getId())
                         .pageName(page.getPageName())
@@ -343,6 +437,7 @@ public class PostService {
                                 .createdAt(r.getCreatedAt())
                                 .build())
                         .collect(Collectors.toList()))
+                .approvals(approvalResponses)
                 .build();
     }
 }
