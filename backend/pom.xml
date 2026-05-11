@@ -115,6 +115,13 @@
             <version>2.3.0</version>
         </dependency>
 
+        <!-- Cloudinary SDK for cloud image hosting -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http45</artifactId>
+            <version>1.38.0</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

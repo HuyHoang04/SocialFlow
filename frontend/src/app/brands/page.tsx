@@ -169,9 +169,16 @@ export default function BrandsPage() {
                                         }} />
                                         <div className="brand-card-content">
                                             <div className="brand-card-avatar" style={{
-                                                background: `linear-gradient(135deg, ${color1}, ${color2})`
+                                                background: brand.logoUrl ? 'transparent' : `linear-gradient(135deg, ${color1}, ${color2})`,
+                                                overflow: 'hidden'
                                             }}>
-                                                {getInitials(brand.name)}
+                                                {brand.logoUrl ? (
+                                                    <img src={brand.logoUrl} alt={brand.name} style={{
+                                                        width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit'
+                                                    }} />
+                                                ) : (
+                                                    getInitials(brand.name)
+                                                )}
                                             </div>
                                             <h3 className="brand-card-name">{brand.name}</h3>
                                             <p className="brand-card-meta">

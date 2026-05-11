@@ -68,14 +68,21 @@ export function removeToken() {
     localStorage.removeItem('sf_token');
 }
 
-export function getUser(): { email: string; name: string; userId: string } | null {
+export function getUser(): { email: string; name: string; userId: string; avatarUrl?: string } | null {
     if (typeof window === 'undefined') return null;
     const raw = localStorage.getItem('sf_user');
     return raw ? JSON.parse(raw) : null;
 }
 
-export function setUser(user: { email: string; name: string; userId: string }) {
+export function setUser(user: { email: string; name: string; userId: string; avatarUrl?: string }) {
     localStorage.setItem('sf_user', JSON.stringify(user));
+}
+
+export function updateUserAvatar(avatarUrl: string | null) {
+    const user = getUser();
+    if (user) {
+        setUser({ ...user, avatarUrl: avatarUrl || undefined });
+    }
 }
 
 export function logout() {
@@ -529,4 +536,44 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ comment })
         }),
+
+    // ============= USER PROFILE ENDPOINTS =============
+
+    getUserProfile: () => request('/users/profile'),
+
+    updateUserProfile: (data: { name: string }) =>
+        request('/users/profile', { method: 'PUT', body: JSON.stringify(data) }),
+
+    uploadUserAvatar: async (file: File) => {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE}/users/avatar`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+        });
+        await handleFetchResponse(res);
+        return res.json();
+    },
+
+    deleteUserAvatar: () => request('/users/avatar', { method: 'DELETE' }),
+
+    // ============= BRAND LOGO ENDPOINTS =============
+
+    uploadBrandLogo: async (brandId: string, file: File) => {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE}/brands/${brandId}/logo`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+        });
+        await handleFetchResponse(res);
+        return res.json();
+    },
+
+    deleteBrandLogo: (brandId: string) =>
+        request(`/brands/${brandId}/logo`, { method: 'DELETE' }),
 };

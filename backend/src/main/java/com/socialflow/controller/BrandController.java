@@ -10,12 +10,15 @@ import com.socialflow.service.BrandService;
 import com.socialflow.service.BrandTeamService;
 import com.socialflow.service.UserInvitationService;
 import com.socialflow.service.ApprovalWorkflowService;
+import com.socialflow.service.CloudinaryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,7 @@ public class BrandController {
     private final BrandTeamService brandTeamService;
     private final UserInvitationService userInvitationService;
     private final ApprovalWorkflowService approvalWorkflowService;
+    private final CloudinaryService cloudinaryService;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getBrands(@AuthenticationPrincipal User user) {
@@ -58,6 +62,45 @@ public class BrandController {
             @Valid @RequestBody CreateBrandRequest request) {
         Brand brand = brandService.updateBrand(id, user, request);
         return ResponseEntity.ok(toMap(brand));
+    }
+
+    /**
+     * Upload brand logo to Cloudinary.
+     */
+    @PostMapping("/{id}/logo")
+    public ResponseEntity<Map<String, Object>> uploadBrandLogo(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.MANAGER)) {
+            throw new RuntimeException("Only brand ADMIN or MANAGER can update the logo");
+        }
+        if (file.isEmpty()) {
+            throw new RuntimeException("File is empty");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new RuntimeException("Only image files are allowed");
+        }
+
+        String logoUrl = cloudinaryService.uploadBrandLogo(file, id.toString());
+        Brand brand = brandService.updateBrandLogo(id, logoUrl);
+        return ResponseEntity.ok(toMap(brand));
+    }
+
+    /**
+     * Delete brand logo.
+     */
+    @DeleteMapping("/{id}/logo")
+    public ResponseEntity<Map<String, String>> deleteBrandLogo(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id) {
+        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.MANAGER)) {
+            throw new RuntimeException("Only brand ADMIN or MANAGER can delete the logo");
+        }
+        brandService.removeBrandLogo(id);
+        cloudinaryService.deleteBrandLogo(id.toString());
+        return ResponseEntity.ok(Map.of("message", "Brand logo deleted"));
     }
 
     // Team Management Endpoints
