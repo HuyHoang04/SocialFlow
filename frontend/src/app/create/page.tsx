@@ -289,11 +289,24 @@ function CreatePostContent() {
     const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [selectedApprover, setSelectedApprover] = useState<string | null>(null);
     const [loadingWorkflow, setLoadingWorkflow] = useState(false);
+    const [isCurrentUserAdminOrManager, setIsCurrentUserAdminOrManager] = useState(false);
 
     useEffect(() => {
         if (!brand) return;
         setLoading(true);
         setLoadingWorkflow(true);
+        
+        // Decode token to get current user ID
+        const token = typeof window !== 'undefined' ? localStorage.getItem('sf_token') : null;
+        let currentUserId: string | null = null;
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                currentUserId = payload.sub || payload.userId || payload.id;
+            } catch (e) {
+                console.error('Failed to decode token:', e);
+            }
+        }
         
         Promise.all([
             api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
@@ -301,9 +314,26 @@ function CreatePostContent() {
             // Load workflow config
             api.getWorkflowConfig(brand.id).then(config => { 
                 setWorkflowConfig(config); 
-                // Load team members only if workflow enabled
-                if (config?.enabled) {
-                    return api.getTeamMembers(brand.id).then(members => {
+                
+                // Always load team members to check role, even if workflow disabled
+                return api.getTeamMembers(brand.id).then(members => {
+                    console.log('Decoded currentUserId:', currentUserId);
+                    console.log('Team members from API:', members.map((m: any) => ({ userId: m.userId, role: m.role })));
+                    
+                    // Find current user's role
+                    if (currentUserId) {
+                        const currentUserMember = members.find((m: any) => m.email === currentUserId || m.userId === currentUserId);
+                        if (currentUserMember) {
+                            const role = currentUserMember.role;
+                            const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
+                            setIsCurrentUserAdminOrManager(isPrivileged);
+                            console.log(`Current user role: ${role}, isPrivileged: ${isPrivileged}`);
+                        } else {
+                            console.log('Current user not found in team members list!');
+                        }
+                    }
+
+                    if (config?.enabled) {
                         // Filter to MANAGER and ADMIN roles (who can approve)
                         const approvers = members.filter((m: any) => m.role === 'MANAGER' || m.role === 'ADMIN');
                         setTeamMembers(approvers);
@@ -311,10 +341,10 @@ function CreatePostContent() {
                         if (approvers.length > 0) {
                             setSelectedApprover(approvers[0].userId);
                         }
-                    });
-                }
+                    }
+                });
             }).catch((err: any) => {
-                console.warn('Failed to load workflow config:', err);
+                console.warn('Failed to load workflow config or team members:', err);
                 // Workflow config might not exist yet, that's ok
                 setWorkflowConfig(null);
             }),
@@ -900,7 +930,7 @@ function CreatePostContent() {
                         </button>
                         
                         {/* Conditional button based on workflow */}
-                        {workflowConfig?.enabled ? (
+                        {workflowConfig?.enabled && !isCurrentUserAdminOrManager ? (
                             // Approval workflow enabled - show "Submit for Approval"
                             <>
                                 <button

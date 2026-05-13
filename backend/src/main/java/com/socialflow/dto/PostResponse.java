@@ -31,6 +31,7 @@ public class PostResponse {
         private String pageName;
         private PlatformType platform;
         private String brandName;
+        private UUID brandId;
     }
 
     @Data @Builder

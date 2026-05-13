@@ -52,8 +52,8 @@ public class PostController {
     }
 
     @PostMapping("/posts/{id}/publish")
-    public ResponseEntity<PostResponse> publishPost(@PathVariable UUID id) {
-        return ResponseEntity.ok(postService.publishPost(id));
+    public ResponseEntity<PostResponse> publishPost(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(postService.publishPost(id, user));
     }
 
     @PostMapping("/posts/{id}/submit-approval")

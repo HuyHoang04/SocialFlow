@@ -65,6 +65,22 @@ public class CloudinaryService {
     }
 
     /**
+     * Upload a general media file (image or video) to Cloudinary.
+     */
+    public String uploadMedia(MultipartFile file, String folder) throws IOException {
+        Map<String, Object> params = com.cloudinary.utils.ObjectUtils.asMap(
+                "folder", folder,
+                "overwrite", true,
+                "resource_type", "auto"
+        );
+
+        Map<String, Object> result = cloudinary.uploader().upload(file.getBytes(), params);
+        String secureUrl = (String) result.get("secure_url");
+        log.info("☁️ Uploaded media to Cloudinary: folder={}, url={}", folder, secureUrl);
+        return secureUrl;
+    }
+
+    /**
      * Upload an avatar image (square crop, optimized).
      */
     public String uploadAvatar(MultipartFile file, String userId) throws IOException {

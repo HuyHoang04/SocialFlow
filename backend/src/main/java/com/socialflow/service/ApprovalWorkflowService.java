@@ -55,10 +55,6 @@ public class ApprovalWorkflowService {
      */
     @Transactional
     public ApprovalWorkflowConfig updateWorkflowConfig(UUID brandId, boolean enabled, int approvalLevels) {
-        if (approvalLevels < 1 || approvalLevels > 2) {
-            throw new RuntimeException("Approval levels must be 1 or 2");
-        }
-
         ApprovalWorkflowConfig config = configRepository.findByBrandId(brandId)
                 .orElseGet(() -> ApprovalWorkflowConfig.builder()
                         .brand(brandRepository.findById(brandId)
@@ -66,9 +62,9 @@ public class ApprovalWorkflowService {
                         .build());
 
         config.setEnabled(enabled);
-        config.setApprovalLevels(approvalLevels);
+        config.setApprovalLevels(1); // Force to 1 level as requested by user
         config = configRepository.save(config);
-        log.info("Updated workflow config for brand {}: enabled={}, levels={}", brandId, enabled, approvalLevels);
+        log.info("Updated workflow config for brand {}: enabled={}, levels=1", brandId, enabled);
         return config;
     }
 

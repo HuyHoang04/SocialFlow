@@ -75,16 +75,28 @@ public class PostService {
             for (int i = 0; i < request.getMediaFilenames().size(); i++) {
                 String filename = request.getMediaFilenames().get(i);
                 
-                // Create media record with current user (files were already saved to disk during upload)
-                PostMedia media = PostMedia.builder()
-                        .filename(filename)
-                        .originalName(filename)  // Can be improved with metadata later
-                        .contentType("image/jpeg")  // Should be passed from frontend
-                        .fileSize(0L)  // Should be tracked from upload
-                        .url("/api/media/" + filename)
-                        .sortOrder(i)
-                        .uploader(currentUser)
-                        .build();
+                // Try to find existing media by filename and uploader (get the latest one)
+                List<com.socialflow.model.PostMedia> existingMediaList = 
+                        mediaRepository.findByFilenameAndUploaderIdCustom(filename, currentUser.getId());
+                
+                com.socialflow.model.PostMedia media;
+                if (!existingMediaList.isEmpty()) {
+                    media = existingMediaList.get(0); // Take the latest upload!
+                    media.setSortOrder(i);
+                    log.info("  ✓ Linked existing media asset {} (ID: {}) to post", filename, media.getId());
+                } else {
+                    // Create new if not found (fallback)
+                    media = com.socialflow.model.PostMedia.builder()
+                            .filename(filename)
+                            .originalName(filename)
+                            .contentType("image/jpeg")
+                            .fileSize(0L)
+                            .url("/api/media/" + filename)
+                            .sortOrder(i)
+                            .uploader(currentUser)
+                            .build();
+                    log.info("  ✓ Created new media record for {} on post", filename);
+                }
                 media = mediaRepository.save(media);
                 mediaFiles.add(media);
             }
@@ -227,14 +239,27 @@ public class PostService {
     }
 
     @Transactional
-    public PostResponse publishPost(UUID postId) {
+    public PostResponse publishPost(UUID postId, User user) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
 
         // Check if post requires approval and has all required approvals
         Brand brand = post.getPage().getConnection().getBrand();
-        if (approvalWorkflowService.requiresApprovalForBrand(brand.getId())) {
-            if (!approvalWorkflowService.hasAllApprovalsRequired(postId)) {
+        
+        // Skip approval checks if user is null (triggered by system/scheduler)
+        if (user != null && approvalWorkflowService.requiresApprovalForBrand(brand.getId())) {
+            // Check if user is Admin or Manager for this brand to bypass approval
+            boolean isPrivilegedUser = false;
+            java.util.Optional<BrandTeamMember> member = brandTeamMemberRepository.findByBrandIdAndUserId(brand.getId(), user.getId());
+            if (member.isPresent()) {
+                com.socialflow.model.enums.UserRole role = member.get().getRole();
+                if (role == com.socialflow.model.enums.UserRole.ADMIN || role == com.socialflow.model.enums.UserRole.MANAGER) {
+                    isPrivilegedUser = true;
+                    log.info("User {} is {} for brand {}, skipping approval check.", user.getId(), role, brand.getId());
+                }
+            }
+
+            if (!isPrivilegedUser && !approvalWorkflowService.hasAllApprovalsRequired(postId)) {
                 throw new RuntimeException("Post requires approval before publishing");
             }
         }
@@ -365,19 +390,34 @@ public class PostService {
         if (mediaFilenames != null && uploader != null) {
             for (int i = 0; i < mediaFilenames.size(); i++) {
                 String filename = mediaFilenames.get(i);
-                PostMedia media = PostMedia.builder()
-                        .post(post)
-                        .uploader(uploader)
-                        .filename(filename)
-                        .originalName("ai_gen_" + i + ".png")
-                        .contentType("image/png")
-                        .url("/api/media/" + filename)
-                        .fileSize(0L)
-                        .sortOrder(i)
-                        .build();
+                
+                // Try to find existing media by filename and uploader (get the latest one, ignore nulls)
+                List<com.socialflow.model.PostMedia> existingMediaList = 
+                        mediaRepository.findByFilenameAndUploaderIdCustom(filename, uploader.getId());
+                
+                com.socialflow.model.PostMedia media;
+                if (!existingMediaList.isEmpty()) {
+                    media = existingMediaList.get(0); // Take the latest upload!
+                    media.setPost(post); // Link to post
+                    media.setSortOrder(i);
+                    log.info("  ✓ Linked existing media asset {} (ID: {}) to draft post {}", filename, media.getId(), post.getId());
+                } else {
+                    // Create new if not found (fallback for AI-generated images or external links)
+                    media = com.socialflow.model.PostMedia.builder()
+                            .post(post)
+                            .uploader(uploader)
+                            .filename(filename)
+                            .originalName("ai_gen_" + i + ".png")
+                            .contentType("image/png")
+                            .url("/api/media/" + filename)
+                            .fileSize(0L)
+                            .sortOrder(i)
+                            .build();
+                    log.info("  ✓ Created new media record for {} on draft post {}", filename, post.getId());
+                }
                 mediaRepository.save(media);
             }
-            log.info("  ✓ Linked {} AI-generated media assets to draft post {}", mediaFilenames.size(), post.getId());
+            log.info("  ✓ Linked {} media assets to draft post {}", mediaFilenames.size(), post.getId());
         }
 
         log.info("✓ AI draft post created via PostService: {}", post.getId());
@@ -423,6 +463,7 @@ public class PostService {
                         .pageName(page.getPageName())
                         .platform(page.getPlatform())
                         .brandName(conn.getBrand().getName())
+                        .brandId(conn.getBrand().getId())
                         .build())
                 .mediaFiles(post.getMediaFiles().stream()
                         .map(m -> PostResponse.MediaInfo.builder()

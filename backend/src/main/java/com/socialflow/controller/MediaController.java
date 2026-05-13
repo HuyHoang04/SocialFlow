@@ -28,6 +28,7 @@ import java.util.*;
 public class MediaController {
 
     private final PostMediaRepository mediaRepository;
+    private final com.socialflow.service.CloudinaryService cloudinaryService;
 
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
@@ -85,45 +86,34 @@ public class MediaController {
             throw new RuntimeException(ErrorMessages.INVALID_FILE_TYPE);
         }
 
-        // Generate unique filename
-        String originalName = file.getOriginalFilename();
-        String extension = "";
-        if (originalName != null && originalName.contains(".")) {
-            extension = originalName.substring(originalName.lastIndexOf('.'));
-        }
-        String filename = UUID.randomUUID() + extension;
-
-        // Save file to disk
-        Path filePath = uploadPath.resolve(filename);
+        // Upload to Cloudinary
         try {
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            log.info("Uploaded file: {} ({}, {} bytes)", filename, contentType, file.getSize());
-        } catch (IOException e) {
-            log.error("Failed to save file: {}", filename, e);
-            throw new RuntimeException("Failed to save file to disk", e);
+            String secureUrl = cloudinaryService.uploadMedia(file, "socialflow/posts");
+            log.info("✓ Uploaded file to Cloudinary: {}", secureUrl);
+
+            PostMedia postMedia = new PostMedia();
+            postMedia.setFilename(file.getOriginalFilename());
+            postMedia.setOriginalName(file.getOriginalFilename());
+            postMedia.setContentType(contentType);
+            postMedia.setFileSize(file.getSize());
+            postMedia.setUrl(secureUrl);
+            postMedia.setUploader(user);
+            
+            PostMedia savedMedia = mediaRepository.save(postMedia);
+            log.info("Saved media metadata to database: id={}", savedMedia.getId());
+
+            return Map.of(
+                    "id", savedMedia.getId().toString(),
+                    "filename", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
+                    "url", secureUrl,
+                    "contentType", contentType,
+                    "originalName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
+                    "fileSize", file.getSize()
+            );
+        } catch (Exception e) {
+            log.error("✗ Failed to upload to Cloudinary: {}", e.getMessage());
+            throw new RuntimeException("Upload to Cloudinary failed: " + e.getMessage());
         }
-
-        // Save to database
-        PostMedia postMedia = new PostMedia();
-        postMedia.setFilename(filename);
-        postMedia.setOriginalName(originalName != null ? originalName : filename);
-        postMedia.setContentType(contentType);
-        postMedia.setFileSize(file.getSize());
-        postMedia.setUrl("/api/media/" + filename);
-        postMedia.setUploader(user);
-        
-        PostMedia savedMedia = mediaRepository.save(postMedia);
-
-        log.info("Saved media metadata to database: id={}", savedMedia.getId());
-
-        return Map.of(
-                "id", savedMedia.getId().toString(),
-                "filename", filename,
-                "url", savedMedia.getUrl(),
-                "contentType", contentType,
-                "originalName", savedMedia.getOriginalName(),
-                "fileSize", savedMedia.getFileSize()
-        );
     }
 
     /**

@@ -19,9 +19,8 @@ public class PostScheduler {
     private final PostRepository postRepository;
     private final PostService postService;
 
-    // Run every minute
-    // TODO: Re-enable after database migration V4 is applied
-    // @Scheduled(fixedDelay = 60000)
+    // Run every minute to check and publish scheduled posts
+    @Scheduled(fixedDelay = 60000)
     public void publishScheduledPosts() {
         // Use UTC time to match stored scheduledTime
         LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
@@ -32,7 +31,7 @@ public class PostScheduler {
             for (Post post : duePosts) {
                 try {
                     log.info("Publishing scheduled post ID: {}", post.getId());
-                    postService.publishPost(post.getId());
+                    postService.publishPost(post.getId(), null);
                 } catch (Exception e) {
                     log.error("Failed to publish scheduled post ID: {}", post.getId(), e);
                 }

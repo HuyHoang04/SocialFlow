@@ -34,7 +34,7 @@ export default function WorkflowContent() {
         setSaving(true);
         setMessage(null);
         try {
-            await api.updateWorkflowConfig(selectedBrand.id, workflowConfig.enabled, workflowConfig.approvalLevels);
+            await api.updateWorkflowConfig(selectedBrand.id, workflowConfig.enabled, 1);
             setMessage({ type: 'success', text: 'Approval workflow settings updated! ✨' });
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Failed to update workflow config' });
@@ -111,44 +111,7 @@ export default function WorkflowContent() {
                             </label>
                         </div>
 
-                        {/* Approval Levels */}
-                        {workflowConfig.enabled && (
-                            <div style={{ paddingLeft: 20, borderLeft: '3px solid var(--primary)' }}>
-                                <label style={{ display: 'block', marginBottom: 16, fontWeight: 500, fontSize: 13, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                                    Approval Levels
-                                </label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {[
-                                        { level: 1, label: 'Single Level', desc: 'Manager/Admin → Publish' },
-                                        { level: 2, label: 'Two Levels', desc: 'Manager → Admin → Publish' }
-                                    ].map(({ level, label, desc }) => (
-                                        <label
-                                            key={level}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-                                                padding: '12px 16px', borderRadius: 'var(--radius)',
-                                                border: `1px solid ${workflowConfig.approvalLevels === level ? 'var(--primary)' : 'var(--border)'}`,
-                                                background: workflowConfig.approvalLevels === level ? 'var(--primary-bg)' : 'transparent',
-                                                transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="approvalLevels"
-                                                value={level}
-                                                checked={workflowConfig.approvalLevels === level}
-                                                onChange={(e) => setWorkflowConfig({ ...workflowConfig, approvalLevels: parseInt(e.target.value) })}
-                                                style={{ cursor: 'pointer', width: 18, height: 18 }}
-                                            />
-                                            <div>
-                                                <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
-                                                <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 8 }}>({desc})</span>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+
 
                         {/* Info Box */}
                         <div style={{

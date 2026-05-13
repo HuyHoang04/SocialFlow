@@ -30,18 +30,72 @@ interface Post {
     publishResults: PublishResult[];
 }
 
+function getMediaUrl(url: string) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+    // Fallback for local uploads (pre-Cloudinary)
+    // Extract filename from path (e.g., "uploads/abc.png" -> "abc.png")
+    const filename = url.split('/').pop();
+    return `http://localhost:8080/api/media/${filename}`;
+}
+
 export default function PostDetailPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isCurrentUserAdminOrManager, setIsCurrentUserAdminOrManager] = useState(false);
+    const [workflowConfig, setWorkflowConfig] = useState<any>(null);
 
     const load = useCallback(async () => {
         try {
             const p = await api.getPost(id);
+            console.log('Post data loaded in detail page:', p);
+            console.log('Media files in post:', p.mediaFiles);
             setPost(p);
-        } catch { router.push('/dashboard'); }
+
+            // Check permissions and workflow if brandId is available
+            const brandId = (p.page as any).brandId;
+            if (brandId) {
+                const token = typeof window !== 'undefined' ? localStorage.getItem('sf_token') : null;
+                let currentUserId: string | null = null;
+                if (token) {
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        currentUserId = payload.sub || payload.userId || payload.id;
+                    } catch (e) {
+                        console.error('Failed to decode token:', e);
+                    }
+                }
+
+                try {
+                    const [config, members] = await Promise.all([
+                        api.getWorkflowConfig(brandId),
+                        api.getTeamMembers(brandId)
+                    ]);
+
+                    setWorkflowConfig(config);
+
+                    if (currentUserId) {
+                        const currentUserMember = members.find((m: any) => m.email === currentUserId || m.userId === currentUserId);
+                        if (currentUserMember) {
+                            const role = currentUserMember.role;
+                            const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
+                            setIsCurrentUserAdminOrManager(isPrivileged);
+                            console.log(`Current user role: ${role}, isPrivileged: ${isPrivileged}`);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Failed to load workflow config or team members:', err);
+                }
+            }
+        } catch (err) { 
+            console.error('Failed to load post:', err);
+            router.push('/dashboard'); 
+        }
         setLoading(false);
     }, [id, router]);
 
@@ -88,12 +142,40 @@ export default function PostDetailPage() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
-                        <button className="btn btn-primary" onClick={publish}><IconSend size={16} /> Publish Now</button>
+                    {/* If workflow enabled and user is NOT Admin/Manager, show Submit for Approval instead of Publish */}
+                    {post.status === 'DRAFT' && workflowConfig?.enabled && !isCurrentUserAdminOrManager ? (
+                        <button className="btn btn-primary" onClick={async () => {
+                            try {
+                                const brandId = (post.page as any).brandId;
+                                const members = await api.getTeamMembers(brandId);
+                                const approver = members.find((m: any) => m.role === 'ADMIN' || m.role === 'MANAGER');
+                                if (approver) {
+                                    await api.submitForApproval(post.id, approver.userId);
+                                    alert('Submitted for approval!');
+                                    load(); // Reload post
+                                } else {
+                                    alert('No Admin or Manager found to assign approval!');
+                                }
+                            } catch (err) {
+                                console.error('Failed to submit for approval:', err);
+                                alert('Failed to submit for approval');
+                            }
+                        }}>
+                            <IconSend size={16} /> Submit for Approval
+                        </button>
+                    ) : (
+                        <>
+                            {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
+                                <button className="btn btn-primary" onClick={publish}><IconSend size={16} /> Publish Now</button>
+                            )}
+                            {post.status === 'FAILED' && (
+                                <button className="btn btn-primary" onClick={publish}><IconRefreshCw size={16} /> Retry</button>
+                            )}
+                        </>
                     )}
-                    {post.status === 'FAILED' && (
-                        <button className="btn btn-primary" onClick={publish}><IconRefreshCw size={16} /> Retry</button>
-                    )}
+                    <button className="btn btn-secondary" onClick={() => router.push(`/create?postId=${post.id}`)}>
+                        Edit
+                    </button>
                     <button className="btn btn-danger" onClick={deletePost}><IconTrash size={16} /> Delete</button>
                 </div>
             </div>
@@ -122,10 +204,10 @@ export default function PostDetailPage() {
                                 border: '1px solid var(--border)',
                             }}>
                                 {m.contentType.startsWith('image/') ? (
-                                    <img src={m.url} alt={m.originalName}
+                                    <img src={getMediaUrl(m.url)} alt={m.originalName}
                                         style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
                                 ) : m.contentType.startsWith('video/') ? (
-                                    <video src={m.url} controls
+                                    <video src={getMediaUrl(m.url)} controls
                                         style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
                                 ) : null}
                                 <div style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-muted)' }}>
