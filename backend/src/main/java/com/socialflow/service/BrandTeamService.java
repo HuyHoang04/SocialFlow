@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -134,5 +136,16 @@ public class BrandTeamService {
     public boolean hasAdminInBrand(UUID brandId) {
         List<BrandTeamMember> members = brandTeamMemberRepository.findByBrandId(brandId);
         return members.stream().anyMatch(m -> m.getRole() == UserRole.ADMIN);
+    }
+
+    /**
+     * Get all brand roles for a user (e.g., { "brandId1": "ADMIN", "brandId2": "MANAGER" })
+     */
+    public Map<String, String> getBrandRolesForUser(UUID userId) {
+        Map<String, String> brandRoles = new HashMap<>();
+        brandTeamMemberRepository.findByUserId(userId).forEach(member ->
+            brandRoles.put(member.getBrand().getId().toString(), member.getRole().name())
+        );
+        return brandRoles;
     }
 }

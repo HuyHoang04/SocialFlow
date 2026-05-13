@@ -1,13 +1,16 @@
 package com.socialflow.controller;
 
+import com.socialflow.constants.ErrorMessages;
 import com.socialflow.dto.*;
 import com.socialflow.model.Brand;
 import com.socialflow.model.BrandTeamMember;
 import com.socialflow.model.ApprovalWorkflowConfig;
 import com.socialflow.model.User;
 import com.socialflow.model.enums.UserRole;
+import com.socialflow.security.JwtUtil;
 import com.socialflow.service.BrandService;
 import com.socialflow.service.BrandTeamService;
+import com.socialflow.service.BrandSuggestionService;
 import com.socialflow.service.UserInvitationService;
 import com.socialflow.service.ApprovalWorkflowService;
 import jakarta.validation.Valid;
@@ -28,6 +31,8 @@ public class BrandController {
     private final BrandTeamService brandTeamService;
     private final UserInvitationService userInvitationService;
     private final ApprovalWorkflowService approvalWorkflowService;
+    private final BrandSuggestionService brandSuggestionService;
+    private final JwtUtil jwtUtil;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getBrands(@AuthenticationPrincipal User user) {
@@ -36,11 +41,36 @@ public class BrandController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createBrand(
+    public ResponseEntity<CreateBrandResponse> createBrand(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CreateBrandRequest request) {
         Brand brand = brandService.createBrand(user, request);
-        return ResponseEntity.ok(toMap(brand));
+        
+        // Get all brand roles for this user (includes the newly created brand with ADMIN role)
+        Map<String, String> brandRoles = brandTeamService.getBrandRolesForUser(user.getId());
+        
+        // Generate new JWT token with updated brand roles
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), brandRoles);
+        
+        // Build response with brand data and new token
+        CreateBrandResponse response = CreateBrandResponse.builder()
+                .id(brand.getId())
+                .name(brand.getName())
+                .description(brand.getDescription())
+                .logoUrl(brand.getLogoUrl())
+                .website(brand.getWebsite())
+                .contactEmail(brand.getContactEmail())
+                .phone(brand.getPhone())
+                .industry(brand.getIndustry())
+                .country(brand.getCountry())
+                .brandSlogan(brand.getBrandSlogan())
+                .primaryColor(brand.getPrimaryColor())
+                .secondaryColor(brand.getSecondaryColor())
+                .connectionCount((long) brand.getConnections().size())
+                .token(token)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
@@ -58,6 +88,14 @@ public class BrandController {
             @Valid @RequestBody CreateBrandRequest request) {
         Brand brand = brandService.updateBrand(id, user, request);
         return ResponseEntity.ok(toMap(brand));
+    }
+
+    // Brand Suggestion Endpoint
+    @PostMapping("/suggestions/generate")
+    public ResponseEntity<BrandSuggestionResponse> generateSuggestions(
+            @Valid @RequestBody BrandSuggestionRequest request) {
+        BrandSuggestionResponse suggestions = brandSuggestionService.generateSuggestions(request);
+        return ResponseEntity.ok(suggestions);
     }
 
     // Team Management Endpoints
@@ -81,14 +119,33 @@ public class BrandController {
     }
 
     @PatchMapping("/{id}/team/{userId}")
-    public ResponseEntity<TeamMemberResponse> updateTeamMemberRole(
+    public ResponseEntity<TeamMemberChangeResponse> updateTeamMemberRole(
             @AuthenticationPrincipal User user,
             @PathVariable UUID id,
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateTeamMemberRoleRequest request) {
-        // TODO: Check if user is ADMIN in this brand
+        // Check if user is ADMIN in this brand
+        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.ADMIN)) {
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        
         BrandTeamMember member = brandTeamService.updateMemberRole(id, userId, request.getRole());
-        return ResponseEntity.ok(toTeamMemberResponse(member));
+        
+        // Get the affected user
+        User affectedUser = member.getUser();
+        
+        // Generate updated token for the affected user (in case they're currently logged in)
+        Map<String, String> brandRoles = brandTeamService.getBrandRolesForUser(affectedUser.getId());
+        String newToken = jwtUtil.generateToken(affectedUser.getId(), affectedUser.getEmail(), brandRoles);
+        
+        TeamMemberChangeResponse response = TeamMemberChangeResponse.builder()
+                .userId(userId)
+                .brandId(id)
+                .role(request.getRole().name())
+                .token(newToken)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}/team/{userId}")
@@ -175,6 +232,14 @@ public class BrandController {
         map.put("name", brand.getName());
         map.put("description", brand.getDescription());
         map.put("logoUrl", brand.getLogoUrl());
+        map.put("website", brand.getWebsite());
+        map.put("contactEmail", brand.getContactEmail());
+        map.put("phone", brand.getPhone());
+        map.put("industry", brand.getIndustry());
+        map.put("country", brand.getCountry());
+        map.put("brandSlogan", brand.getBrandSlogan());
+        map.put("primaryColor", brand.getPrimaryColor());
+        map.put("secondaryColor", brand.getSecondaryColor());
         map.put("createdAt", brand.getCreatedAt());
         map.put("connectionCount", brand.getConnections().size());
         return map;

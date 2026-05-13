@@ -1,22 +1,22 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, isTokenExpired, api, logout } from '@/lib/api';
+import { getUser, isTokenExpired, api, logout, isAdminInBrand } from '@/lib/api';
 import { useBrand, Brand } from '@/lib/brand-context';
+import CreateBrandForm from '@/components/CreateBrandForm';
 
 export default function BrandsPage() {
     const router = useRouter();
     const { selectBrand, reloadBrands, brands } = useBrand();
     const [localBrands, setLocalBrands] = useState<Brand[]>([]);
     const [loading, setLoading] = useState(true);
-    const [newBrand, setNewBrand] = useState('');
     const [showForm, setShowForm] = useState(false);
-    const [creating, setCreating] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     // useState(null) ensures server & client both start with null → no hydration mismatch
     const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
+    const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
     const load = useCallback(async () => {
         setError(null);
@@ -46,18 +46,6 @@ export default function BrandsPage() {
     const handleSelectBrand = (brand: Brand) => {
         selectBrand(brand);
         router.push('/dashboard');
-    };
-
-    const handleCreate = async () => {
-        if (!newBrand.trim()) return;
-        setCreating(true);
-        try {
-            await api.createBrand({ name: newBrand.trim() });
-            setNewBrand('');
-            setShowForm(false);
-            await load();
-        } catch { /* */ }
-        setCreating(false);
     };
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -93,6 +81,11 @@ export default function BrandsPage() {
         return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
     };
 
+    // Handle image load failure - fallback to avatar
+    const handleImageError = (brandId: string) => {
+        setFailedImages(prev => new Set(prev).add(brandId));
+    };
+
     return (
         <div className="brand-select-page">
             {/* Background effects */}
@@ -105,7 +98,17 @@ export default function BrandsPage() {
             <div className="brand-select-container">
                 {/* Header */}
                 <div className="brand-select-header">
-                    <div className="brand-select-logo">⚡ SocialFlow</div>
+                    <img
+                        src="/logo.svg"
+                        alt="SocialFlow"
+                        style={{
+                            width: 140,
+                            height: 'auto',
+                            maxHeight: 60,
+                            objectFit: 'contain'
+                        }}
+                    />
+                    <div className="brand-select-logo">SocialFlow</div>
                     <div className="brand-select-welcome">
                         <h1>Welcome back{user ? `, ${user.name}` : ''}</h1>
                         <p>Choose a brand to get started</p>
@@ -155,6 +158,7 @@ export default function BrandsPage() {
                         <div className="brand-select-grid">
                             {localBrands.map((brand, index) => {
                                 const [color1, color2] = getBrandGradient(brand.name);
+                                const isAdmin = isAdminInBrand(brand.id);
                                 return (
                                     <div
                                         key={brand.id}
@@ -168,29 +172,56 @@ export default function BrandsPage() {
                                             background: `radial-gradient(circle at 50% 0%, ${color1}30, transparent 70%)`
                                         }} />
                                         <div className="brand-card-content">
-                                            <div className="brand-card-avatar" style={{
-                                                background: `linear-gradient(135deg, ${color1}, ${color2})`
-                                            }}>
-                                                {getInitials(brand.name)}
+                                            {/* Logo or Avatar */}
+                                            {brand.logoUrl && !failedImages.has(brand.id) ? (
+                                                <img 
+                                                    src={brand.logoUrl} 
+                                                    alt={brand.name}
+                                                    onError={() => handleImageError(brand.id)}
+                                                    style={{
+                                                        width: '48px',
+                                                        height: '48px',
+                                                        borderRadius: '10px',
+                                                        objectFit: 'contain',
+                                                        background: 'rgba(255,255,255,0.05)',
+                                                        padding: '4px',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="brand-card-avatar" style={{
+                                                    background: `linear-gradient(135deg, ${color1}, ${color2})`
+                                                }}>
+                                                    {getInitials(brand.name)}
+                                                </div>
+                                            )}
+                                            {/* Text Content */}
+                                            <div className="brand-card-info">
+                                                <h3 className="brand-card-name">{brand.name}</h3>
+                                                {brand.description && (
+                                                    <p className="brand-card-description">{brand.description.substring(0, 60)}{brand.description.length > 60 ? '...' : ''}</p>
+                                                )}
+                                                <p className="brand-card-meta">
+                                                    {brand.connectionCount} connection{brand.connectionCount !== 1 ? 's' : ''}
+                                                </p>
                                             </div>
-                                            <h3 className="brand-card-name">{brand.name}</h3>
-                                            <p className="brand-card-meta">
-                                                {brand.connectionCount} connection{brand.connectionCount !== 1 ? 's' : ''}
-                                            </p>
                                             <div className="brand-card-arrow">
                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                     <path d="M5 12h14M12 5l7 7-7 7"/>
                                                 </svg>
                                             </div>
                                         </div>
-                                        <button
-                                            className="brand-card-delete"
-                                            onClick={(e) => handleDelete(e, brand.id)}
-                                            disabled={deletingId === brand.id}
-                                            title="Delete brand"
-                                        >
-                                            {deletingId === brand.id ? '...' : '×'}
-                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                className="brand-card-delete"
+                                                onClick={(e) => handleDelete(e, brand.id)}
+                                                disabled={deletingId === brand.id}
+                                                title="Delete brand (admin only)"
+                                            >
+                                                {deletingId === brand.id ? '...' : '×'}
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -203,36 +234,23 @@ export default function BrandsPage() {
                             >
                                 <div className="brand-card-content">
                                     <div className="brand-add-icon">+</div>
-                                    <h3 className="brand-card-name">New Brand</h3>
-                                    <p className="brand-card-meta">Create a new workspace</p>
+                                    <div className="brand-card-info">
+                                        <h3 className="brand-card-name">New Brand</h3>
+                                        <p className="brand-card-meta">Create a new workspace</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Create form modal */}
                         {showForm && (
-                            <div className="brand-modal-overlay" onClick={() => setShowForm(false)}>
-                                <div className="brand-modal" onClick={e => e.stopPropagation()}>
-                                    <h2>Create New Brand</h2>
-                                    <p>Give your brand a name to get started</p>
-                                    <input
-                                        className="form-input"
-                                        placeholder="e.g. My Awesome Brand"
-                                        value={newBrand}
-                                        onChange={e => setNewBrand(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                                        autoFocus
-                                    />
-                                    <div className="brand-modal-actions">
-                                        <button className="btn btn-secondary" onClick={() => setShowForm(false)}>
-                                            Cancel
-                                        </button>
-                                        <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !newBrand.trim()}>
-                                            {creating ? 'Creating...' : 'Create Brand'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <CreateBrandForm
+                                onSuccess={() => {
+                                    setShowForm(false);
+                                    load();
+                                }}
+                                onCancel={() => setShowForm(false)}
+                            />
                         )}
                     </>
                 )}

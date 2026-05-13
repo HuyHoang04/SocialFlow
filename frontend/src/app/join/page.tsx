@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getUser, isTokenExpired, api, logout } from '@/lib/api';
+import { getUser, isTokenExpired, api, logout, setToken } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 
 interface InvitationDetails {
@@ -73,7 +73,13 @@ export default function JoinPage() {
         setAccepting(true);
 
         try {
-            await api.acceptInvitation(token!);
+            const response = await api.acceptInvitation(token!);
+            
+            // Store the new JWT token with updated brand roles
+            if (response.token) {
+                setToken(response.token);
+            }
+            
             setAccepted(true);
             
             // Reload brands list so the new brand appears in the selector

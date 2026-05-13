@@ -141,11 +141,37 @@ export const api = {
 
     // Brands
     getBrands: () => request('/brands'),
-    createBrand: (data: { name: string; description?: string }) =>
+    createBrand: (data: {
+        name: string;
+        description?: string;
+        logoUrl?: string;
+        website?: string;
+        contactEmail?: string;
+        phone?: string;
+        industry?: string;
+        country?: string;
+        brandSlogan?: string;
+        primaryColor?: string;
+        secondaryColor?: string;
+    }) =>
         request('/brands', { method: 'POST', body: JSON.stringify(data) }),
-    updateBrand: (id: string, data: { name: string; description?: string; logoUrl?: string }) =>
+    updateBrand: (id: string, data: {
+        name: string;
+        description?: string;
+        logoUrl?: string;
+        website?: string;
+        contactEmail?: string;
+        phone?: string;
+        industry?: string;
+        country?: string;
+        brandSlogan?: string;
+        primaryColor?: string;
+        secondaryColor?: string;
+    }) =>
         request(`/brands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBrand: (id: string) => request(`/brands/${id}`, { method: 'DELETE' }),
+    generateBrandSuggestions: (brandName: string) =>
+        request('/brands/suggestions/generate', { method: 'POST', body: JSON.stringify({ brandName }) }),
 
     // Connections
     getConnections: (brandId: string) => request(`/brands/${brandId}/connections`),

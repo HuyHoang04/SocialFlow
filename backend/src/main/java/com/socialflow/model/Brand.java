@@ -23,6 +23,22 @@ public class Brand {
 
     private String logoUrl;
 
+    private String website;
+
+    private String contactEmail;
+
+    private String phone;
+
+    private String industry;
+
+    private String country;
+
+    private String brandSlogan;
+
+    private String primaryColor;
+
+    private String secondaryColor;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -81,7 +81,7 @@ public class UserInvitationService {
      * Accept an invitation and add user to brand
      */
     @Transactional
-    public void acceptInvitation(String token, UUID userId) {
+    public UserInvitation acceptInvitation(String token, UUID userId) {
         UserInvitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Invitation token not found or invalid"));
 
@@ -119,6 +119,7 @@ public class UserInvitationService {
         invitationRepository.save(invitation);
 
         log.info("User {} accepted invitation to brand {}", userId, invitation.getBrand().getId());
+        return invitation;
     }
 
     /**

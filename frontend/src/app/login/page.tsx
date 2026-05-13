@@ -29,8 +29,28 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card">
+        <div className="auth-page">
+            {/* Top Bar */}
+            <div className="auth-topbar">
+                <div className="auth-topbar-content">
+                    <div className="auth-logo">
+                            <img
+                                src="/logo.svg"
+                                alt="SocialFlow"
+                                style={{
+                                    width: 140,
+                                    height: 'auto',
+                                    maxHeight: 60,
+                                    objectFit: 'contain'
+                                }}
+                            />
+                        <span className="auth-logo-text">SocialFlow</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="auth-container">
+                <div className="auth-card">
                 <h1 className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     <span className="sidebar-logo-icon">
                         <img
@@ -66,6 +86,7 @@ export default function LoginPage() {
                 <p className="auth-link">
                     Don&apos;t have an account? <Link href="/register">Create one</Link>
                 </p>
+            </div>
             </div>
         </div>
     );

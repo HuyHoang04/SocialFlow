@@ -47,6 +47,14 @@ public class BrandService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .logoUrl(request.getLogoUrl())
+                .website(request.getWebsite())
+                .contactEmail(request.getContactEmail())
+                .phone(request.getPhone())
+                .industry(request.getIndustry())
+                .country(request.getCountry())
+                .brandSlogan(request.getBrandSlogan())
+                .primaryColor(request.getPrimaryColor())
+                .secondaryColor(request.getSecondaryColor())
                 .user(user)
                 .build();
         brand = brandRepository.save(brand);
@@ -68,6 +76,15 @@ public class BrandService {
         if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.ADMIN)) {
             throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
         }
+        
+        // Delete all team members first (due to foreign key constraint)
+        // This prevents "violates foreign key constraint" error
+        List<BrandTeamMember> teamMembers = brandTeamService.getTeamMembers(id);
+        for (BrandTeamMember member : teamMembers) {
+            brandTeamService.removeTeamMember(id, member.getUser().getId());
+        }
+        
+        // Now safe to delete the brand (connections have cascade delete)
         brandRepository.delete(brand);
     }
 
@@ -80,6 +97,14 @@ public class BrandService {
         brand.setName(request.getName());
         brand.setDescription(request.getDescription());
         brand.setLogoUrl(request.getLogoUrl());
+        brand.setWebsite(request.getWebsite());
+        brand.setContactEmail(request.getContactEmail());
+        brand.setPhone(request.getPhone());
+        brand.setIndustry(request.getIndustry());
+        brand.setCountry(request.getCountry());
+        brand.setBrandSlogan(request.getBrandSlogan());
+        brand.setPrimaryColor(request.getPrimaryColor());
+        brand.setSecondaryColor(request.getSecondaryColor());
         return brandRepository.save(brand);
     }
 

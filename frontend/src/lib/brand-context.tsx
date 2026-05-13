@@ -6,6 +6,14 @@ export interface Brand {
     name: string;
     description?: string;
     logoUrl?: string;
+    website?: string;
+    contactEmail?: string;
+    phone?: string;
+    industry?: string;
+    country?: string;
+    brandSlogan?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
     connectionCount: number;
 }
 

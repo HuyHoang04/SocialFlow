@@ -1,13 +1,21 @@
 package com.socialflow.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.socialflow.model.Brand;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Map;
+import java.util.UUID;
 
 @Data
-public class CreateBrandRequest {
-    @NotBlank
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreateBrandResponse {
+    private UUID id;
     private String name;
-    
     private String description;
     private String logoUrl;
     private String website;
@@ -18,4 +26,6 @@ public class CreateBrandRequest {
     private String brandSlogan;
     private String primaryColor;
     private String secondaryColor;
+    private Long connectionCount;
+    private String token;  // New JWT token with updated brand roles
 }

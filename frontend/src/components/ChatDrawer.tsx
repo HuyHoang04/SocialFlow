@@ -98,6 +98,85 @@ export default function ChatDrawer() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const user = getUser();
 
+    const [iconOffset, setIconOffset] = useState({ x: 0, y: 0 });
+    const [drawerSize, setDrawerSize] = useState({ width: 450, height: 600 });
+    const isDraggingIconRef = useRef(false);
+    const isResizingDrawerRef = useRef(false);
+    const startMousePosRef = useRef({ x: 0, y: 0 });
+    const startOffsetRef = useRef({ x: 0, y: 0 });
+    const startResizeMousePosRef = useRef({ x: 0, y: 0 });
+    const startDrawerSizeRef = useRef({ width: 450, height: 600 });
+    const resizeDirRef = useRef<'left' | 'top' | 'corner' | null>(null);
+    const [hasMovedIcon, setHasMovedIcon] = useState(false);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDraggingIconRef.current) {
+                const deltaX = startMousePosRef.current.x - e.clientX;
+                const deltaY = startMousePosRef.current.y - e.clientY;
+                
+                if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                    setHasMovedIcon(true);
+                }
+                
+                setIconOffset({
+                    x: startOffsetRef.current.x + deltaX,
+                    y: startOffsetRef.current.y + deltaY
+                });
+            }
+            
+            if (isResizingDrawerRef.current) {
+                const deltaX = startResizeMousePosRef.current.x - e.clientX;
+                const deltaY = startResizeMousePosRef.current.y - e.clientY;
+                
+                const dir = resizeDirRef.current;
+                const maxWidth = window.innerWidth - 60;
+                const maxHeight = window.innerHeight - 120;
+                
+                setDrawerSize({
+                    width: (dir === 'left' || dir === 'corner') ? Math.min(maxWidth, Math.max(320, startDrawerSizeRef.current.width + deltaX)) : startDrawerSizeRef.current.width,
+                    height: (dir === 'top' || dir === 'corner') ? Math.min(maxHeight, Math.max(400, startDrawerSizeRef.current.height + deltaY)) : startDrawerSizeRef.current.height
+                });
+            }
+        };
+
+        const handleMouseUp = () => {
+            isDraggingIconRef.current = false;
+            isResizingDrawerRef.current = false;
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
+    const onIconMouseDown = (e: React.MouseEvent) => {
+        isDraggingIconRef.current = true;
+        startMousePosRef.current = { x: e.clientX, y: e.clientY };
+        startOffsetRef.current = iconOffset;
+        setHasMovedIcon(false);
+        e.preventDefault();
+    };
+
+    const onResizeMouseDown = (e: React.MouseEvent, dir: 'left' | 'top' | 'corner') => {
+        isResizingDrawerRef.current = true;
+        resizeDirRef.current = dir;
+        startResizeMousePosRef.current = { x: e.clientX, y: e.clientY };
+        startDrawerSizeRef.current = drawerSize;
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleToggle = () => {
+        if (!hasMovedIcon) {
+            setIsOpen(!isOpen);
+        }
+        setHasMovedIcon(false);
+    };
+
     const generateUUID = () => {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();
@@ -279,14 +358,32 @@ export default function ChatDrawer() {
             {/* Floating Toggle Button */}
             <button
                 className={`chat-toggle ${isOpen ? 'active' : ''}`}
-                onClick={() => setIsOpen(!isOpen)}
+                onMouseDown={onIconMouseDown}
+                onClick={handleToggle}
                 title="AI Assistant"
+                style={{
+                    right: `${30 + iconOffset.x}px`,
+                    bottom: `${30 + iconOffset.y}px`,
+                    cursor: 'grab'
+                }}
             >
                 {isOpen ? <IconX size={24} /> : <img src="/logoAI.svg" alt="Evie" style={{ width: 64, height: 64, filter: 'drop-shadow(0 0 8px var(--accent-glow))' }} />}
             </button>
 
             {/* Sliding Drawer */}
-            <div className={`chat-drawer ${isOpen ? 'open' : ''}`}>
+            <div 
+                className={`chat-drawer ${isOpen ? 'open' : ''}`}
+                style={{
+                    right: `${30 + iconOffset.x}px`,
+                    bottom: `${100 + iconOffset.y}px`,
+                    width: `${drawerSize.width}px`,
+                    height: `${drawerSize.height}px`,
+                }}
+            >
+                {/* Resize handles */}
+                <div className="resize-handle resize-left" onMouseDown={(e) => onResizeMouseDown(e, 'left')} />
+                <div className="resize-handle resize-top" onMouseDown={(e) => onResizeMouseDown(e, 'top')} />
+                <div className="resize-handle resize-corner" onMouseDown={(e) => onResizeMouseDown(e, 'corner')} />
                 <div className="drawer-header">
                     <div className="header-info">
                         <div className="ai-avatar" style={{ background: 'transparent' }}>
@@ -437,8 +534,6 @@ export default function ChatDrawer() {
             <style jsx>{`
                 .chat-toggle {
                     position: fixed;
-                    bottom: 30px;
-                    right: 30px;
                     width: 60px;
                     height: 60px;
                     border-radius: 50%;
@@ -464,10 +559,6 @@ export default function ChatDrawer() {
 
                 .chat-drawer {
                     position: fixed;
-                    bottom: 100px;
-                    right: 30px;
-                    width: 700px;
-                    height: 800px;
                     background: var(--bg-glass);
                     backdrop-filter: blur(20px);
                     border: 1px solid var(--border);
@@ -481,6 +572,31 @@ export default function ChatDrawer() {
                     pointer-events: none;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     overflow: hidden;
+                }
+
+                /* Resize handles */
+                .resize-handle {
+                    position: absolute;
+                    z-index: 1000;
+                }
+                .resize-left {
+                    top: 0; left: 0; bottom: 0;
+                    width: 8px;
+                    cursor: w-resize;
+                }
+                .resize-top {
+                    top: 0; left: 0; right: 0;
+                    height: 8px;
+                    cursor: n-resize;
+                }
+                .resize-corner {
+                    top: 0; left: 0;
+                    width: 16px; height: 16px;
+                    cursor: nwse-resize;
+                    z-index: 1001;
+                }
+                .resize-handle:hover {
+                    background: rgba(255,255,255,0.05);
                 }
                 .chat-drawer.open {
                     transform: translateY(0) scale(1);
