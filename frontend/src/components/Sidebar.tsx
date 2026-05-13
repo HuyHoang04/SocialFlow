@@ -75,8 +75,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
             {selectedBrand && (
                 <div className="sidebar-brand" onClick={handleSwitchBrand} title="Switch brand" style={{ cursor: 'pointer' }}>
-                    <div className="sidebar-brand-avatar">
-                        {selectedBrand.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                    <div className="sidebar-brand-avatar" style={selectedBrand.logoUrl ? { padding: 0, overflow: 'hidden' } : {}}>
+                        {selectedBrand.logoUrl ? (
+                            <img src={selectedBrand.logoUrl} alt={selectedBrand.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                        ) : (
+                            selectedBrand.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+                        )}
                     </div>
                     <div className="sidebar-brand-info">
                         <span className="sidebar-brand-name">{selectedBrand.name}</span>
@@ -98,7 +102,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="sidebar-footer">
                 {user && (
                     <div className="user-info">
-                        <div className="user-avatar">{user.name[0]?.toUpperCase()}</div>
+                        <div className="user-avatar" style={(user as any).avatarUrl ? { padding: 0, overflow: 'hidden' } : {}}>
+                            {(user as any).avatarUrl ? (
+                                <img src={(user as any).avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+                            ) : (
+                                user.name[0]?.toUpperCase()
+                            )}
+                        </div>
                         <div>
                             <div className="user-name">{user.name}</div>
                             <div className="user-email">{user.email}</div>

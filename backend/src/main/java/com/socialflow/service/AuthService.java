@@ -44,7 +44,7 @@ public class AuthService {
         user = userRepository.save(user);
         Map<String, String> brandRoles = getBrandRolesForUser(user);
         String token = jwtUtil.generateToken(user.getId(), user.getEmail(), brandRoles);
-        return new LoginResponse(token, user.getEmail(), user.getName(), user.getId());
+        return new LoginResponse(token, user.getEmail(), user.getName(), user.getId(), user.getAvatarUrl());
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -57,6 +57,6 @@ public class AuthService {
 
         Map<String, String> brandRoles = getBrandRolesForUser(user);
         String token = jwtUtil.generateToken(user.getId(), user.getEmail(), brandRoles);
-        return new LoginResponse(token, user.getEmail(), user.getName(), user.getId());
+        return new LoginResponse(token, user.getEmail(), user.getName(), user.getId(), user.getAvatarUrl());
     }
 }

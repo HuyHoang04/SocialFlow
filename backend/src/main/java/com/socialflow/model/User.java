@@ -25,6 +25,8 @@ public class User {
     @Column(nullable = false)
     private String name;
 
+    private String avatarUrl;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

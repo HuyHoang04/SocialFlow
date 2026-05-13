@@ -108,6 +108,18 @@ public class BrandService {
         return brandRepository.save(brand);
     }
 
+    public Brand updateBrandLogo(UUID brandId, String logoUrl) {
+        Brand brand = getBrandById(brandId);
+        brand.setLogoUrl(logoUrl);
+        return brandRepository.save(brand);
+    }
+
+    public void removeBrandLogo(UUID brandId) {
+        Brand brand = getBrandById(brandId);
+        brand.setLogoUrl(null);
+        brandRepository.save(brand);
+    }
+
     /**
      * Migration: Add brand creators as ADMIN team members (for existing brands created before RBAC)
      * Runs on application startup

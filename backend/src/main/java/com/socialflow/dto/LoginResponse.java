@@ -11,4 +11,5 @@ public class LoginResponse {
     private String email;
     private String name;
     private UUID userId;
+    private String avatarUrl;
 }

@@ -2,6 +2,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
+import ProfileContent from './profile-content';
 import BrandSettingsContent from './brand-content';
 import AccountsContent from './accounts-content';
 import WorkflowContent from './workflow-content';
@@ -9,7 +10,7 @@ import WorkflowContent from './workflow-content';
 function SettingsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const tabParam = searchParams.get('tab') || 'brand';
+    const tabParam = searchParams.get('tab') || 'profile';
     const [activeTab, setActiveTab] = useState(tabParam);
 
     const handleTabChange = (tab: string) => {
@@ -18,7 +19,8 @@ function SettingsContent() {
     };
 
     const tabs = [
-        { id: 'brand', label: 'Brand Identity', icon: '👤' },
+        { id: 'profile', label: 'Profile', icon: '👤' },
+        { id: 'brand', label: 'Brand Identity', icon: '🏢' },
         { id: 'accounts', label: 'Connected Accounts', icon: '🔗' },
         { id: 'workflow', label: 'Approval Workflow', icon: '✓' },
     ];
@@ -66,6 +68,7 @@ function SettingsContent() {
             </div>
 
             <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                {activeTab === 'profile' && <ProfileContent />}
                 {activeTab === 'brand' && <BrandSettingsContent />}
                 {activeTab === 'accounts' && <AccountsContent />}
                 {activeTab === 'workflow' && <WorkflowContent />}

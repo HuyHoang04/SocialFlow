@@ -20,7 +20,7 @@ export default function RegisterPage() {
         try {
             const res = await api.register({ name, email, password });
             setToken(res.token);
-            setUser({ email: res.email, name: res.name, userId: res.userId });
+            setUser({ email: res.email, name: res.name, userId: res.userId, avatarUrl: res.avatarUrl });
             router.push('/brands');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Registration failed');
