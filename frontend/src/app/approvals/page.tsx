@@ -229,7 +229,7 @@ export default function ApprovalsPage() {
         if (!u) { router.replace('/login'); return; }
         if (isTokenExpired()) { logout(); return; }
         if (!selectedBrand) { router.replace('/brands'); return; }
-        
+
         setUser(u);
     }, [router, selectedBrand]);
 
@@ -271,22 +271,46 @@ export default function ApprovalsPage() {
         setCommentText({ ...commentText, [approvalId]: '' });
     };
 
-    // Organize approvals by status
-    const pendingApprovals = allApprovals.filter(a => a.status === 'PENDING');
-    const approvedApprovals = allApprovals.filter(a => a.status === 'APPROVED');
-    const rejectedApprovals = allApprovals.filter(a => a.status === 'REJECTED');
+    const [selectedUserFilter, setSelectedUserFilter] = useState<string>('');
+
+    // Organize approvals by status and filter by user
+    const filteredApprovals = selectedUserFilter
+        ? allApprovals.filter(a => a.createdByName === selectedUserFilter)
+        : allApprovals;
+
+    const pendingApprovals = filteredApprovals.filter(a => a.status === 'PENDING');
+    const approvedApprovals = filteredApprovals.filter(a => a.status === 'APPROVED');
+    const rejectedApprovals = filteredApprovals.filter(a => a.status === 'REJECTED');
 
     if (!selectedBrand) {
         return <div className="approvals-page">Please select a brand first</div>;
     }
 
     const renderApprovalCard = (approval: PostApproval, isActionable: boolean) => (
-        <div key={approval.id} className="card" style={{ padding: 20, background: 'var(--bg-glass)', borderColor: 'var(--border)', marginBottom: 12 }}>
+        <div
+            key={approval.id}
+            className="card"
+            style={{
+                padding: 20,
+                background: 'var(--bg-glass)',
+                borderColor: 'var(--border)',
+                marginBottom: 12,
+                cursor: approval.status === 'PENDING' ? 'grab' : 'default'
+            }}
+            draggable={approval.status === 'PENDING'}
+            onDragStart={(e) => {
+                e.dataTransfer.setData('approvalId', approval.id);
+                e.dataTransfer.setData('currentStatus', approval.status);
+            }}
+        >
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
                     <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 2 }}>
                         <strong style={{ color: 'var(--text-primary)' }}>{approval.createdByName}</strong>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 2 }}>
+                        To: <strong style={{ color: 'var(--accent)' }}>{approval.assignedToName}</strong>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(approval.createdAt)}</div>
                 </div>
@@ -330,7 +354,7 @@ export default function ApprovalsPage() {
             )}
 
             {/* Actions for pending only */}
-            {isActionable && (
+            {approval.status === 'PENDING' && (
                 <>
                     <div style={{ marginBottom: 12 }}>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
@@ -409,6 +433,28 @@ export default function ApprovalsPage() {
                         <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>Approval Board</h1>
                         <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>{selectedBrand?.name}</p>
                     </div>
+                    {/* Filter by User */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Filter by creator:</span>
+                        <select
+                            value={selectedUserFilter}
+                            onChange={(e) => setSelectedUserFilter(e.target.value)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border)',
+                                background: 'var(--bg-glass)',
+                                color: 'var(--text-primary)',
+                                fontSize: 13,
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="">All Users</option>
+                            {Array.from(new Set(allApprovals.map(a => a.createdByName).filter(Boolean))).map(name => (
+                                <option style={{ color: 'black' }} key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Error Messages */}
@@ -471,14 +517,24 @@ export default function ApprovalsPage() {
                         </div>
 
                         {/* Approved Column */}
-                        <div style={{
-                            background: 'var(--bg-card)',
-                            borderRadius: 'var(--radius-lg)',
-                            border: '1px solid var(--border)',
-                            padding: '20px',
-                            display: 'flex',
-                            flexDirection: 'column'
-                        }}>
+                        <div
+                            style={{
+                                background: 'var(--bg-card)',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--border)',
+                                padding: '20px',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={async (e) => {
+                                const approvalId = e.dataTransfer.getData('approvalId');
+                                const currentStatus = e.dataTransfer.getData('currentStatus');
+                                if (currentStatus === 'PENDING' && approvalId) {
+                                    handleApprove(approvalId);
+                                }
+                            }}
+                        >
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -517,14 +573,24 @@ export default function ApprovalsPage() {
                         </div>
 
                         {/* Rejected Column */}
-                        <div style={{
-                            background: 'var(--bg-card)',
-                            borderRadius: 'var(--radius-lg)',
-                            border: '1px solid var(--border)',
-                            padding: '20px',
-                            display: 'flex',
-                            flexDirection: 'column'
-                        }}>
+                        <div
+                            style={{
+                                background: 'var(--bg-card)',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--border)',
+                                padding: '20px',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={async (e) => {
+                                const approvalId = e.dataTransfer.getData('approvalId');
+                                const currentStatus = e.dataTransfer.getData('currentStatus');
+                                if (currentStatus === 'PENDING' && approvalId) {
+                                    handleReject(approvalId);
+                                }
+                            }}
+                        >
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -563,7 +629,7 @@ export default function ApprovalsPage() {
                         </div>
                     </div>
                 )}
-                
+
                 {/* Preview Modal */}
                 {previewApproval && (
                     <div style={{
@@ -596,16 +662,16 @@ export default function ApprovalsPage() {
                                 cursor: 'pointer',
                                 fontSize: 20
                             }} onClick={() => setPreviewApproval(null)}>✕</button>
-                            
+
                             <h2 style={{ marginBottom: 20, fontSize: 20, fontWeight: 700 }}>Post Preview</h2>
-                            
+
                             <div style={{ marginBottom: 15 }}>
                                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Created by</div>
                                 <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>{previewApproval.createdByName}</div>
                             </div>
-                            
+
                             {fetchingPost && <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading full post data...</div>}
-                            
+
                             {selectedPostData && (
                                 <div style={{ marginBottom: 15 }}>
                                     <PlatformPreview
@@ -616,13 +682,13 @@ export default function ApprovalsPage() {
                                     />
                                 </div>
                             )}
-                            
+
                             {!fetchingPost && !selectedPostData && (
                                 <div style={{ marginBottom: 15 }}>
                                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Content</div>
-                                    <div style={{ 
-                                        fontSize: 14, 
-                                        color: 'var(--text-primary)', 
+                                    <div style={{
+                                        fontSize: 14,
+                                        color: 'var(--text-primary)',
                                         lineHeight: 1.6,
                                         whiteSpace: 'pre-wrap',
                                         background: 'var(--bg-glass)',
@@ -631,7 +697,7 @@ export default function ApprovalsPage() {
                                     }}>{previewApproval.content}</div>
                                 </div>
                             )}
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                 <button className="btn" onClick={() => setPreviewApproval(null)}>Close</button>
                             </div>
@@ -655,7 +721,7 @@ function formatDate(dateString: string): string {
     if (diffMinutes < 60) return `${diffMinutes}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
+
     return date.toLocaleDateString();
 }
 
