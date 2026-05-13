@@ -191,7 +191,7 @@ export const api = {
     getAllPagesForBrand: (brandId: string) => request(`/brands/${brandId}/pages`),
 
     // Posts
-    getPosts: () => request('/posts'),
+    getPosts: (brandId?: string) => request(`/posts${brandId ? `?brandId=${brandId}` : ''}`),
     getPost: (id: string) => request(`/posts/${id}`),
     getPostsByPage: (pageId: string) => request(`/pages/${pageId}/posts`),
     createPost: (data: { content: string; pageIds: string[]; mediaFilenames?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>

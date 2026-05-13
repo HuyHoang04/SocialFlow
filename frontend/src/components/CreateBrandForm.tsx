@@ -156,7 +156,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
         setMessage(null);
         try {
             const suggestions = await api.generateBrandSuggestions(formData.name);
-            
+
             setFormData(prev => ({
                 ...prev,
                 industry: suggestions.suggestedIndustry || prev.industry,
@@ -165,7 +165,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                 secondaryColor: suggestions.secondaryColor || prev.secondaryColor,
                 website: suggestions.website || prev.website
             }));
-            
+
             setMessage({ type: 'success', text: '🎯 Suggestions generated successfully!' });
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Failed to generate suggestions' });
@@ -244,7 +244,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                         cursor: s < step ? 'pointer' : 'default',
                         transition: 'all 0.3s'
                     }}
-                    onClick={() => s < step && setStep(s)}
+                        onClick={() => s < step && setStep(s)}
                     >
                         {s < step ? '✓' : s}
                     </div>
@@ -762,135 +762,135 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                     flexDirection: 'column',
                     overflow: 'hidden'
                 }}>
-                {/* Content Area - Scrollable */}
-                <div style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    padding: 'clamp(20px, 5vw, 40px)'
-                }}>
-                    {/* Message */}
-                    {message && (
-                        <div style={{
-                            padding: '12px 16px',
-                            borderRadius: 'var(--radius)',
-                            marginBottom: 24,
-                            background: message.type === 'success' ? 'var(--success-bg)' : 'var(--error-bg)',
-                            border: `1px solid ${message.type === 'success' ? 'var(--success)' : 'var(--error)'}`,
-                            color: 'var(--text-primary)',
-                            fontSize: 13,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                        }}>
-                            <span>{message.type === 'success' ? '✅' : '❌'}</span>
-                            {message.text}
+                    {/* Content Area - Scrollable */}
+                    <div style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: 'clamp(20px, 5vw, 40px)'
+                    }}>
+                        {/* Message */}
+                        {message && (
+                            <div style={{
+                                padding: '12px 16px',
+                                borderRadius: 'var(--radius)',
+                                marginBottom: 24,
+                                background: message.type === 'success' ? 'var(--success-bg)' : 'var(--error-bg)',
+                                border: `1px solid ${message.type === 'success' ? 'var(--success)' : 'var(--error)'}`,
+                                color: 'var(--text-primary)',
+                                fontSize: 13,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8
+                            }}>
+                                <span>{message.type === 'success' ? '✅' : '❌'}</span>
+                                {message.text}
+                            </div>
+                        )}
+
+                        {/* Step Indicator */}
+                        {renderStepIndicator()}
+
+                        {/* Step Content */}
+                        <div style={{ marginBottom: 0 }}>
+                            {step === 1 && renderStep1()}
+                            {step === 2 && renderStep2()}
+                            {step === 3 && renderStep3()}
                         </div>
-                    )}
+                    </div>
 
-                    {/* Step Indicator */}
-                    {renderStepIndicator()}
+                    {/* Footer - Always Visible */}
+                    <div style={{
+                        display: 'flex',
+                        gap: 12,
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: 'clamp(16px, 5vw, 24px)',
+                        borderTop: '1px solid var(--border)',
+                        flexShrink: 0
+                    }}>
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            disabled={creating}
+                            style={{
+                                padding: '10px 24px',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius)',
+                                cursor: creating ? 'not-allowed' : 'pointer',
+                                fontSize: 14,
+                                fontWeight: 600,
+                                opacity: creating ? 0.5 : 1
+                            }}
+                        >
+                            Cancel
+                        </button>
 
-                    {/* Step Content */}
-                    <div style={{ marginBottom: 0 }}>
-                        {step === 1 && renderStep1()}
-                        {step === 2 && renderStep2()}
-                        {step === 3 && renderStep3()}
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            {step > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(step - 1)}
+                                    disabled={creating}
+                                    style={{
+                                        padding: '10px 24px',
+                                        background: 'var(--bg-glass-strong)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-hover)',
+                                        borderRadius: 'var(--radius)',
+                                        cursor: creating ? 'not-allowed' : 'pointer',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        opacity: creating ? 0.5 : 1
+                                    }}
+                                >
+                                    ← Back
+                                </button>
+                            )}
+
+                            {step < 3 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(step + 1)}
+                                    disabled={creating || (step === 1 && !formData.name.trim())}
+                                    style={{
+                                        padding: '10px 24px',
+                                        background: 'var(--primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius)',
+                                        cursor: creating || (step === 1 && !formData.name.trim()) ? 'not-allowed' : 'pointer',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        opacity: creating || (step === 1 && !formData.name.trim()) ? 0.5 : 1
+                                    }}
+                                >
+                                    Next →
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleCreate}
+                                    disabled={creating || !formData.name.trim()}
+                                    style={{
+                                        padding: '10px 24px',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius)',
+                                        cursor: creating || !formData.name.trim() ? 'not-allowed' : 'pointer',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        opacity: creating || !formData.name.trim() ? 0.5 : 1
+                                    }}
+                                >
+                                    {creating ? '⏳ Creating...' : '✅ Create Brand'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
-
-                {/* Footer - Always Visible */}
-                <div style={{
-                    display: 'flex',
-                    gap: 12,
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: 'clamp(16px, 5vw, 24px)',
-                    borderTop: '1px solid var(--border)',
-                    flexShrink: 0
-                }}>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        disabled={creating}
-                        style={{
-                            padding: '10px 24px',
-                            background: 'transparent',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)',
-                            cursor: creating ? 'not-allowed' : 'pointer',
-                            fontSize: 14,
-                            fontWeight: 600,
-                            opacity: creating ? 0.5 : 1
-                        }}
-                    >
-                        Cancel
-                    </button>
-
-                    <div style={{ display: 'flex', gap: 12 }}>
-                        {step > 1 && (
-                            <button
-                                type="button"
-                                onClick={() => setStep(step - 1)}
-                                disabled={creating}
-                                style={{
-                                    padding: '10px 24px',
-                                    background: 'var(--bg-glass-strong)',
-                                    color: 'var(--text-primary)',
-                                    border: '1px solid var(--border-hover)',
-                                    borderRadius: 'var(--radius)',
-                                    cursor: creating ? 'not-allowed' : 'pointer',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    opacity: creating ? 0.5 : 1
-                                }}
-                            >
-                                ← Back
-                            </button>
-                        )}
-
-                        {step < 3 ? (
-                            <button
-                                type="button"
-                                onClick={() => setStep(step + 1)}
-                                disabled={creating || (step === 1 && !formData.name.trim())}
-                                style={{
-                                    padding: '10px 24px',
-                                    background: 'var(--primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius)',
-                                    cursor: creating || (step === 1 && !formData.name.trim()) ? 'not-allowed' : 'pointer',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    opacity: creating || (step === 1 && !formData.name.trim()) ? 0.5 : 1
-                                }}
-                            >
-                                Next →
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleCreate}
-                                disabled={creating || !formData.name.trim()}
-                                style={{
-                                    padding: '10px 24px',
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius)',
-                                    cursor: creating || !formData.name.trim() ? 'not-allowed' : 'pointer',
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    opacity: creating || !formData.name.trim() ? 0.5 : 1
-                                }}
-                            >
-                                {creating ? '⏳ Creating...' : '✅ Create Brand'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
             </div>
         </>
     );

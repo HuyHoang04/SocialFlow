@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiInfo, setAiInfo] = useState({ models: 0, docs: 0 });
-  
+
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayPosts, setSelectedDayPosts] = useState<Post[]>([]);
@@ -41,34 +41,32 @@ export default function DashboardPage() {
     if (!selectedBrand) return;
     setLoading(true);
     try {
-      const [p, c, models, docs] = await Promise.all([
-        api.getPosts(),
+      const [p, c, models] = await Promise.all([
+        api.getPosts(selectedBrand.id),
         api.getConnections(selectedBrand.id),
-        api.getAiConfig(selectedBrand.id).catch(() => null),
-        api.ragListLibrary(selectedBrand.id, 1, 0).catch(() => ({ total: 0 }))
+        api.getAiConfig(selectedBrand.id).catch(() => null)
       ]);
-      
-      const filteredPosts = p.filter((post: Post) => post.page.brandName === selectedBrand.name);
-      setPosts(filteredPosts);
+
+      setPosts(p);
       setConnections(c);
-      
+
       let modelCount = 0;
       if (models) {
         if (models.textModel) modelCount++;
         if (models.imageModel) modelCount++;
       }
-      setAiInfo({ 
-        models: modelCount, 
-        docs: Array.isArray(docs) ? docs.length : (docs?.total || 0) 
+      setAiInfo({
+        models: modelCount,
+        docs: 0
       });
 
       // Set initial day posts
       const today = new Date();
-      const todayPosts = filteredPosts.filter((post: Post) => {
+      const todayPosts = p.filter((post: Post) => {
         const d = new Date(post.scheduledTime || post.createdAt);
-        return d.getDate() === today.getDate() && 
-               d.getMonth() === today.getMonth() && 
-               d.getFullYear() === today.getFullYear();
+        return d.getDate() === today.getDate() &&
+          d.getMonth() === today.getMonth() &&
+          d.getFullYear() === today.getFullYear();
       });
       setSelectedDayPosts(todayPosts);
 
@@ -86,7 +84,7 @@ export default function DashboardPage() {
     const month = currentDate.getMonth();
     const lastDay = new Date(year, month + 1, 0).getDate();
     const firstDayIndex = new Date(year, month, 1).getDay();
-    
+
     const days = [];
     for (let i = 0; i < firstDayIndex; i++) days.push(null);
     for (let i = 1; i <= lastDay; i++) days.push(i);
@@ -98,9 +96,9 @@ export default function DashboardPage() {
     setActiveDay(day);
     const dayPosts = posts.filter((post: Post) => {
       const d = new Date(post.scheduledTime || post.createdAt);
-      return d.getDate() === day && 
-             d.getMonth() === currentDate.getMonth() && 
-             d.getFullYear() === currentDate.getFullYear();
+      return d.getDate() === day &&
+        d.getMonth() === currentDate.getMonth() &&
+        d.getFullYear() === currentDate.getFullYear();
     });
     setSelectedDayPosts(dayPosts);
   };
@@ -115,9 +113,9 @@ export default function DashboardPage() {
   const getPostsForDay = (day: number) => {
     return posts.filter((post: Post) => {
       const d = new Date(post.scheduledTime || post.createdAt);
-      return d.getDate() === day && 
-             d.getMonth() === currentDate.getMonth() && 
-             d.getFullYear() === currentDate.getFullYear();
+      return d.getDate() === day &&
+        d.getMonth() === currentDate.getMonth() &&
+        d.getFullYear() === currentDate.getFullYear();
     });
   };
 
@@ -161,7 +159,7 @@ export default function DashboardPage() {
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                   <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <IconCalendar color="var(--accent)" /> 
+                    <IconCalendar color="var(--accent)" />
                     {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                   </h2>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -180,12 +178,12 @@ export default function DashboardPage() {
                     const isActive = day === activeDay;
 
                     return (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         onClick={() => handleDayClick(day)}
-                        style={{ 
-                          height: 100, 
-                          padding: 8, 
+                        style={{
+                          height: 100,
+                          padding: 8,
                           borderRadius: 'var(--radius-sm)',
                           border: '1px solid var(--border)',
                           background: isActive ? 'rgba(217, 125, 85, 0.05)' : 'transparent',
@@ -197,20 +195,20 @@ export default function DashboardPage() {
                         }}
                         className={day ? 'platform-card-hover' : ''}
                       >
-                        <span style={{ 
-                          fontSize: 13, 
-                          fontWeight: 700, 
+                        <span style={{
+                          fontSize: 13,
+                          fontWeight: 700,
                           color: isToday ? 'var(--accent)' : 'var(--text-primary)',
                           background: isToday ? 'var(--accent-glow)' : 'transparent',
                           width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
                         }}>{day}</span>
-                        
+
                         <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {dayPosts.slice(0, 3).map(p => (
-                            <div key={p.id} style={{ 
-                              fontSize: 10, 
-                              padding: '2px 6px', 
-                              borderRadius: 4, 
+                            <div key={p.id} style={{
+                              fontSize: 10,
+                              padding: '2px 6px',
+                              borderRadius: 4,
                               background: p.status === 'PUBLISHED' ? 'var(--success-bg)' : 'var(--bg-glass-strong)',
                               color: p.status === 'PUBLISHED' ? 'var(--success)' : 'var(--text-secondary)',
                               whiteSpace: 'nowrap',
@@ -234,7 +232,7 @@ export default function DashboardPage() {
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
                   {activeDay ? `Activity on ${activeDay} ${currentDate.toLocaleString('default', { month: 'short' })}` : 'Select a day'}
                 </h3>
-                
+
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {selectedDayPosts.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
@@ -261,7 +259,7 @@ export default function DashboardPage() {
                     ))
                   )}
                 </div>
-                
+
                 {activeDay && (
                   <Link href="/create" className="btn btn-secondary btn-sm" style={{ marginTop: 16, width: '100%' }}>
                     + Schedule Post for this day
@@ -270,37 +268,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Bottom Stats Bento */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
-              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-                 <IconSparkles color="var(--accent)" />
-                 <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>AI READINESS</div>
-                    <div style={{ fontSize: 16, fontWeight: 800 }}>{aiInfo.models} Models Active</div>
-                 </div>
-              </div>
-              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-                 <IconBook color="var(--success)" />
-                 <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>KNOWLEDGE BASE</div>
-                    <div style={{ fontSize: 16, fontWeight: 800 }}>{aiInfo.docs} Documents</div>
-                 </div>
-              </div>
-              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-                 <IconUsers color="var(--warning)" />
-                 <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CONNECTIONS</div>
-                    <div style={{ fontSize: 16, fontWeight: 800 }}>{connections.length} Platforms</div>
-                 </div>
-              </div>
-              <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-                 <IconCheckCircle color="var(--accent)" />
-                 <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>TOTAL POSTS</div>
-                    <div style={{ fontSize: 16, fontWeight: 800 }}>{posts.length}</div>
-                 </div>
-              </div>
-            </div>
           </>
         )}
       </div>

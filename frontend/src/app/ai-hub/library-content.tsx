@@ -41,7 +41,7 @@ export default function LibraryContent() {
         } finally {
             setLoading(false);
         }
-    }, [brand, currentPage]);
+    }, [brand?.id, currentPage]);
 
     useEffect(() => { loadFiles(); }, [loadFiles]);
 

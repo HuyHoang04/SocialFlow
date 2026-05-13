@@ -74,7 +74,7 @@ export default function BrandSettingsContent() {
         setMessage(null);
         try {
             const suggestions = await api.generateBrandSuggestions(formData.name);
-            
+
             setFormData(prev => ({
                 ...prev,
                 industry: suggestions.suggestedIndustry || prev.industry,
@@ -83,7 +83,7 @@ export default function BrandSettingsContent() {
                 secondaryColor: suggestions.secondaryColor || prev.secondaryColor,
                 website: suggestions.website || prev.website
             }));
-            
+
             setMessage({ type: 'success', text: '🎯 Gợi ý tự động được tạo thành công!' });
             setShowSuggestions(false);
         } catch (err: any) {
@@ -135,7 +135,7 @@ export default function BrandSettingsContent() {
         try {
             const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' });
             const result = await api.uploadBrandLogo(selectedBrand.id, file);
-            setLogoUrl(result.logoUrl);
+            setFormData(prev => ({ ...prev, logoUrl: result.logoUrl }));
             selectBrand({ ...selectedBrand, logoUrl: result.logoUrl });
             setMessage({ type: 'success', text: 'Brand logo uploaded! 🎉' });
         } catch (err: any) {
@@ -151,7 +151,7 @@ export default function BrandSettingsContent() {
         setUploading(true);
         try {
             await api.deleteBrandLogo(selectedBrand.id);
-            setLogoUrl('');
+            setFormData(prev => ({ ...prev, logoUrl: '' }));
             selectBrand({ ...selectedBrand, logoUrl: undefined });
             setMessage({ type: 'success', text: 'Logo removed' });
         } catch (err: any) {
@@ -191,7 +191,6 @@ export default function BrandSettingsContent() {
             }}>
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                     {/* Logo Upload Section */}
-                    {/* Logo Section */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 28, paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>
                         <div style={{ position: 'relative' }}>
                             <div
@@ -199,12 +198,12 @@ export default function BrandSettingsContent() {
                                 style={{
                                     width: 100, height: 100,
                                     borderRadius: 'var(--radius-lg)',
-                                    background: logoUrl ? 'transparent' : 'var(--bg-glass-strong)',
-                                    border: logoUrl ? '3px solid var(--border-hover)' : '3px dashed var(--border-hover)',
+                                    background: formData.logoUrl ? 'transparent' : 'var(--bg-glass-strong)',
+                                    border: formData.logoUrl ? '3px solid var(--border-hover)' : '3px dashed var(--border-hover)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     overflow: 'hidden', flexShrink: 0, cursor: 'pointer',
                                     transition: 'all 0.3s ease',
-                                    boxShadow: logoUrl ? '0 4px 20px rgba(0,0,0,0.15)' : 'none',
+                                    boxShadow: formData.logoUrl ? '0 4px 20px rgba(0,0,0,0.15)' : 'none',
                                     position: 'relative'
                                 }}
                             >
@@ -243,7 +242,7 @@ export default function BrandSettingsContent() {
                         <div>
                             <h3 style={{ margin: '0 0 6px 0', fontSize: 18 }}>Brand Logo</h3>
                             <p style={{ margin: '0 0 12px 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                                Click to upload your brand&apos;s official logo. Supports JPG, PNG, WebP.
+                                Click to upload your brand's official logo. Supports JPG, PNG, WebP.
                             </p>
                             <div style={{ display: 'flex', gap: 10 }}>
                                 <button
@@ -252,9 +251,9 @@ export default function BrandSettingsContent() {
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
                                 >
-                                    📷 {logoUrl ? 'Change Logo' : 'Upload Logo'}
+                                    📷 {formData.logoUrl ? 'Change Logo' : 'Upload Logo'}
                                 </button>
-                                {logoUrl && (
+                                {formData.logoUrl && (
                                     <button
                                         type="button"
                                         className="btn btn-danger btn-sm"
@@ -267,33 +266,6 @@ export default function BrandSettingsContent() {
                             </div>
                         </div>
                     </div>
-
-                    {/* Auto-Fill Suggestions Button */}
-                    {!showSuggestions && (
-                        <button
-                            type="button"
-                            onClick={() => setShowSuggestions(true)}
-                            style={{
-                                padding: '12px 20px',
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                border: 'none',
-                                borderRadius: 'var(--radius)',
-                                color: 'white',
-                                fontSize: 14,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                justifyContent: 'center',
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                        >
-                            ✨ {loading ? 'Generating...' : 'Generate Auto-Fill Suggestions'}
-                        </button>
-                    )}
 
                     {/* Auto-Fill Suggestion Form */}
                     {showSuggestions && (

@@ -51,6 +51,11 @@ public class PostService {
         return posts.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    public List<PostResponse> getPostsByBrand(UUID brandId) {
+        List<Post> posts = postRepository.findByPageConnectionBrandIdInOrderByCreatedAtDesc(java.util.List.of(brandId));
+        return posts.stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     public List<PostResponse> getPostsByPage(UUID pageId) {
         List<Post> posts = postRepository.findByPageIdOrderByCreatedAtDesc(pageId);
         return posts.stream().map(this::toResponse).collect(Collectors.toList());

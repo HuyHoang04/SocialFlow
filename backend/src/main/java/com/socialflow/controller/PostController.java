@@ -22,7 +22,12 @@ public class PostController {
     private final PostService postService;
 
     @GetMapping("/posts")
-    public ResponseEntity<List<PostResponse>> getPosts(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<PostResponse>> getPosts(
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) UUID brandId) {
+        if (brandId != null) {
+            return ResponseEntity.ok(postService.getPostsByBrand(brandId));
+        }
         return ResponseEntity.ok(postService.getPostsByUser(user));
     }
 
