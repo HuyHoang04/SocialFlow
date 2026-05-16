@@ -5,5 +5,6 @@ public enum PlatformType {
     TWITTER,
     LINKEDIN,
     BLUESKY,
-    THREADS
+    THREADS,
+    INSTAGRAM
 }

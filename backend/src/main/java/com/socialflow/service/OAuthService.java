@@ -25,6 +25,7 @@ public class OAuthService {
     private final SocialConnectionRepository connectionRepository;
     private final SocialPageRepository pageRepository;
     private final BrandRepository brandRepository;
+    private final AppConfigRepository appConfigRepository;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${app.frontend-url:http://localhost:3000}")
@@ -62,36 +63,109 @@ public class OAuthService {
     @Value("${oauth.threads.redirect-uri:${app.base-url}/api/oauth/threads/callback}")
     private String threadsRedirectUri;
 
+    // Instagram (uses Meta OAuth, similar to Facebook)
+    @Value("${oauth.instagram.client-id:${oauth.facebook.client-id:}}")
+    private String igClientId;
+    @Value("${oauth.instagram.client-secret:${oauth.facebook.client-secret:}}")
+    private String igClientSecret;
+    @Value("${oauth.instagram.redirect-uri:}")
+    private String igRedirectUri;
+
     public String getFrontendUrl() { return frontendUrl; }
+
+    // ==================== Get Credentials with Fallback ====================
+
+    /**
+     * Get app ID for platform, checking brand config first, then default config
+     */
+    private String getClientId(PlatformType platform, UUID brandId) {
+        AppConfig config = appConfigRepository.findByBrandIdAndPlatform(brandId, platform).orElse(null);
+        if (config != null && config.getAppId() != null && !config.getAppId().isEmpty()) {
+            return config.getAppId();
+        }
+        return switch (platform) {
+            case FACEBOOK -> fbClientId;
+            case TWITTER -> twClientId;
+            case LINKEDIN -> liClientId;
+            case THREADS -> threadsClientId;
+            case INSTAGRAM -> igClientId;
+            default -> "";
+        };
+    }
+
+    /**
+     * Get app secret for platform, checking brand config first, then default config
+     */
+    private String getClientSecret(PlatformType platform, UUID brandId) {
+        AppConfig config = appConfigRepository.findByBrandIdAndPlatform(brandId, platform).orElse(null);
+        if (config != null && config.getAppSecret() != null && !config.getAppSecret().isEmpty()) {
+            return config.getAppSecret();
+        }
+        return switch (platform) {
+            case FACEBOOK -> fbClientSecret;
+            case TWITTER -> twClientSecret;
+            case LINKEDIN -> liClientSecret;
+            case THREADS -> threadsClientSecret;
+            case INSTAGRAM -> igClientSecret;
+            default -> "";
+        };
+    }
+
+    /**
+     * Get redirect URI for platform, checking brand config first, then default config
+     */
+    private String getRedirectUri(PlatformType platform, UUID brandId) {
+        AppConfig config = appConfigRepository.findByBrandIdAndPlatform(brandId, platform).orElse(null);
+        if (config != null && config.getRedirectUri() != null && !config.getRedirectUri().isEmpty()) {
+            return config.getRedirectUri();
+        }
+        return switch (platform) {
+            case FACEBOOK -> fbRedirectUri;
+            case TWITTER -> twRedirectUri;
+            case LINKEDIN -> liRedirectUri;
+            case THREADS -> threadsRedirectUri;
+            case INSTAGRAM -> igRedirectUri;
+            default -> "";
+        };
+    }
 
     // ==================== Get OAuth URL ====================
 
     public String getOAuthUrl(PlatformType platform, UUID brandId) {
         String state = brandId.toString();
+        String clientId = getClientId(platform, brandId);
+        String redirectUri = getRedirectUri(platform, brandId);
+
         return switch (platform) {
             case FACEBOOK -> "https://www.facebook.com/v18.0/dialog/oauth?"
-                    + "client_id=" + fbClientId
-                    + "&redirect_uri=" + encode(fbRedirectUri)
+                    + "client_id=" + clientId
+                    + "&redirect_uri=" + encode(redirectUri)
                     + "&scope=pages_manage_posts,pages_read_engagement,pages_show_list,pages_messaging"
                     + "&state=" + state
                     + "&response_type=code";
             case TWITTER -> "https://twitter.com/i/oauth2/authorize?"
                     + "response_type=code"
-                    + "&client_id=" + twClientId
-                    + "&redirect_uri=" + encode(twRedirectUri)
+                    + "&client_id=" + clientId
+                    + "&redirect_uri=" + encode(redirectUri)
                     + "&scope=tweet.read%20tweet.write%20users.read%20offline.access"
                     + "&state=" + state
                     + "&code_challenge=challenge&code_challenge_method=plain";
             case LINKEDIN -> "https://www.linkedin.com/oauth/v2/authorization?"
                     + "response_type=code"
-                    + "&client_id=" + liClientId
-                    + "&redirect_uri=" + encode(liRedirectUri)
+                    + "&client_id=" + clientId
+                    + "&redirect_uri=" + encode(redirectUri)
                     + "&scope=openid%20profile%20email%20w_member_social"
                     + "&state=" + state;
             case THREADS -> "https://threads.net/oauth/authorize?"
-                    + "client_id=" + threadsClientId
-                    + "&redirect_uri=" + encode(threadsRedirectUri)
+                    + "client_id=" + clientId
+                    + "&redirect_uri=" + encode(redirectUri)
                     + "&scope=threads_basic,threads_content_publish"
+                    + "&response_type=code"
+                    + "&state=" + state;
+            case INSTAGRAM -> "https://api.instagram.com/oauth/authorize?"
+                    + "client_id=" + clientId
+                    + "&redirect_uri=" + encode(redirectUri)
+                    + "&scope=instagram_basic,instagram_content_publish"
                     + "&response_type=code"
                     + "&state=" + state;
             case BLUESKY -> "";
@@ -105,13 +179,17 @@ public class OAuthService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
+        String clientId = getClientId(PlatformType.FACEBOOK, brandId);
+        String clientSecret = getClientSecret(PlatformType.FACEBOOK, brandId);
+        String redirectUri = getRedirectUri(PlatformType.FACEBOOK, brandId);
+
         WebClient fb = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
         JsonNode tokenResp = fb.get()
                 .uri(uri -> uri.path("/oauth/access_token")
-                        .queryParam("client_id", fbClientId)
-                        .queryParam("client_secret", fbClientSecret)
-                        .queryParam("redirect_uri", fbRedirectUri)
+                        .queryParam("client_id", clientId)
+                        .queryParam("client_secret", clientSecret)
+                        .queryParam("redirect_uri", redirectUri)
                         .queryParam("code", code)
                         .build())
                 .retrieve()
@@ -130,14 +208,18 @@ public class OAuthService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
+        String clientId = getClientId(PlatformType.TWITTER, brandId);
+        String clientSecret = getClientSecret(PlatformType.TWITTER, brandId);
+        String redirectUri = getRedirectUri(PlatformType.TWITTER, brandId);
+
         WebClient tw = webClientBuilder.baseUrl("https://api.twitter.com").build();
 
         JsonNode tokenResp = tw.post()
                 .uri("/2/oauth2/token")
-                .headers(h -> h.setBasicAuth(twClientId, twClientSecret))
+                .headers(h -> h.setBasicAuth(clientId, clientSecret))
                 .body(BodyInserters.fromFormData("code", code)
                         .with("grant_type", "authorization_code")
-                        .with("redirect_uri", twRedirectUri)
+                        .with("redirect_uri", redirectUri)
                         .with("code_verifier", "challenge"))
                 .retrieve()
                 .bodyToMono(JsonNode.class)
@@ -192,15 +274,19 @@ public class OAuthService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
+        String clientId = getClientId(PlatformType.LINKEDIN, brandId);
+        String clientSecret = getClientSecret(PlatformType.LINKEDIN, brandId);
+        String redirectUri = getRedirectUri(PlatformType.LINKEDIN, brandId);
+
         WebClient li = webClientBuilder.baseUrl("https://www.linkedin.com").build();
 
         JsonNode tokenResp = li.post()
                 .uri("/oauth/v2/accessToken")
                 .body(BodyInserters.fromFormData("grant_type", "authorization_code")
                         .with("code", code)
-                        .with("client_id", liClientId)
-                        .with("client_secret", liClientSecret)
-                        .with("redirect_uri", liRedirectUri))
+                        .with("client_id", clientId)
+                        .with("client_secret", clientSecret)
+                        .with("redirect_uri", redirectUri))
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block();
@@ -298,14 +384,18 @@ public class OAuthService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
 
+        String clientId = getClientId(PlatformType.THREADS, brandId);
+        String clientSecret = getClientSecret(PlatformType.THREADS, brandId);
+        String redirectUri = getRedirectUri(PlatformType.THREADS, brandId);
+
         WebClient threads = webClientBuilder.baseUrl("https://graph.threads.net").build();
 
         JsonNode tokenResp = threads.post()
                 .uri("/oauth/access_token")
-                .body(BodyInserters.fromFormData("client_id", threadsClientId)
-                        .with("client_secret", threadsClientSecret)
+                .body(BodyInserters.fromFormData("client_id", clientId)
+                        .with("client_secret", clientSecret)
                         .with("grant_type", "authorization_code")
-                        .with("redirect_uri", threadsRedirectUri)
+                        .with("redirect_uri", redirectUri)
                         .with("code", code))
                 .retrieve()
                 .bodyToMono(JsonNode.class)
@@ -318,7 +408,7 @@ public class OAuthService {
         JsonNode longLivedResp = threads.get()
                 .uri(uri -> uri.path("/access_token")
                         .queryParam("grant_type", "th_exchange_token")
-                        .queryParam("client_secret", threadsClientSecret)
+                        .queryParam("client_secret", clientSecret)
                         .queryParam("access_token", shortLivedToken)
                         .build())
                 .retrieve()
@@ -367,6 +457,89 @@ public class OAuthService {
 
         log.info("Threads upserted: @{} ({})", username, threadsUserId);
         return frontendUrl + "/accounts?connected=threads";
+    }
+
+    public String handleInstagramCallback(String code, String state) {
+        UUID brandId = UUID.fromString(state);
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.BRAND_NOT_FOUND));
+
+        String clientId = getClientId(PlatformType.INSTAGRAM, brandId);
+        String clientSecret = getClientSecret(PlatformType.INSTAGRAM, brandId);
+        String redirectUri = getRedirectUri(PlatformType.INSTAGRAM, brandId);
+
+        WebClient ig = webClientBuilder.baseUrl("https://graph.instagram.com").build();
+
+        // Exchange code for short-lived access token
+        JsonNode tokenResp = ig.post()
+                .uri(uri -> uri.path("/access_token")
+                        .queryParam("client_id", clientId)
+                        .queryParam("client_secret", clientSecret)
+                        .queryParam("redirect_uri", redirectUri)
+                        .queryParam("code", code)
+                        .build())
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String userAccessToken = tokenResp.get("access_token").asText();
+        String instagramUserId = tokenResp.get("user_id").asText();
+
+        // Get long-lived token
+        JsonNode longLivedResp = ig.get()
+                .uri(uri -> uri.path("/access_token")
+                        .queryParam("grant_type", "ig_refresh_token")
+                        .queryParam("access_token", userAccessToken)
+                        .build())
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String longLivedToken = longLivedResp.get("access_token").asText();
+
+        // Get user profile
+        JsonNode profileResp = ig.get()
+                .uri(uri -> uri.path("/me")
+                        .queryParam("fields", "id,username,name,profile_picture_url")
+                        .queryParam("access_token", longLivedToken)
+                        .build())
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block();
+
+        String username = profileResp.has("username") ? profileResp.get("username").asText() : "instagram_user";
+
+        SocialConnection connection = connectionRepository
+                .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.INSTAGRAM, instagramUserId)
+                .orElse(SocialConnection.builder()
+                        .platform(PlatformType.INSTAGRAM)
+                        .accountId(instagramUserId)
+                        .brand(brand)
+                        .build());
+        connection.setAccountName("@" + username);
+        connection.setAccessToken(longLivedToken);
+        connection.setScopes("instagram_basic, instagram_content_publish");
+        long igExpiresIn = longLivedResp.has("expires_in") ? longLivedResp.get("expires_in").asLong() : 5184000;
+        connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(igExpiresIn));
+        connection = connectionRepository.save(connection);
+
+        final SocialConnection savedConn = connection;
+        SocialPage page = pageRepository
+                .findByConnectionIdAndPlatformPageId(savedConn.getId(), instagramUserId)
+                .orElse(SocialPage.builder()
+                        .platformPageId(instagramUserId)
+                        .platform(PlatformType.INSTAGRAM)
+                        .connection(savedConn)
+                        .build());
+        page.setPageName("@" + username);
+        page.setPageAccessToken(longLivedToken);
+        if (profileResp.has("profile_picture_url")) {
+            page.setPageImageUrl(profileResp.get("profile_picture_url").asText());
+        }
+        pageRepository.save(page);
+
+        log.info("Instagram upserted: @{} ({})", username, instagramUserId);
+        return frontendUrl + "/accounts?connected=instagram";
     }
 
     // ==================== Token Connect (no OAuth redirect) ====================

@@ -31,6 +31,18 @@ public class WebhookController {
     @Value("${oauth.linkedin.client-secret:}")
     private String linkedinClientSecret;
 
+    @Value("${oauth.instagram.app-secret:}")
+    private String instagramAppSecret;
+
+    @Value("${webhook.instagram.verify-token:socialflow_instagram_verify_2026}")
+    private String instagramVerifyToken;
+
+    @Value("${oauth.threads.app-secret:}")
+    private String threadsAppSecret;
+
+    @Value("${webhook.threads.verify-token:socialflow_threads_verify_2026}")
+    private String threadsVerifyToken;
+
     private final WebhookEventService webhookEventService;
 
     // ==================== FACEBOOK ====================
@@ -152,6 +164,122 @@ public class WebhookController {
         }
 
         // TODO: Process LinkedIn webhook events (shares, comments, etc.)
+        return ResponseEntity.ok("EVENT_RECEIVED");
+    }
+
+    // ==================== META (Instagram/Threads) ====================
+
+    /**
+     * Instagram Webhook Verification (GET)
+     * Meta sends: GET ?hub.mode=subscribe&hub.verify_token=TOKEN&hub.challenge=CHALLENGE
+     * We return hub.challenge if verify_token matches.
+     */
+    @GetMapping("/instagram")
+    public ResponseEntity<String> verifyInstagramWebhook(
+            @RequestParam("hub.mode") String mode,
+            @RequestParam("hub.verify_token") String token,
+            @RequestParam("hub.challenge") String challenge) {
+
+        log.info("[Webhook-IG] Instagram webhook verification: mode={}, token={}", mode, token);
+
+        if ("subscribe".equals(mode) && instagramVerifyToken.equals(token)) {
+            log.info("[Webhook-IG] ✓ Instagram webhook verified successfully!");
+            return ResponseEntity.ok(challenge);
+        }
+
+        log.warn("[Webhook-IG] ❌ Instagram webhook verification failed! Expected: {}, got: {}", instagramVerifyToken, token);
+        return ResponseEntity.status(403).body(ErrorMessages.WEBHOOK_VERIFICATION_FAILED);
+    }
+
+    /**
+     * Instagram Webhook Events (POST)
+     * Verifies X-Hub-Signature-256 then delegates to WebhookEventService.
+     */
+    @PostMapping("/instagram")
+    public ResponseEntity<String> handleInstagramEvent(
+            @RequestBody String payload,
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
+
+        log.info("[Webhook-IG] Instagram event received, payload size={} bytes", payload.length());
+
+        // Verify HMAC-SHA256 signature if secret is configured
+        if (instagramAppSecret != null && !instagramAppSecret.isBlank() && signature != null) {
+            try {
+                String expected = "sha256=" + hmacSha256(payload, instagramAppSecret);
+                if (!expected.equals(signature)) {
+                    log.warn("[Webhook-IG] ❌ Invalid Instagram signature! Expected={}", expected);
+                    return ResponseEntity.status(403).body("Invalid signature");
+                }
+                log.info("[Webhook-IG] ✓ Instagram signature verified");
+            } catch (Exception e) {
+                log.error("[Webhook-IG] Signature verification failed", e);
+            }
+        }
+
+        // Process asynchronously
+        try {
+            webhookEventService.processInstagramPayload(payload);
+        } catch (Exception e) {
+            log.error("[Webhook-IG] Error processing Instagram payload", e);
+        }
+
+        return ResponseEntity.ok("EVENT_RECEIVED");
+    }
+
+    /**
+     * Threads Webhook Verification (GET)
+     * Meta sends: GET ?hub.mode=subscribe&hub.verify_token=TOKEN&hub.challenge=CHALLENGE
+     * We return hub.challenge if verify_token matches.
+     */
+    @GetMapping("/threads")
+    public ResponseEntity<String> verifyThreadsWebhook(
+            @RequestParam("hub.mode") String mode,
+            @RequestParam("hub.verify_token") String token,
+            @RequestParam("hub.challenge") String challenge) {
+
+        log.info("[Webhook-Threads] Threads webhook verification: mode={}, token={}", mode, token);
+
+        if ("subscribe".equals(mode) && threadsVerifyToken.equals(token)) {
+            log.info("[Webhook-Threads] ✓ Threads webhook verified successfully!");
+            return ResponseEntity.ok(challenge);
+        }
+
+        log.warn("[Webhook-Threads] ❌ Threads webhook verification failed! Expected: {}, got: {}", threadsVerifyToken, token);
+        return ResponseEntity.status(403).body(ErrorMessages.WEBHOOK_VERIFICATION_FAILED);
+    }
+
+    /**
+     * Threads Webhook Events (POST)
+     * Verifies X-Hub-Signature-256 then delegates to WebhookEventService.
+     */
+    @PostMapping("/threads")
+    public ResponseEntity<String> handleThreadsEvent(
+            @RequestBody String payload,
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
+
+        log.info("[Webhook-Threads] Threads event received, payload size={} bytes", payload.length());
+
+        // Verify HMAC-SHA256 signature if secret is configured
+        if (threadsAppSecret != null && !threadsAppSecret.isBlank() && signature != null) {
+            try {
+                String expected = "sha256=" + hmacSha256(payload, threadsAppSecret);
+                if (!expected.equals(signature)) {
+                    log.warn("[Webhook-Threads] ❌ Invalid Threads signature! Expected={}", expected);
+                    return ResponseEntity.status(403).body("Invalid signature");
+                }
+                log.info("[Webhook-Threads] ✓ Threads signature verified");
+            } catch (Exception e) {
+                log.error("[Webhook-Threads] Signature verification failed", e);
+            }
+        }
+
+        // Process asynchronously
+        try {
+            webhookEventService.processThreadsPayload(payload);
+        } catch (Exception e) {
+            log.error("[Webhook-Threads] Error processing Threads payload", e);
+        }
+
         return ResponseEntity.ok("EVENT_RECEIVED");
     }
 

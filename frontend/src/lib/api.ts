@@ -602,4 +602,25 @@ export const api = {
 
     deleteBrandLogo: (brandId: string) =>
         request(`/brands/${brandId}/logo`, { method: 'DELETE' }),
+
+    // App Configs (Platform Credentials)
+    getAppConfigs: (brandId: string) =>
+        request(`/brands/${brandId}/app-configs`),
+
+    getAppConfig: (brandId: string, platform: string) =>
+        request(`/brands/${brandId}/app-configs/${platform}`),
+
+    saveAppConfig: (brandId: string, platform: string, data: {
+        appId: string;
+        appSecret: string;
+        redirectUri?: string;
+        additionalConfig?: string;
+    }) =>
+        request(`/brands/${brandId}/app-configs/${platform}`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+
+    deleteAppConfig: (brandId: string, platform: string) =>
+        request(`/brands/${brandId}/app-configs/${platform}`, { method: 'DELETE' }),
 };

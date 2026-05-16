@@ -6,6 +6,7 @@ import com.socialflow.model.Post;
 import com.socialflow.model.PostMedia;
 import com.socialflow.model.PublishResult;
 import com.socialflow.model.SocialPage;
+import com.socialflow.model.enums.MessageType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,176 @@ public class ThreadsPublisher implements CommentFetcher {
 
     @Value("${app.base-url:http://localhost:3000}")
     private String baseUrl;
+
+    // ────────────────────────────────────────────────────────────
+    // Direct Messages
+    // ────────────────────────────────────────────────────────────
+
+    public List<PlatformCommentDto> fetchDirectMessages(SocialPage page) {
+        List<PlatformCommentDto> results = new ArrayList<>();
+        try {
+            log.info("[Threads-DM] Starting DM fetch for page '{}' (id={})",
+                    page.getPageName(), page.getPlatformPageId());
+
+            WebClient client = webClientBuilder.build();
+            String userId = page.getPlatformPageId();
+            String token = page.getPageAccessToken();
+
+            if (token == null || token.isBlank()) {
+                log.error("[Threads-DM] ❌ Page access token is NULL or EMPTY for page '{}'", page.getPageName());
+                return results;
+            }
+
+            // Fetch all conversations for this Threads account
+            String conversationsUrl = String.format(
+                    "https://graph.threads.net/v1.0/%s/conversations?fields=id,participants,updated_time&access_token=%s",
+                    userId, token
+            );
+
+            JsonNode conversationsResp = client.get()
+                    .uri(java.net.URI.create(conversationsUrl))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (conversationsResp == null || !conversationsResp.has("data")) {
+                log.warn("[Threads-DM] ❌ No conversations found");
+                return results;
+            }
+
+            int convCount = conversationsResp.get("data").size();
+            log.info("[Threads-DM] ✓ Found {} conversations", convCount);
+
+            for (JsonNode conversation : conversationsResp.get("data")) {
+                String conversationId = conversation.get("id").asText();
+
+                // Find the non-page participant
+                String senderName = "Threads User";
+                String senderUserId = null;
+                if (conversation.has("participants")) {
+                    for (JsonNode participant : conversation.get("participants")) {
+                        String participantId = participant.asText();
+                        if (!participantId.equals(userId)) {
+                            senderUserId = participantId;
+                            senderName = "Threads User";
+                            break;
+                        }
+                    }
+                }
+
+                // Fetch messages for this conversation
+                String messagesUrl = String.format(
+                        "https://graph.threads.net/v1.0/%s/messages?fields=id,message,from,created_time&access_token=%s",
+                        conversationId, token
+                );
+
+                JsonNode messagesResp = client.get()
+                        .uri(java.net.URI.create(messagesUrl))
+                        .retrieve()
+                        .bodyToMono(JsonNode.class)
+                        .block();
+
+                if (messagesResp == null || !messagesResp.has("data")) {
+                    log.debug("[Threads-DM] Conversation {} has no messages", conversationId);
+                    continue;
+                }
+
+                int msgCount = messagesResp.get("data").size();
+                log.info("[Threads-DM]   Conversation {} with '{}': {} messages",
+                        conversationId, senderName, msgCount);
+
+                for (JsonNode msgNode : messagesResp.get("data")) {
+                    if (!msgNode.has("message")) continue;
+
+                    String msgId = msgNode.get("id").asText();
+                    String content = msgNode.get("message").asText();
+
+                    String authorName = senderName;
+                    String authorId = senderUserId;
+
+                    if (msgNode.has("from")) {
+                        JsonNode from = msgNode.get("from");
+                        if (from.has("id") && userId.equals(from.get("id").asText())) {
+                            authorName = page.getPageName();
+                            authorId = userId;
+                        }
+                    }
+
+                    String createdTime = msgNode.has("created_time") ? msgNode.get("created_time").asText() : null;
+                    LocalDateTime createdAt = createdTime != null ? parseThreadsTimestamp(createdTime) : LocalDateTime.now();
+
+                    log.info("[Threads-DM]     ✓ Message: id={}, from='{}', content='{}'",
+                            msgId, authorName,
+                            content.substring(0, Math.min(40, content.length())));
+
+                    results.add(PlatformCommentDto.builder()
+                            .platformMessageId(msgId)
+                            .platformPostId(conversationId)
+                            .parentMessageId(null)
+                            .content(content)
+                            .authorName(authorName)
+                            .authorId(authorId)
+                            .conversationId(conversationId)
+                            .messageType(MessageType.DIRECT_MESSAGE)
+                            .createdAt(createdAt)
+                            .build());
+                }
+            }
+
+            log.info("[Threads-DM] ✓ Fetched {} total DM messages", results.size());
+        } catch (Exception e) {
+            log.error("Failed to fetch Threads DMs for page {}: {}", page.getPageName(), e.getMessage(), e);
+        }
+        return results;
+    }
+
+    public void replyToDM(SocialPage page, String conversationId, String message) {
+        try {
+            String userId = page.getPlatformPageId();
+            String token = page.getPageAccessToken();
+
+            WebClient client = webClientBuilder.baseUrl("https://graph.threads.net/v1.0").build();
+            
+            client.post()
+                    .uri("/{userId}/messages", userId)
+                    .bodyValue(Map.of(
+                            "recipient_id", conversationId,
+                            "message", message,
+                            "access_token", token
+                    ))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            log.info("Replied to Threads DM in conversation {}", conversationId);
+        } catch (Exception e) {
+            log.error("Failed to reply to Threads DM: {}", e.getMessage(), e);
+            throw new RuntimeException("Threads DM reply failed: " + e.getMessage());
+        }
+    }
+
+    public void replyToComment(SocialPage page, String commentId, String message) {
+        try {
+            String token = page.getPageAccessToken();
+
+            WebClient client = webClientBuilder.baseUrl("https://graph.threads.net/v1.0").build();
+            
+            client.post()
+                    .uri("/{commentId}/replies", commentId)
+                    .bodyValue(Map.of(
+                            "text", message,
+                            "access_token", token
+                    ))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            log.info("Replied to Threads comment {}", commentId);
+        } catch (Exception e) {
+            log.error("Failed to reply to Threads comment: {}", e.getMessage(), e);
+            throw new RuntimeException("Threads comment reply failed: " + e.getMessage());
+        }
+    }
 
     // ────────────────────────────────────────────────────────────
     // Comment Fetching

@@ -50,6 +50,10 @@ public class Brand {
     @Builder.Default
     private List<SocialConnection> connections = new ArrayList<>();
 
+    @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<AppConfig> appConfigs = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

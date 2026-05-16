@@ -12,6 +12,8 @@ import com.socialflow.repository.BrandRepository;
 import com.socialflow.repository.InboxMessageRepository;
 import com.socialflow.repository.SocialPageRepository;
 import com.socialflow.service.publisher.FacebookPublisher;
+import com.socialflow.service.publisher.InstagramPublisher;
+import com.socialflow.service.publisher.ThreadsPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,8 @@ public class InboxService {
     private final SocialPageRepository pageRepository;
     private final CommentFetcherService commentFetcherService;
     private final FacebookPublisher facebookPublisher;
+    private final InstagramPublisher instagramPublisher;
+    private final ThreadsPublisher threadsPublisher;
 
     @Transactional
     public void syncMessages(UUID brandId, UUID userId) {
@@ -114,6 +118,68 @@ public class InboxService {
                 }
             }
 
+            // ── DMs: Instagram-specific (Instagram Direct Messages) ──
+            if (page.getPlatform() == PlatformType.INSTAGRAM) {
+                log.info("Syncing Instagram DMs for Page: {}", page.getPageName());
+                List<PlatformCommentDto> dms = instagramPublisher.fetchDirectMessages(page);
+                for (PlatformCommentDto dm : dms) {
+                    if (!existingIds.contains(dm.getPlatformMessageId())) {
+                        boolean isFromMe = dm.getAuthorId() != null
+                                ? page.getPlatformPageId().equals(dm.getAuthorId())
+                                : page.getPageName().equalsIgnoreCase(dm.getAuthorName());
+
+                        InboxMessage msg = InboxMessage.builder()
+                                .platformMessageId(dm.getPlatformMessageId())
+                                .platformPostId(dm.getPlatformPostId())
+                                .parentMessageId(dm.getParentMessageId())
+                                .conversationId(dm.getConversationId())
+                                .messageType(MessageType.DIRECT_MESSAGE)
+                                .content(dm.getContent() == null ? "" : dm.getContent())
+                                .authorName(dm.getAuthorName())
+                                .authorId(dm.getAuthorId())
+                                .createdAt(dm.getCreatedAt())
+                                .page(page)
+                                .isRead(isFromMe)
+                                .isFromMe(isFromMe)
+                                .build();
+
+                        batchToSave.add(msg);
+                        existingIds.add(dm.getPlatformMessageId());
+                    }
+                }
+            }
+
+            // ── DMs: Threads-specific (Threads Direct Messages) ──
+            if (page.getPlatform() == PlatformType.THREADS) {
+                log.info("Syncing Threads DMs for Page: {}", page.getPageName());
+                List<PlatformCommentDto> dms = threadsPublisher.fetchDirectMessages(page);
+                for (PlatformCommentDto dm : dms) {
+                    if (!existingIds.contains(dm.getPlatformMessageId())) {
+                        boolean isFromMe = dm.getAuthorId() != null
+                                ? page.getPlatformPageId().equals(dm.getAuthorId())
+                                : page.getPageName().equalsIgnoreCase(dm.getAuthorName());
+
+                        InboxMessage msg = InboxMessage.builder()
+                                .platformMessageId(dm.getPlatformMessageId())
+                                .platformPostId(dm.getPlatformPostId())
+                                .parentMessageId(dm.getParentMessageId())
+                                .conversationId(dm.getConversationId())
+                                .messageType(MessageType.DIRECT_MESSAGE)
+                                .content(dm.getContent() == null ? "" : dm.getContent())
+                                .authorName(dm.getAuthorName())
+                                .authorId(dm.getAuthorId())
+                                .createdAt(dm.getCreatedAt())
+                                .page(page)
+                                .isRead(isFromMe)
+                                .isFromMe(isFromMe)
+                                .build();
+
+                        batchToSave.add(msg);
+                        existingIds.add(dm.getPlatformMessageId());
+                    }
+                }
+            }
+
             // Perform Bulk Insert
             if (!batchToSave.isEmpty()) {
                 log.info("Saving {} new messages in bulk for page {}", batchToSave.size(), page.getPageName());
@@ -162,6 +228,18 @@ public class InboxService {
                 facebookPublisher.replyToDM(page, recipientPsid, replyContent);
             } else {
                 facebookPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
+            }
+        } else if (page.getPlatform() == PlatformType.INSTAGRAM) {
+            if (message.getMessageType() == MessageType.DIRECT_MESSAGE) {
+                instagramPublisher.replyToDM(page, message.getConversationId(), replyContent);
+            } else {
+                instagramPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
+            }
+        } else if (page.getPlatform() == PlatformType.THREADS) {
+            if (message.getMessageType() == MessageType.DIRECT_MESSAGE) {
+                threadsPublisher.replyToDM(page, message.getConversationId(), replyContent);
+            } else {
+                threadsPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
             }
         } else {
             throw new RuntimeException(ErrorMessages.REPLIES_NOT_SUPPORTED + page.getPlatform());

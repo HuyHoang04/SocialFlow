@@ -26,6 +26,7 @@ public class CommentFetcherService {
     private final LinkedInPublisher linkedInPublisher;
     private final BlueskyPublisher blueskyPublisher;
     private final ThreadsPublisher threadsPublisher;
+    private final InstagramPublisher instagramPublisher;
 
     /**
      * Fetch comments for all published posts on the given page,
@@ -43,6 +44,7 @@ public class CommentFetcherService {
                 case LINKEDIN -> linkedInPublisher.fetchComments(page);
                 case BLUESKY  -> blueskyPublisher.fetchComments(page);
                 case THREADS  -> threadsPublisher.fetchComments(page);
+                case INSTAGRAM -> instagramPublisher.fetchComments(page);
             };
         } catch (Exception e) {
             log.error("Failed to fetch comments for {} page '{}': {}",

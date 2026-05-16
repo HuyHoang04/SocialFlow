@@ -32,6 +32,259 @@ public class WebhookEventService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
+    public void processInstagramPayload(String rawPayload) {
+        try {
+            JsonNode root = objectMapper.readTree(rawPayload);
+            String object = root.path("object").asText();
+            
+            if (!"instagram".equals(object)) {
+                log.warn("[Webhook-IG] Invalid object type, expected 'instagram' but got: {}", object);
+                return;
+            }
+
+            log.info("[Webhook-IG] Processing Instagram payload");
+
+            for (JsonNode entry : root.path("entry")) {
+                String pageId = entry.path("id").asText();
+                
+                if (entry.has("changes")) {
+                    for (JsonNode change : entry.path("changes")) {
+                        String field = change.path("field").asText();
+                        JsonNode value = change.path("value");
+                        
+                        log.debug("[Webhook-IG] Processing field: {}", field);
+                        
+                        switch (field) {
+                            case "comments" -> processInstagramComment(pageId, value);
+                            case "messages" -> processInstagramDirectMessage(pageId, value);
+                            case "message_echoes" -> log.debug("[Webhook-IG] Message echo (own message), ignoring");
+                            default -> log.debug("[Webhook-IG] Unhandled field: {}", field);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[Webhook-IG] Failed to process Instagram payload", e);
+        }
+    }
+
+    @Transactional
+    public void processThreadsPayload(String rawPayload) {
+        try {
+            JsonNode root = objectMapper.readTree(rawPayload);
+            String object = root.path("object").asText();
+            
+            if (!"threads".equals(object)) {
+                log.warn("[Webhook-Threads] Invalid object type, expected 'threads' but got: {}", object);
+                return;
+            }
+
+            log.info("[Webhook-Threads] Processing Threads payload");
+
+            for (JsonNode entry : root.path("entry")) {
+                String pageId = entry.path("id").asText();
+                
+                if (entry.has("changes")) {
+                    for (JsonNode change : entry.path("changes")) {
+                        String field = change.path("field").asText();
+                        JsonNode value = change.path("value");
+                        
+                        log.debug("[Webhook-Threads] Processing field: {}", field);
+                        
+                        switch (field) {
+                            case "comments" -> processThreadsComment(pageId, value);
+                            case "messages" -> processThreadsDirectMessage(pageId, value);
+                            case "message_echoes" -> log.debug("[Webhook-Threads] Message echo (own message), ignoring");
+                            default -> log.debug("[Webhook-Threads] Unhandled field: {}", field);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("[Webhook-Threads] Failed to process Threads payload", e);
+        }
+    }
+
+    @Transactional
+    public void processMetaPayload(String rawPayload) {
+        try {
+            JsonNode root = objectMapper.readTree(rawPayload);
+            String object = root.path("object").asText();
+            
+            log.warn("[Webhook-Meta] DEPRECATED: Use /instagram or /threads endpoint instead. Object: {}", object);
+            
+            // Route to appropriate handler
+            if ("instagram".equals(object)) {
+                processInstagramPayload(rawPayload);
+            } else if ("threads".equals(object)) {
+                processThreadsPayload(rawPayload);
+            } else {
+                log.warn("[Webhook-Meta] Unknown object type: {}", object);
+            }
+        } catch (Exception e) {
+            log.error("[Webhook-Meta] Failed to process Meta payload", e);
+        }
+    }
+
+    private void processInstagramComment(String platformPageId, JsonNode value) {
+        String commentId  = value.path("id").asText();
+        String postId     = value.path("post_id").asText();
+        String text       = value.path("text").asText("");
+        String authorName = value.path("from").path("name").asText("User");
+        String authorId   = value.path("from").path("id").asText(null);
+        
+        log.info("[Webhook-IG] Comment: id={}, author={}", commentId, authorName);
+        
+        SocialPage page = findPageByPlatform(platformPageId, PlatformType.INSTAGRAM);
+        if (page == null) {
+            log.warn("[Webhook-IG] No Instagram page found for pageId={}", platformPageId);
+            return;
+        }
+        
+        if (inboxRepository.findByPlatformMessageIdAndPageId(commentId, page.getId()).isPresent()) {
+            log.debug("[Webhook-IG] Comment {} already in DB, skipping", commentId);
+            return;
+        }
+        
+        boolean isFromMe = page.getPlatformPageId().equals(authorId);
+        
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(commentId)
+                .platformPostId(postId)
+                .parentMessageId(null)
+                .content(text)
+                .authorName(authorName)
+                .authorId(authorId)
+                .messageType(MessageType.COMMENT)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(isFromMe)
+                .isFromMe(isFromMe)
+                .build());
+        
+        log.info("[Webhook-IG] ✓ Stored comment: {}", commentId);
+        broadcastMeta(page, saved);
+    }
+
+    private void processInstagramDirectMessage(String platformPageId, JsonNode value) {
+        String messageId    = value.path("id").asText();
+        String conversationId = value.path("conversation_id").asText();
+        String text         = value.path("text").asText("");
+        String senderId     = value.path("from").path("id").asText();
+        String senderName   = value.path("from").path("name").asText("Instagram User");
+        
+        log.info("[Webhook-IG] DM: id={}, from={}, conv={}", messageId, senderName, conversationId);
+        
+        SocialPage page = findPageByPlatform(platformPageId, PlatformType.INSTAGRAM);
+        if (page == null) {
+            log.warn("[Webhook-IG] No Instagram page found for pageId={}", platformPageId);
+            return;
+        }
+        
+        if (inboxRepository.findByPlatformMessageIdAndPageId(messageId, page.getId()).isPresent()) {
+            log.debug("[Webhook-IG] DM {} already in DB, skipping", messageId);
+            return;
+        }
+        
+        boolean isFromMe = page.getPlatformPageId().equals(senderId);
+        
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(messageId)
+                .conversationId(conversationId)
+                .content(text)
+                .authorName(senderName)
+                .authorId(senderId)
+                .messageType(MessageType.DIRECT_MESSAGE)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(isFromMe)
+                .isFromMe(isFromMe)
+                .build());
+        
+        log.info("[Webhook-IG] ✓ Stored DM: {}", messageId);
+        broadcastMeta(page, saved);
+    }
+
+    private void processThreadsComment(String platformPageId, JsonNode value) {
+        String commentId  = value.path("id").asText();
+        String postId     = value.path("post_id").asText();
+        String text       = value.path("text").asText("");
+        String authorName = value.path("from").path("name").asText("User");
+        String authorId   = value.path("from").path("id").asText(null);
+        
+        log.info("[Webhook-Threads] Comment: id={}, author={}", commentId, authorName);
+        
+        SocialPage page = findPageByPlatform(platformPageId, PlatformType.THREADS);
+        if (page == null) {
+            log.warn("[Webhook-Threads] No Threads page found for pageId={}", platformPageId);
+            return;
+        }
+        
+        if (inboxRepository.findByPlatformMessageIdAndPageId(commentId, page.getId()).isPresent()) {
+            log.debug("[Webhook-Threads] Comment {} already in DB, skipping", commentId);
+            return;
+        }
+        
+        boolean isFromMe = page.getPlatformPageId().equals(authorId);
+        
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(commentId)
+                .platformPostId(postId)
+                .parentMessageId(null)
+                .content(text)
+                .authorName(authorName)
+                .authorId(authorId)
+                .messageType(MessageType.COMMENT)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(isFromMe)
+                .isFromMe(isFromMe)
+                .build());
+        
+        log.info("[Webhook-Threads] ✓ Stored comment: {}", commentId);
+        broadcastMeta(page, saved);
+    }
+
+    private void processThreadsDirectMessage(String platformPageId, JsonNode value) {
+        String messageId    = value.path("id").asText();
+        String conversationId = value.path("conversation_id").asText();
+        String text         = value.path("text").asText("");
+        String senderId     = value.path("from").path("id").asText();
+        String senderName   = value.path("from").path("name").asText("Threads User");
+        
+        log.info("[Webhook-Threads] DM: id={}, from={}, conv={}", messageId, senderName, conversationId);
+        
+        SocialPage page = findPageByPlatform(platformPageId, PlatformType.THREADS);
+        if (page == null) {
+            log.warn("[Webhook-Threads] No Threads page found for pageId={}", platformPageId);
+            return;
+        }
+        
+        if (inboxRepository.findByPlatformMessageIdAndPageId(messageId, page.getId()).isPresent()) {
+            log.debug("[Webhook-Threads] DM {} already in DB, skipping", messageId);
+            return;
+        }
+        
+        boolean isFromMe = page.getPlatformPageId().equals(senderId);
+        
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(messageId)
+                .conversationId(conversationId)
+                .content(text)
+                .authorName(senderName)
+                .authorId(senderId)
+                .messageType(MessageType.DIRECT_MESSAGE)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(isFromMe)
+                .isFromMe(isFromMe)
+                .build());
+        
+        log.info("[Webhook-Threads] ✓ Stored DM: {}", messageId);
+        broadcastMeta(page, saved);
+    }
+
+    @Transactional
     public void processFacebookPayload(String rawPayload) {
         try {
             JsonNode root = objectMapper.readTree(rawPayload);
@@ -279,6 +532,20 @@ public class WebhookEventService {
         return pages.get(0);
     }
 
+    private SocialPage findPageByPlatform(String platformPageId, PlatformType platform) {
+        List<SocialPage> pages = pageRepository.findByPlatformPageId(platformPageId);
+        if (pages.isEmpty()) {
+            log.warn("[Webhook] No page found for platformPageId={} and platform={}", platformPageId, platform);
+            return null;
+        }
+        
+        // Filter by platform if needed
+        return pages.stream()
+                .filter(p -> p.getPlatform() == platform)
+                .findFirst()
+                .orElseGet(() -> pages.get(0)); // Fallback to first if platform doesn't match
+    }
+
     private void broadcast(SocialPage page, InboxMessage message) {
         UUID brandId = page.getConnection().getBrand().getId();
         InboxMessageResponse response = InboxMessageResponse.builder()
@@ -298,6 +565,29 @@ public class WebhookEventService {
                 .pageId(page.getId())
                 .pageName(page.getPageName())
                 .platform(PlatformType.FACEBOOK)
+                .build();
+        inboxEventPublisher.publishNewMessage(brandId, response);
+    }
+
+    private void broadcastMeta(SocialPage page, InboxMessage message) {
+        UUID brandId = page.getConnection().getBrand().getId();
+        InboxMessageResponse response = InboxMessageResponse.builder()
+                .id(message.getId())
+                .platformMessageId(message.getPlatformMessageId())
+                .platformPostId(message.getPlatformPostId())
+                .parentMessageId(message.getParentMessageId())
+                .content(message.getContent())
+                .authorName(message.getAuthorName())
+                .authorProfilePic(message.getAuthorProfilePic())
+                .createdAt(message.getCreatedAt())
+                .isRead(message.getIsRead())
+                .isFromMe(message.getIsFromMe())
+                .messageType(message.getMessageType())
+                .conversationId(message.getConversationId())
+                .likeCount(message.getLikeCount())
+                .pageId(page.getId())
+                .pageName(page.getPageName())
+                .platform(page.getPlatform()) // Use actual page platform
                 .build();
         inboxEventPublisher.publishNewMessage(brandId, response);
     }

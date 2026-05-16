@@ -70,6 +70,15 @@ public class OAuthController {
         response.sendRedirect(redirectUrl);
     }
 
+    @GetMapping("/instagram/callback")
+    public void instagramCallback(
+            @RequestParam String code,
+            @RequestParam String state,
+            HttpServletResponse response) throws IOException {
+        String redirectUrl = oauthService.handleInstagramCallback(code, state);
+        response.sendRedirect(redirectUrl);
+    }
+
     /** Facebook JS SDK connect */
     @PostMapping("/facebook/connect")
     public org.springframework.http.ResponseEntity<?> facebookConnect(@RequestBody Map<String, Object> body) {

@@ -16,6 +16,7 @@ public class PublisherService {
     private final LinkedInPublisher linkedInPublisher;
     private final BlueskyPublisher blueskyPublisher;
     private final ThreadsPublisher threadsPublisher;
+    private final InstagramPublisher instagramPublisher;
 
     public PublishResult publish(Post post) {
         SocialPage page = post.getPage();
@@ -26,6 +27,7 @@ public class PublisherService {
         if (platform == PlatformType.LINKEDIN) return linkedInPublisher.publish(post, page);
         if (platform == PlatformType.BLUESKY) return blueskyPublisher.publish(post, page);
         if (platform == PlatformType.THREADS) return threadsPublisher.publish(post, page);
+        if (platform == PlatformType.INSTAGRAM) return instagramPublisher.publish(post, page);
         throw new IllegalArgumentException("Unsupported platform: " + platform);
     }
 }
