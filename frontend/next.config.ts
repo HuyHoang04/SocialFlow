@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  allowedDevOrigins: [
+    process.env.NEXT_PUBLIC_STAGE_DOMAIN || 'stage.socialflow.io.vn',
+  ]
 };
 
 export default nextConfig;

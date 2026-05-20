@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppConfigsModal from '@/components/AppConfigsModal';
 
-const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '949895587790556';
+// Load Facebook App ID from backend dynamically
+let FB_APP_ID = '';
 
 /* global FB */
 declare global {
@@ -108,6 +109,7 @@ export default function AccountsContent() {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [showAppConfigModal, setShowAppConfigModal] = useState(false);
     const fbLoaded = useRef(false);
@@ -115,23 +117,48 @@ export default function AccountsContent() {
     const [bskyAppPassword, setBskyAppPassword] = useState('');
     const [showBskyForm, setShowBskyForm] = useState(false);
 
+    // Initialize Facebook SDK with App ID from backend
     useEffect(() => {
-        if (fbLoaded.current) return;
+        if (fbLoaded.current || !brand) return;
         fbLoaded.current = true;
-        window.fbAsyncInit = function () {
-            window.FB.init({
-                appId: FB_APP_ID,
-                cookie: true,
-                xfbml: true,
-                version: 'v18.0',
+
+        // Get Facebook App ID from backend to ensure consistency
+        api.getOAuthUrl('facebook', brand.id)
+            .then(res => {
+                FB_APP_ID = res.clientId;
+                // Initialize Facebook SDK
+                window.fbAsyncInit = function () {
+                    window.FB.init({
+                        appId: FB_APP_ID,
+                        cookie: true,
+                        xfbml: true,
+                        version: 'v18.0',
+                    });
+                };
+                const script = document.createElement('script');
+                script.src = 'https://connect.facebook.net/en_US/sdk.js';
+                script.async = true;
+                script.defer = true;
+                document.body.appendChild(script);
+            })
+            .catch(() => {
+                // Fallback if backend call fails
+                FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '949895587790556';
+                window.fbAsyncInit = function () {
+                    window.FB.init({
+                        appId: FB_APP_ID,
+                        cookie: true,
+                        xfbml: true,
+                        version: 'v18.0',
+                    });
+                };
+                const script = document.createElement('script');
+                script.src = 'https://connect.facebook.net/en_US/sdk.js';
+                script.async = true;
+                script.defer = true;
+                document.body.appendChild(script);
             });
-        };
-        const script = document.createElement('script');
-        script.src = 'https://connect.facebook.net/en_US/sdk.js';
-        script.async = true;
-        script.defer = true;
-        document.body.appendChild(script);
-    }, []);
+    }, [brand]);
 
     const loadConnections = useCallback(async () => {
         if (!brand) return;
@@ -164,7 +191,47 @@ export default function AccountsContent() {
             if (!brand) return;
             setConnecting(platform);
             api.getOAuthUrl(platform, brand.id)
-                .then(res => { window.location.href = res.url; })
+                .then(res => {
+                    // Mở popup OAuth thay vì redirect toàn trang
+                    const popup = window.open(res.url, `${platform}_auth`, 'width=600,height=700,resizable=yes,scrollbars=yes');
+                    if (!popup) {
+                        alert('Popup bị chặn. Vui lòng cho phép popup cho trang web này.');
+                        setConnecting(null);
+                        return;
+                    }
+
+                    // Listen postMessage từ popup callback
+                    const handleMessage = (event: MessageEvent) => {
+                        if (event.data?.type === 'oauth_success') {
+                            window.removeEventListener('message', handleMessage);
+                            clearInterval(checkPopup);
+                            setSuccessMsg(platform.charAt(0).toUpperCase() + platform.slice(1));
+                            setErrorMsg('');
+                            loadConnections();
+                            setConnecting(null);
+                            try { popup.close(); } catch (e) { }
+                        } else if (event.data?.type === 'oauth_error') {
+                            window.removeEventListener('message', handleMessage);
+                            clearInterval(checkPopup);
+                            setErrorMsg(event.data.message || 'Authentication failed');
+                            setConnecting(null);
+                        }
+                    };
+                    window.addEventListener('message', handleMessage);
+
+                    // Lắng nghe khi popup đóng mà không có message
+                    const checkPopup = setInterval(() => {
+                        try {
+                            if (popup.closed) {
+                                clearInterval(checkPopup);
+                                window.removeEventListener('message', handleMessage);
+                                // Chỉ set connecting null, không show success (đã handle ở message)
+                                setConnecting(null);
+                                loadConnections(); // reload để check nếu thực sự đã connect
+                            }
+                        } catch (e) { }
+                    }, 1000);
+                })
                 .catch(() => setConnecting(null));
         }
     };
@@ -215,6 +282,21 @@ export default function AccountsContent() {
                     🔧 Manage App Credentials
                 </button>
             </div>
+
+            {errorMsg && (
+                <div style={{ 
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444',
+                    padding: '12px 20px', borderRadius: 'var(--radius)',
+                    marginBottom: 24, color: 'var(--text-primary)'
+                }}>
+                    <span style={{ fontSize: 20 }}>❌</span>
+                    <div style={{ flex: 1, fontSize: 13 }}>
+                        <strong style={{ color: '#ef4444' }}>Connection failed: </strong>{errorMsg}
+                    </div>
+                    <button onClick={() => setErrorMsg('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+                </div>
+            )}
 
             {successMsg && (
                 <div className="success-msg" style={{ 

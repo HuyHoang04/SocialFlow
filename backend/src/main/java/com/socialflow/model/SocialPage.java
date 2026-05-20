@@ -22,6 +22,7 @@ public class SocialPage {
     @Column(nullable = false)
     private String pageName;
 
+    @Column(columnDefinition = "TEXT")
     private String pageImageUrl;
 
     @Column(columnDefinition = "TEXT")

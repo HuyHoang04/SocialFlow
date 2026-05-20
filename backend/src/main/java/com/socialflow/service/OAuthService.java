@@ -78,7 +78,7 @@ public class OAuthService {
     /**
      * Get app ID for platform, checking brand config first, then default config
      */
-    private String getClientId(PlatformType platform, UUID brandId) {
+    public String getClientId(PlatformType platform, UUID brandId) {
         AppConfig config = appConfigRepository.findByBrandIdAndPlatform(brandId, platform).orElse(null);
         if (config != null && config.getAppId() != null && !config.getAppId().isEmpty()) {
             return config.getAppId();
@@ -136,6 +136,11 @@ public class OAuthService {
         String clientId = getClientId(platform, brandId);
         String redirectUri = getRedirectUri(platform, brandId);
 
+        if (platform == PlatformType.INSTAGRAM) {
+            log.info("[IG OAuth URL] clientId={}, redirectUri={}, encodedRedirectUri={}",
+                    clientId, redirectUri, encode(redirectUri));
+        }
+
         return switch (platform) {
             case FACEBOOK -> "https://www.facebook.com/v18.0/dialog/oauth?"
                     + "client_id=" + clientId
@@ -162,10 +167,10 @@ public class OAuthService {
                     + "&scope=threads_basic,threads_content_publish"
                     + "&response_type=code"
                     + "&state=" + state;
-            case INSTAGRAM -> "https://api.instagram.com/oauth/authorize?"
+            case INSTAGRAM -> "https://www.instagram.com/oauth/authorize?"
                     + "client_id=" + clientId
                     + "&redirect_uri=" + encode(redirectUri)
-                    + "&scope=instagram_basic,instagram_content_publish"
+                    + "&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights"
                     + "&response_type=code"
                     + "&state=" + state;
             case BLUESKY -> "";
@@ -468,37 +473,72 @@ public class OAuthService {
         String clientSecret = getClientSecret(PlatformType.INSTAGRAM, brandId);
         String redirectUri = getRedirectUri(PlatformType.INSTAGRAM, brandId);
 
-        WebClient ig = webClientBuilder.baseUrl("https://graph.instagram.com").build();
+        WebClient igAuth = webClientBuilder.baseUrl("https://api.instagram.com").build();
+        WebClient igGraph = webClientBuilder.baseUrl("https://graph.instagram.com").build();
+
+        log.info("Instagram callback - clientId: {}, redirectUri: {}, codeLength: {}",
+                clientId, redirectUri, code != null ? code.length() : 0);
+
+        // Build raw form body
+        // Auth URL sent redirect_uri encoded → Instagram decoded and stored as raw URI
+        // Token exchange must send redirect_uri RAW (not percent-encoded) so Instagram can compare directly
+        String rawFormBody = "client_id=" + clientId
+                + "&client_secret=" + clientSecret
+                + "&grant_type=authorization_code"
+                + "&redirect_uri=" + redirectUri
+                + "&code=" + code;
+
+        log.info("[IG token exchange] redirect_uri (raw, unencoded): {}", redirectUri);
 
         // Exchange code for short-lived access token
-        JsonNode tokenResp = ig.post()
-                .uri(uri -> uri.path("/access_token")
-                        .queryParam("client_id", clientId)
-                        .queryParam("client_secret", clientSecret)
-                        .queryParam("redirect_uri", redirectUri)
-                        .queryParam("code", code)
-                        .build())
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block();
+        JsonNode tokenResp;
+        try {
+            tokenResp = igAuth.post()
+                    .uri("/oauth/access_token")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .bodyValue(rawFormBody)
+                    .exchangeToMono(resp -> {
+                        if (resp.statusCode().isError()) {
+                            return resp.bodyToMono(String.class).flatMap(body -> {
+                                log.error("Instagram token exchange HTTP {}: {}", resp.statusCode(), body);
+                                return reactor.core.publisher.Mono.error(
+                                        new RuntimeException("Instagram token exchange failed [" + resp.statusCode() + "]: " + body));
+                            });
+                        }
+                        return resp.bodyToMono(JsonNode.class);
+                    })
+                    .block();
+        } catch (Exception e) {
+            log.error("Instagram token exchange exception: {}", e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
 
-        String userAccessToken = tokenResp.get("access_token").asText();
+        if (tokenResp == null || !tokenResp.has("access_token")) {
+            log.error("Instagram token exchange failed: {}", tokenResp);
+            throw new RuntimeException("Instagram token exchange failed: " + tokenResp);
+        }
+
+        String shortLivedToken = tokenResp.get("access_token").asText();
         String instagramUserId = tokenResp.get("user_id").asText();
+        log.info("Instagram short-lived token obtained for user: {}", instagramUserId);
 
-        // Get long-lived token
-        JsonNode longLivedResp = ig.get()
+        // Exchange short-lived for long-lived token — grant_type = ig_exchange_token
+        JsonNode longLivedResp = igGraph.get()
                 .uri(uri -> uri.path("/access_token")
-                        .queryParam("grant_type", "ig_refresh_token")
-                        .queryParam("access_token", userAccessToken)
+                        .queryParam("grant_type", "ig_exchange_token")
+                        .queryParam("client_secret", clientSecret)
+                        .queryParam("access_token", shortLivedToken)
                         .build())
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block();
 
-        String longLivedToken = longLivedResp.get("access_token").asText();
+        String longLivedToken = (longLivedResp != null && longLivedResp.has("access_token"))
+                ? longLivedResp.get("access_token").asText()
+                : shortLivedToken;
 
         // Get user profile
-        JsonNode profileResp = ig.get()
+        JsonNode profileResp = igGraph.get()
                 .uri(uri -> uri.path("/me")
                         .queryParam("fields", "id,username,name,profile_picture_url")
                         .queryParam("access_token", longLivedToken)
@@ -507,7 +547,9 @@ public class OAuthService {
                 .bodyToMono(JsonNode.class)
                 .block();
 
-        String username = profileResp.has("username") ? profileResp.get("username").asText() : "instagram_user";
+        String username = (profileResp != null && profileResp.has("username"))
+                ? profileResp.get("username").asText()
+                : "instagram_user";
 
         SocialConnection connection = connectionRepository
                 .findByBrandIdAndPlatformAndAccountId(brand.getId(), PlatformType.INSTAGRAM, instagramUserId)
@@ -518,8 +560,10 @@ public class OAuthService {
                         .build());
         connection.setAccountName("@" + username);
         connection.setAccessToken(longLivedToken);
-        connection.setScopes("instagram_basic, instagram_content_publish");
-        long igExpiresIn = longLivedResp.has("expires_in") ? longLivedResp.get("expires_in").asLong() : 5184000;
+        connection.setScopes("instagram_business_basic, instagram_business_content_publish, instagram_business_manage_messages, instagram_business_manage_comments, instagram_business_manage_insights");
+        long igExpiresIn = (longLivedResp != null && longLivedResp.has("expires_in"))
+                ? longLivedResp.get("expires_in").asLong()
+                : 5184000;
         connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(igExpiresIn));
         connection = connectionRepository.save(connection);
 
@@ -533,7 +577,7 @@ public class OAuthService {
                         .build());
         page.setPageName("@" + username);
         page.setPageAccessToken(longLivedToken);
-        if (profileResp.has("profile_picture_url")) {
+        if (profileResp != null && profileResp.has("profile_picture_url")) {
             page.setPageImageUrl(profileResp.get("profile_picture_url").asText());
         }
         pageRepository.save(page);
