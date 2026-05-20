@@ -16,6 +16,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.annotation.PostConstruct;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -27,6 +30,19 @@ public class InstagramAnalyticsService implements PlatformAnalyticsAdapter {
     private final PageAnalyticsRepository pageAnalyticsRepository;
     private final SocialPageRepository socialPageRepository;
     private final SocialConnectionRepository socialConnectionRepository;
+    private final JdbcTemplate jdbcTemplate;
+
+    @PostConstruct
+    public void fixDatabaseConstraints() {
+        try {
+            log.info("Dropping outdated platform check constraints for analytics tables...");
+            jdbcTemplate.execute("ALTER TABLE page_analytics DROP CONSTRAINT IF EXISTS page_analytics_platform_check");
+            jdbcTemplate.execute("ALTER TABLE post_analytics DROP CONSTRAINT IF EXISTS post_analytics_platform_check");
+            log.info("Successfully dropped check constraints.");
+        } catch (Exception e) {
+            log.warn("Could not drop constraints, they might not exist or another error occurred: {}", e.getMessage());
+        }
+    }
 
     private static final String GRAPH_BASE = "https://graph.instagram.com/v18.0";
 
@@ -93,12 +109,12 @@ public class InstagramAnalyticsService implements PlatformAnalyticsAdapter {
             try {
                 // Fetch Instagram media insights (likes, comments, etc.)
                 String insightsUrl = String.format(
-                        "/%s/insights?metric=impressions,engagement,reach,saved&access_token=%s",
+                        "/%s/insights?metric=impressions,total_interactions,reach,saved&access_token=%s",
                         platformPostId, page.getPageAccessToken()
                 );
 
                 JsonNode insightsData = client.get()
-                        .uri(java.net.URI.create(insightsUrl))
+                        .uri(insightsUrl)
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
@@ -117,7 +133,7 @@ public class InstagramAnalyticsService implements PlatformAnalyticsAdapter {
                         switch (metricName) {
                             case "impressions" -> impressions = value;
                             case "reach" -> reach = value;
-                            case "engagement" -> engagedUsers = value;
+                            case "total_interactions" -> engagedUsers = value;
                             case "saved" -> clicks = value;
                         }
                     }
@@ -130,7 +146,7 @@ public class InstagramAnalyticsService implements PlatformAnalyticsAdapter {
                 );
 
                 JsonNode mediaData = client.get()
-                        .uri(java.net.URI.create(mediaUrl))
+                        .uri(mediaUrl)
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
@@ -194,7 +210,7 @@ public class InstagramAnalyticsService implements PlatformAnalyticsAdapter {
             );
 
             JsonNode pageData = client.get()
-                    .uri(java.net.URI.create(pageInsightsUrl))
+                    .uri(pageInsightsUrl)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();

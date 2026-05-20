@@ -52,30 +52,32 @@ public class InstagramPublisher implements CommentFetcher {
             String accessToken = page.getPageAccessToken();
             List<PostMedia> media = post.getMediaFiles();
 
-            // Step 1: Upload media (image/video/carousel) and create container
-            String mediaId = uploadMedia(client, post, media, accessToken);
-            if (mediaId == null) {
+            if (media == null || media.isEmpty()) {
                 return PublishResult.builder()
                         .post(post).success(false)
-                        .errorMessage("Failed to upload Instagram media")
+                        .errorMessage("Instagram requires at least one image or video")
                         .build();
             }
 
-            // Step 2: Create media object (carousel if multiple images)
+            PostMedia first = media.get(0);
+            String mediaUrl = first.getUrl().startsWith("http") ? first.getUrl() : baseUrl + first.getUrl();
+
+            // Step 1: Create media object container
             Map<String, Object> containerParams = new HashMap<>();
-            containerParams.put("media_type", media != null && !media.isEmpty() 
-                    ? (media.get(0).getContentType().startsWith("image/") ? "IMAGE" : "VIDEO") 
-                    : "IMAGE");
+            boolean isVideo = first.getContentType().startsWith("video/");
+            containerParams.put("media_type", isVideo ? "VIDEO" : "IMAGE");
             containerParams.put("caption", post.getContent());
 
-            if (media != null && media.size() > 1) {
-                containerParams.put("media_type", "CAROUSEL");
-                // For carousel, add array of media IDs (simplified)
-                List<String> mediaIds = new ArrayList<>();
-                mediaIds.add(mediaId);
-                containerParams.put("children", mediaIds);
+            if (media.size() > 1) {
+                // Carousel creation requires creating individual item containers first,
+                // but for this hotfix we'll just publish the first media item.
+                log.warn("Carousel publishing not fully implemented yet, publishing first image only.");
+            }
+            
+            if (isVideo) {
+                containerParams.put("video_url", mediaUrl);
             } else {
-                containerParams.put(media != null && !media.isEmpty() ? "image_url" : "media_id", mediaId);
+                containerParams.put("image_url", mediaUrl);
             }
 
             containerParams.put("access_token", accessToken);
@@ -97,6 +99,13 @@ public class InstagramPublisher implements CommentFetcher {
 
             String creationId = containerResp.get("id").asText();
 
+            // Add delay to let Instagram download and process the media before publishing
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
             // Step 4: Publish the media object
             JsonNode publishResp = client.post()
                     .uri("/{userId}/media_publish", userId)
@@ -110,10 +119,35 @@ public class InstagramPublisher implements CommentFetcher {
 
             if (publishResp != null && publishResp.has("id")) {
                 String postId = publishResp.get("id").asText();
+                String permalink = "https://www.instagram.com/p/" + postId;
+                
+                try {
+                    // Add a small delay to handle Instagram API eventual consistency
+                    Thread.sleep(1500);
+                    JsonNode postDetails = client.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/{postId}")
+                                    .queryParam("fields", "permalink,shortcode")
+                                    .queryParam("access_token", accessToken)
+                                    .build(postId))
+                            .retrieve()
+                            .bodyToMono(JsonNode.class)
+                            .block();
+                    if (postDetails != null) {
+                        if (postDetails.has("permalink")) {
+                            permalink = postDetails.get("permalink").asText();
+                        } else if (postDetails.has("shortcode")) {
+                            permalink = "https://www.instagram.com/p/" + postDetails.get("shortcode").asText() + "/";
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Failed to fetch permalink/shortcode for Instagram post {}", postId, ex);
+                }
+
                 return PublishResult.builder()
                         .post(post)
                         .platformPostId(postId)
-                        .platformPostUrl("https://www.instagram.com/p/" + postId)
+                        .platformPostUrl(permalink)
                         .success(true)
                         .build();
             }
@@ -320,7 +354,7 @@ public class InstagramPublisher implements CommentFetcher {
             );
 
             JsonNode conversationsResp = client.get()
-                    .uri(java.net.URI.create(conversationsUrl))
+                    .uri(conversationsUrl)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
@@ -357,7 +391,7 @@ public class InstagramPublisher implements CommentFetcher {
                 );
 
                 JsonNode messagesResp = client.get()
-                        .uri(java.net.URI.create(messagesUrl))
+                        .uri(messagesUrl)
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();

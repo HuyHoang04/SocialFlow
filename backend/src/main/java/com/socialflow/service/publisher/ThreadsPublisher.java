@@ -50,7 +50,7 @@ public class ThreadsPublisher implements CommentFetcher {
 
             // Fetch all conversations for this Threads account
             String conversationsUrl = String.format(
-                    "https://graph.threads.net/v1.0/%s/conversations?fields=id,participants,updated_time&access_token=%s",
+                    "https://graph.threads.com/v1.0/%s/conversations?fields=id,participants,updated_time&access_token=%s",
                     userId, token
             );
 
@@ -87,7 +87,7 @@ public class ThreadsPublisher implements CommentFetcher {
 
                 // Fetch messages for this conversation
                 String messagesUrl = String.format(
-                        "https://graph.threads.net/v1.0/%s/messages?fields=id,message,from,created_time&access_token=%s",
+                        "https://graph.threads.com/v1.0/%s/messages?fields=id,message,from,created_time&access_token=%s",
                         conversationId, token
                 );
 
@@ -156,7 +156,7 @@ public class ThreadsPublisher implements CommentFetcher {
             String userId = page.getPlatformPageId();
             String token = page.getPageAccessToken();
 
-            WebClient client = webClientBuilder.baseUrl("https://graph.threads.net/v1.0").build();
+            WebClient client = webClientBuilder.baseUrl("https://graph.threads.com/v1.0").build();
             
             client.post()
                     .uri("/{userId}/messages", userId)
@@ -180,7 +180,7 @@ public class ThreadsPublisher implements CommentFetcher {
         try {
             String token = page.getPageAccessToken();
 
-            WebClient client = webClientBuilder.baseUrl("https://graph.threads.net/v1.0").build();
+            WebClient client = webClientBuilder.baseUrl("https://graph.threads.com/v1.0").build();
             
             client.post()
                     .uri("/{commentId}/replies", commentId)
@@ -229,7 +229,7 @@ public class ThreadsPublisher implements CommentFetcher {
                                      List<PlatformCommentDto> results) {
         try {
             String url = String.format(
-                    "https://graph.threads.net/v1.0/%s/replies" +
+                    "https://graph.threads.com/v1.0/%s/replies" +
                     "?fields=id,text,username,timestamp" +
                     "&access_token=%s",
                     mediaId, token
@@ -296,7 +296,7 @@ public class ThreadsPublisher implements CommentFetcher {
     public PublishResult publish(Post post, SocialPage page) {
         try {
             WebClient threads = webClientBuilder
-                    .baseUrl("https://graph.threads.net/v1.0")
+                    .baseUrl("https://graph.threads.com/v1.0")
                     .build();
 
             String userId = page.getPlatformPageId();
@@ -310,7 +310,7 @@ public class ThreadsPublisher implements CommentFetcher {
 
             if (media != null && !media.isEmpty()) {
                 PostMedia first = media.get(0);
-                String mediaUrl = baseUrl + first.getUrl();
+                String mediaUrl = first.getUrl().startsWith("http") ? first.getUrl() : baseUrl + first.getUrl();
 
                 if (first.getContentType().startsWith("image/")) {
                     containerParams.put("media_type", "IMAGE");
@@ -342,6 +342,13 @@ public class ThreadsPublisher implements CommentFetcher {
 
             String containerId = containerResp.get("id").asText();
 
+            // Add delay to let Threads download and process the media before publishing
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
             // Step 2: Publish the container
             JsonNode publishResp = threads.post()
                     .uri("/{userId}/threads_publish", userId)
@@ -355,10 +362,31 @@ public class ThreadsPublisher implements CommentFetcher {
 
             if (publishResp != null && publishResp.has("id")) {
                 String postId = publishResp.get("id").asText();
+                String permalink = "https://www.threads.net/@" + page.getPageName() + "/post/" + postId;
+                
+                try {
+                    // Add a small delay to handle Threads API eventual consistency
+                    Thread.sleep(1500);
+                    JsonNode postDetails = threads.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/{postId}")
+                                    .queryParam("fields", "permalink")
+                                    .queryParam("access_token", accessToken)
+                                    .build(postId))
+                            .retrieve()
+                            .bodyToMono(JsonNode.class)
+                            .block();
+                    if (postDetails != null && postDetails.has("permalink")) {
+                        permalink = postDetails.get("permalink").asText();
+                    }
+                } catch (Exception ex) {
+                    log.warn("Failed to fetch permalink for Threads post {}", postId, ex);
+                }
+
                 return PublishResult.builder()
                         .post(post)
                         .platformPostId(postId)
-                        .platformPostUrl("https://www.threads.net/@" + page.getPageName() + "/post/" + postId)
+                        .platformPostUrl(permalink)
                         .success(true)
                         .build();
             }

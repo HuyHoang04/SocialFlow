@@ -74,6 +74,7 @@ public class PostService {
         if (request.getMediaFilenames() != null && !request.getMediaFilenames().isEmpty()) {
             for (int i = 0; i < request.getMediaFilenames().size(); i++) {
                 String filename = request.getMediaFilenames().get(i);
+                if (filename == null || filename.isBlank()) continue;
                 
                 // Try to find existing media by filename and uploader (get the latest one)
                 List<com.socialflow.model.PostMedia> existingMediaList = 
@@ -217,6 +218,7 @@ public class PostService {
             if (!request.getMediaFilenames().isEmpty()) {
                 for (int i = 0; i < request.getMediaFilenames().size(); i++) {
                     String filename = request.getMediaFilenames().get(i);
+                    if (filename == null || filename.isBlank()) continue;
                     
                     PostMedia media = PostMedia.builder()
                             .filename(filename)

@@ -33,6 +33,10 @@ public class ApprovalWorkflowService {
     private final BrandRepository brandRepository;
     private final BrandTeamService brandTeamService;
 
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private PostService postService;
+
     /**
      * Get workflow config for a brand, or create default if not exists
      */
@@ -132,11 +136,9 @@ public class ApprovalWorkflowService {
         Post post = approval.getPost();
         ApprovalWorkflowConfig config = getWorkflowConfig(post.getPage().getConnection().getBrand().getId());
 
-        // If 1-level or last level approved, set post to APPROVED
+        // If 1-level or last level approved, finalize approval
         if (config.getApprovalLevels() == 1) {
-            post.setStatus(PostStatus.APPROVED);
-            postRepository.save(post);
-            log.info("Post {} approved (1-level workflow)", post.getId());
+            handleFinalApproval(post);
         } else {
             // Check if level 2 approval exists
             java.util.Optional<PostApproval> level2 = postApprovalRepository.findByPostIdAndApprovalLevel(post.getId(), 2);
@@ -151,10 +153,27 @@ public class ApprovalWorkflowService {
                 log.info("Post {} level 1 approved, waiting for level 2", post.getId());
             } else if (level2.get().getStatus() == ApprovalStatus.APPROVED) {
                 // Both levels approved
-                post.setStatus(PostStatus.APPROVED);
-                postRepository.save(post);
-                log.info("Post {} fully approved (2-level workflow)", post.getId());
+                handleFinalApproval(post);
             }
+        }
+    }
+
+    private void handleFinalApproval(Post post) {
+        log.info("Post {} fully approved", post.getId());
+        if (post.getScheduledTime() == null || post.getScheduledTime().isBefore(LocalDateTime.now())) {
+            // Publish immediately
+            post.setStatus(PostStatus.APPROVED);
+            postRepository.save(post);
+            try {
+                postService.publishPost(post.getId(), null);
+            } catch (Exception e) {
+                log.error("Failed to publish approved post ID: {}", post.getId(), e);
+            }
+        } else {
+            // Schedule for future
+            post.setStatus(PostStatus.SCHEDULED);
+            postRepository.save(post);
+            log.info("Post {} scheduled for future publishing at {}", post.getId(), post.getScheduledTime());
         }
     }
 

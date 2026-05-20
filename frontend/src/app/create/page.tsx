@@ -2,7 +2,7 @@
 import { Suspense } from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, canManageBrand } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import {
@@ -161,6 +161,7 @@ function PlatformPreview({
                     <ThreadsPostPreview
                         url=""
                         title={caption || 'Threads Post'}
+                        caption={caption}
                         name={pageInfo.pageName}
                         profileImage="https://via.placeholder.com/48?text=TH"
                         image={currentMedia?.url}
@@ -315,30 +316,19 @@ function CreatePostContent() {
             api.getWorkflowConfig(brand.id).then(config => { 
                 setWorkflowConfig(config); 
                 
-                // Always load team members to check role, even if workflow disabled
-                return api.getTeamMembers(brand.id).then(members => {
-                    console.log('Decoded currentUserId:', currentUserId);
-                    console.log('Team members from API:', members.map((m: any) => ({ userId: m.userId, role: m.role })));
-                    
-                    // Find current user's role
-                    if (currentUserId) {
-                        const currentUserMember = members.find((m: any) => m.email === currentUserId || m.userId === currentUserId);
-                        if (currentUserMember) {
-                            const role = currentUserMember.role;
-                            const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
-                            setIsCurrentUserAdminOrManager(isPrivileged);
-                            console.log(`Current user role: ${role}, isPrivileged: ${isPrivileged}`);
-                        } else {
-                            console.log('Current user not found in team members list!');
-                        }
-                    }
+                // Determine user privilege synchronously from token
+                const isPrivileged = canManageBrand(brand.id);
+                setIsCurrentUserAdminOrManager(isPrivileged);
+                console.log(`Current user isPrivileged (from token): ${isPrivileged}`);
 
+                // Always load team members to get list of potential approvers
+                return api.getTeamMembers(brand.id).then(members => {
                     if (config?.enabled) {
                         // Filter to MANAGER and ADMIN roles (who can approve)
                         const approvers = members.filter((m: any) => m.role === 'MANAGER' || m.role === 'ADMIN');
                         setTeamMembers(approvers);
-                        // Auto-select first approver if available
-                        if (approvers.length > 0) {
+                        // Auto-select first approver if available (for normal users only)
+                        if (approvers.length > 0 && !isPrivileged) {
                             setSelectedApprover(approvers[0].userId);
                         }
                     }
@@ -798,12 +788,12 @@ function CreatePostContent() {
     };
 
     // ===== Publish/Schedule/Draft/Submit for Approval =====
-    const handleSubmit = async () => {
+    const handleSubmit = async (forceApproval: boolean = false) => {
         if (!content.trim()) return setError('Please enter post content');
         if (selectedPages.length === 0) return setError('Please select at least one page');
 
-        // Check if approval workflow is enabled and not scheduled
-        const needsApproval = workflowConfig?.enabled && !scheduledTime;
+        // Check if approval workflow is enabled, not scheduled, and (user is not Admin/Manager OR forced)
+        const needsApproval = workflowConfig?.enabled && !scheduledTime && (!isCurrentUserAdminOrManager || forceApproval);
         
         // If approval needed and no approver selected, show modal
         if (needsApproval && !selectedApprover) {
@@ -829,7 +819,7 @@ function CreatePostContent() {
             const postData = {
                 content,
                 pageIds: selectedPages,
-                mediaFilenames: mediaFiles.map(m => m.filename),
+                mediaFilenames: mediaFiles.map(m => m.filename || m.originalName || m.url.split('/').pop() || 'unknown.jpg'),
                 scheduledTime: ISOStringTime,
                 campaignId: selectedCampaign || undefined,
                 platformContent
@@ -935,7 +925,7 @@ function CreatePostContent() {
                             <>
                                 <button
                                     className="btn-action submit-approval"
-                                    onClick={handleSubmit}
+                                    onClick={() => handleSubmit(false)}
                                     disabled={publishing || !content.trim() || selectedPages.length === 0 || teamMembers.length === 0 || !!scheduledTime}
                                     title={scheduledTime ? "Cannot submit scheduled posts for approval" : ""}
                                 >
@@ -951,11 +941,25 @@ function CreatePostContent() {
                                     </div>
                                 )}
                             </>
+                        ) : workflowConfig?.enabled && isCurrentUserAdminOrManager ? (
+                            // Admin/Manager with workflow enabled - dynamic single button based on dropdown selection
+                            <button
+                                className={selectedApprover ? "btn-action submit-approval" : "btn-action publish"}
+                                onClick={() => handleSubmit(!!selectedApprover)}
+                                disabled={publishing || !content.trim() || selectedPages.length === 0}
+                                title={selectedApprover ? "Submit to selected manager for approval" : "Publish directly without approval"}
+                            >
+                                {publishing ? (
+                                    selectedApprover ? <><IconSend size={14} /> Submitting...</> : (scheduledTime ? <><IconClock size={14} /> Scheduling...</> : <><IconSend size={14} /> Publishing...</>)
+                                ) : (
+                                    selectedApprover ? <><IconSend size={14} /> Submit for Approval</> : (scheduledTime ? <><IconClock size={14} /> Schedule</> : <><IconSend size={14} /> Publish</>)
+                                )}
+                            </button>
                         ) : (
                             // No approval workflow - show "Publish" / "Schedule"
                             <button
                                 className="btn-action publish"
-                                onClick={handleSubmit}
+                                onClick={() => handleSubmit(false)}
                                 disabled={publishing || !content.trim() || selectedPages.length === 0}
                             >
                                 {publishing ? (
@@ -1025,7 +1029,7 @@ function CreatePostContent() {
                                 </button>
                                 <button 
                                     className="btn-primary"
-                                    onClick={handleSubmit}
+                                    onClick={() => handleSubmit(true)}
                                     disabled={!selectedApprover}
                                 >
                                     Submit for Approval
@@ -1295,9 +1299,15 @@ function CreatePostContent() {
                                         }}
                                         disabled={teamMembers.length === 0}
                                     >
-                                        <option style={{ color: "black" }} value="" disabled>
-                                            {teamMembers.length === 0 ? 'No approvers available' : 'Select an approver'}
-                                        </option>
+                                        {isCurrentUserAdminOrManager ? (
+                                            <option style={{ color: "black" }} value="">
+                                                None (Publish directly)
+                                            </option>
+                                        ) : (
+                                            <option style={{ color: "black" }} value="" disabled>
+                                                {teamMembers.length === 0 ? 'No approvers available' : 'Select an approver'}
+                                            </option>
+                                        )}
                                         {teamMembers.map(m => (
                                             <option style={{ color: "black" }} key={m.userId} value={m.userId}>
                                                 {m.name} ({m.role})

@@ -152,6 +152,7 @@ public class MediaController {
             Map<String, Object> map = new HashMap<>();
             map.put("id", m.getId().toString());
             map.put("url", m.getUrl());
+            map.put("filename", m.getFilename());
             map.put("originalName", m.getOriginalName());
             map.put("contentType", m.getContentType());
             map.put("fileSize", m.getFileSize());

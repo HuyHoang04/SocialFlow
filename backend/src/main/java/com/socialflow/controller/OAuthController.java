@@ -111,11 +111,23 @@ public class OAuthController {
 
     @GetMapping("/threads/callback")
     public void threadsCallback(
-            @RequestParam String code,
-            @RequestParam String state,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            @RequestParam(name = "error_description", required = false) String errorDescription,
             HttpServletResponse response) throws IOException {
-        String redirectUrl = oauthService.handleThreadsCallback(code, state);
-        sendClosePopupResponse(response, "connected=threads");
+        if (error != null) {
+            log.error("Threads OAuth error from redirect: {} - {}", error, errorDescription);
+            sendErrorPopupResponse(response, "Threads auth error: " + error + " - " + errorDescription);
+            return;
+        }
+        try {
+            oauthService.handleThreadsCallback(code, state);
+            sendClosePopupResponse(response, "connected=threads");
+        } catch (Exception e) {
+            log.error("Threads callback failed: {}", e.getMessage());
+            sendErrorPopupResponse(response, e.getMessage());
+        }
     }
 
     @GetMapping("/instagram/callback")

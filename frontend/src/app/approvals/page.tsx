@@ -149,6 +149,7 @@ function PlatformPreview({
                     <ThreadsPostPreview
                         url=""
                         title={caption || 'Threads Post'}
+                        caption={caption}
                         name={pageInfo.pageName}
                         profileImage="https://via.placeholder.com/48?text=TH"
                         image={currentMedia?.url}

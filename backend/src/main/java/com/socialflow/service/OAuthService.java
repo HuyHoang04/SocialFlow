@@ -161,10 +161,10 @@ public class OAuthService {
                     + "&redirect_uri=" + encode(redirectUri)
                     + "&scope=openid%20profile%20email%20w_member_social"
                     + "&state=" + state;
-            case THREADS -> "https://threads.net/oauth/authorize?"
+            case THREADS -> "https://www.threads.com/oauth/authorize?"
                     + "client_id=" + clientId
                     + "&redirect_uri=" + encode(redirectUri)
-                    + "&scope=threads_basic,threads_content_publish"
+                    + "&scope=threads_basic,threads_content_publish,threads_manage_insights,threads_manage_replies,threads_read_replies"
                     + "&response_type=code"
                     + "&state=" + state;
             case INSTAGRAM -> "https://www.instagram.com/oauth/authorize?"
@@ -393,7 +393,7 @@ public class OAuthService {
         String clientSecret = getClientSecret(PlatformType.THREADS, brandId);
         String redirectUri = getRedirectUri(PlatformType.THREADS, brandId);
 
-        WebClient threads = webClientBuilder.baseUrl("https://graph.threads.net").build();
+        WebClient threads = webClientBuilder.baseUrl("https://graph.threads.com").build();
 
         JsonNode tokenResp = threads.post()
                 .uri("/oauth/access_token")
@@ -424,8 +424,8 @@ public class OAuthService {
 
         // Get user profile
         JsonNode profileResp = threads.get()
-                .uri(uri -> uri.path("/v1.0/me")
-                        .queryParam("fields", "id,username,name")
+                .uri(uri -> uri.path("/me")
+                        .queryParam("fields", "id,username,name,threads_profile_picture_url")
                         .queryParam("access_token", longLivedToken)
                         .build())
                 .retrieve()
@@ -443,7 +443,7 @@ public class OAuthService {
                         .build());
         connection.setAccountName("@" + username);
         connection.setAccessToken(longLivedToken);
-        connection.setScopes("threads_basic, threads_content_publish");
+        connection.setScopes("threads_basic, threads_content_publish, threads_manage_insights, threads_manage_replies, threads_read_replies");
         long thExpiresIn = longLivedResp.has("expires_in") ? longLivedResp.get("expires_in").asLong() : 5184000;
         connection.setTokenExpiresAt(LocalDateTime.now().plusSeconds(thExpiresIn));
         connection = connectionRepository.save(connection);

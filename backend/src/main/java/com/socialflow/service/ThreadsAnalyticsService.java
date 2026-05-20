@@ -29,7 +29,7 @@ public class ThreadsAnalyticsService implements PlatformAnalyticsAdapter {
     private final SocialPageRepository socialPageRepository;
     private final SocialConnectionRepository socialConnectionRepository;
 
-    private static final String GRAPH_BASE = "https://graph.threads.net/v1.0";
+    private static final String GRAPH_BASE = "https://graph.threads.com/v1.0";
 
     // ═══════════════════════════════════════════════════════════
     //  SYNC: Fetch analytics from Threads API and store locally
@@ -92,33 +92,41 @@ public class ThreadsAnalyticsService implements PlatformAnalyticsAdapter {
             if (platformPostId == null) continue;
 
             try {
-                // Fetch Threads post insights (likes, comments, repliesCount)
+                // Fetch Threads post insights (likes, replies, etc.)
                 String insightsUrl = String.format(
-                        "%s/%s?fields=id,like_count,comments_count,text,timestamp&access_token=%s",
-                        GRAPH_BASE, platformPostId, page.getPageAccessToken()
+                        "/%s/insights?metric=views,likes,replies,reposts,quotes&access_token=%s",
+                        platformPostId, page.getPageAccessToken()
                 );
 
                 JsonNode postData = client.get()
-                        .uri(java.net.URI.create(insightsUrl))
+                        .uri(insightsUrl)
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
 
                 log.info("Threads post metrics raw for {}: {}", platformPostId, postData);
 
-                int likes = 0, commentsCount = 0, shares = 0;
+                int likes = 0, commentsCount = 0, shares = 0, views = 0;
                 double engagementRate = 0.0;
 
-                if (postData != null) {
-                    likes = postData.has("like_count") ? postData.get("like_count").asInt(0) : 0;
-                    commentsCount = postData.has("comments_count") ? postData.get("comments_count").asInt(0) : 0;
-                    
-                    // Threads doesn't have direct shares metric in basic API
-                    shares = 0;
+                if (postData != null && postData.has("data")) {
+                    for (JsonNode metric : postData.get("data")) {
+                        String metricName = metric.get("name").asText();
+                        int value = 0;
+                        if (metric.has("values") && metric.get("values").size() > 0) {
+                            value = metric.get("values").get(0).get("value").asInt(0);
+                        }
+                        switch (metricName) {
+                            case "views" -> views = value;
+                            case "likes" -> likes = value;
+                            case "replies" -> commentsCount = value;
+                            case "reposts", "quotes" -> shares += value;
+                        }
+                    }
                     
                     // Simple engagement calculation
-                    engagementRate = (likes + commentsCount > 0) ? 
-                            (double)(likes + commentsCount) / Math.max(1, 100) * 100 : 0.0; // Placeholder calculation
+                    engagementRate = (views > 0) ? 
+                            (double)(likes + commentsCount + shares) / views * 100 : 0.0;
                 }
 
                 // Create/update analytics
@@ -159,19 +167,28 @@ public class ThreadsAnalyticsService implements PlatformAnalyticsAdapter {
         try {
             String userId = page.getPlatformPageId();
             String pageInsightsUrl = String.format(
-                    "%s/%s?fields=biography,followers_count,media_count&access_token=%s",
-                    GRAPH_BASE, userId, page.getPageAccessToken()
+                    "/%s/threads_insights?metric=followers_count&access_token=%s",
+                    userId, page.getPageAccessToken()
             );
 
             JsonNode pageData = client.get()
-                    .uri(java.net.URI.create(pageInsightsUrl))
+                    .uri(pageInsightsUrl)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
 
-            if (pageData != null) {
-                int followers = pageData.has("followers_count") ? pageData.get("followers_count").asInt(0) : 0;
-                int postsCount = pageData.has("media_count") ? pageData.get("media_count").asInt(0) : 0;
+            if (pageData != null && pageData.has("data")) {
+                int followers = 0;
+                for (JsonNode metric : pageData.get("data")) {
+                    if ("followers_count".equals(metric.get("name").asText())) {
+                        if (metric.has("total_value") && metric.get("total_value").has("value")) {
+                            followers = metric.get("total_value").get("value").asInt(0);
+                        }
+                        break;
+                    }
+                }
+                
+                int postsCount = 0; // media_count is not available via threads_insights, requires checking profile
 
                 PageAnalytics pageAnalytics = PageAnalytics.builder()
                         .page(page)
