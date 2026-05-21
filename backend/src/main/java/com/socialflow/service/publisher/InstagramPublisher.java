@@ -316,6 +316,7 @@ public class InstagramPublisher implements CommentFetcher {
                 results.add(PlatformCommentDto.builder()
                         .platformMessageId(replyId)
                         .platformPostId(mediaId)
+                        .parentMessageId(commentId)
                         .content(text)
                         .authorName(username)
                         .authorId(username)

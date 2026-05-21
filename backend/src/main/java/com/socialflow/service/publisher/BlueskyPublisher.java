@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 
+import com.socialflow.model.enums.MessageType;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -168,6 +170,196 @@ public class BlueskyPublisher implements CommentFetcher {
             } catch (Exception e2) {
                 return LocalDateTime.now();
             }
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // Direct Messages
+    // ────────────────────────────────────────────────────────────
+
+    public List<PlatformCommentDto> fetchDirectMessages(SocialPage page) {
+        List<PlatformCommentDto> results = new ArrayList<>();
+        try {
+            log.info("[Bluesky-DM] Starting DM fetch for page '{}'", page.getPageName());
+
+            WebClient bsky = webClientBuilder.baseUrl("https://bsky.social/xrpc").build();
+            String appPassword = page.getConnection().getRefreshToken();
+            String handle = page.getPageName();
+
+            JsonNode sessionResp = bsky.post()
+                    .uri("/com.atproto.server.createSession")
+                    .bodyValue(Map.of("identifier", handle, "password", appPassword))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (sessionResp == null || !sessionResp.has("accessJwt")) {
+                log.warn("[Bluesky-DM] ❌ Session creation failed");
+                return results;
+            }
+
+            String accessJwt = sessionResp.get("accessJwt").asText();
+            String myDid = sessionResp.get("did").asText();
+
+            // Extract PDS URL from didDoc
+            String pdsUrl = "https://bsky.social";
+            if (sessionResp.has("didDoc") && sessionResp.get("didDoc").has("service")) {
+                for (JsonNode svc : sessionResp.get("didDoc").get("service")) {
+                    if (svc.has("type") && "AtprotoPersonalDataServer".equals(svc.get("type").asText())) {
+                        pdsUrl = svc.get("serviceEndpoint").asText();
+                        break;
+                    }
+                }
+            }
+
+            WebClient pdsClient = webClientBuilder.baseUrl(pdsUrl + "/xrpc").build();
+
+            JsonNode convosResp = pdsClient.get()
+                    .uri("/chat.bsky.convo.listConvos")
+                    .header("Authorization", "Bearer " + accessJwt)
+                    .header("atproto-proxy", "did:web:api.bsky.chat#bsky_chat")
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (convosResp == null || !convosResp.has("convos")) {
+                log.warn("[Bluesky-DM] ❌ No conversations found");
+                return results;
+            }
+
+            int convCount = convosResp.get("convos").size();
+            log.info("[Bluesky-DM] ✓ Found {} conversations", convCount);
+
+            for (JsonNode convo : convosResp.get("convos")) {
+                String convoId = convo.get("id").asText();
+
+                String senderName = "Bluesky User";
+                String senderDid = null;
+                if (convo.has("members")) {
+                    for (JsonNode member : convo.get("members")) {
+                        String memberDid = member.get("did").asText();
+                        if (!memberDid.equals(myDid)) {
+                            senderDid = memberDid;
+                            if (member.has("displayName") && !member.get("displayName").asText().isBlank()) {
+                                senderName = member.get("displayName").asText();
+                            } else if (member.has("handle")) {
+                                senderName = member.get("handle").asText();
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                String messagesUrl = String.format("/chat.bsky.convo.getMessages?convoId=%s", convoId);
+                JsonNode messagesResp = pdsClient.get()
+                        .uri(messagesUrl)
+                        .header("Authorization", "Bearer " + accessJwt)
+                        .header("atproto-proxy", "did:web:api.bsky.chat#bsky_chat")
+                        .retrieve()
+                        .bodyToMono(JsonNode.class)
+                        .block();
+
+                if (messagesResp == null || !messagesResp.has("messages")) continue;
+
+                int msgCount = messagesResp.get("messages").size();
+                log.info("[Bluesky-DM]   Conversation {} with '{}': {} messages", convoId, senderName, msgCount);
+
+                for (JsonNode msgNode : messagesResp.get("messages")) {
+                    String type = msgNode.has("$type") ? msgNode.get("$type").asText() : "";
+                    if (!"chat.bsky.convo.defs#messageView".equals(type)) continue;
+                    if (!msgNode.has("text")) continue;
+
+                    String msgId = msgNode.get("id").asText();
+                    String content = msgNode.get("text").asText();
+
+                    String authorName = senderName;
+                    String authorId = senderDid;
+
+                    if (msgNode.has("sender")) {
+                        JsonNode sender = msgNode.get("sender");
+                        String sDid = sender.has("did") ? sender.get("did").asText() : "";
+                        if (myDid.equals(sDid)) {
+                            authorName = page.getPageName();
+                            authorId = myDid;
+                        } else {
+                            if (sender.has("displayName") && !sender.get("displayName").asText().isBlank()) {
+                                authorName = sender.get("displayName").asText();
+                            } else if (sender.has("handle")) {
+                                authorName = sender.get("handle").asText();
+                            }
+                            authorId = sDid;
+                        }
+                    }
+
+                    String sentAt = msgNode.has("sentAt") ? msgNode.get("sentAt").asText() : null;
+                    LocalDateTime createdAt = parseIsoDateTime(sentAt);
+
+                    results.add(PlatformCommentDto.builder()
+                            .platformMessageId(msgId)
+                            .platformPostId(convoId)
+                            .parentMessageId(null)
+                            .content(content)
+                            .authorName(authorName)
+                            .authorId(authorId)
+                            .conversationId(convoId)
+                            .messageType(MessageType.DIRECT_MESSAGE)
+                            .createdAt(createdAt)
+                            .build());
+                }
+            }
+            log.info("[Bluesky-DM] ✓ Fetched {} total DM messages", results.size());
+        } catch (Exception e) {
+            log.error("Failed to fetch Bluesky DMs for page {}: {}", page.getPageName(), e.getMessage(), e);
+        }
+        return results;
+    }
+
+    public void replyToDM(SocialPage page, String conversationId, String message) {
+        try {
+            WebClient bsky = webClientBuilder.baseUrl("https://bsky.social/xrpc").build();
+            String appPassword = page.getConnection().getRefreshToken();
+            String handle = page.getPageName();
+
+            JsonNode sessionResp = bsky.post()
+                    .uri("/com.atproto.server.createSession")
+                    .bodyValue(Map.of("identifier", handle, "password", appPassword))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            String accessJwt = sessionResp.get("accessJwt").asText();
+
+            // Extract PDS URL from didDoc
+            String pdsUrl = "https://bsky.social";
+            if (sessionResp.has("didDoc") && sessionResp.get("didDoc").has("service")) {
+                for (JsonNode svc : sessionResp.get("didDoc").get("service")) {
+                    if (svc.has("type") && "AtprotoPersonalDataServer".equals(svc.get("type").asText())) {
+                        pdsUrl = svc.get("serviceEndpoint").asText();
+                        break;
+                    }
+                }
+            }
+
+            WebClient pdsClient = webClientBuilder.baseUrl(pdsUrl + "/xrpc").build();
+
+            Map<String, Object> body = Map.of(
+                    "convoId", conversationId,
+                    "message", Map.of("text", message)
+            );
+
+            pdsClient.post()
+                    .uri("/chat.bsky.convo.sendMessage")
+                    .header("Authorization", "Bearer " + accessJwt)
+                    .header("atproto-proxy", "did:web:api.bsky.chat#bsky_chat")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            log.info("Replied to Bluesky DM in conversation {}", conversationId);
+        } catch (Exception e) {
+            log.error("Failed to reply to Bluesky DM: {}", e.getMessage(), e);
+            throw new RuntimeException("Bluesky DM reply failed: " + e.getMessage());
         }
     }
 

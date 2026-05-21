@@ -36,6 +36,7 @@ public class InboxService {
     private final FacebookPublisher facebookPublisher;
     private final InstagramPublisher instagramPublisher;
     private final ThreadsPublisher threadsPublisher;
+    private final com.socialflow.service.publisher.BlueskyPublisher blueskyPublisher;
 
     @Transactional
     public void syncMessages(UUID brandId, UUID userId) {
@@ -180,6 +181,37 @@ public class InboxService {
                 }
             }
 
+            // ── DMs: Bluesky-specific (Bluesky Direct Messages) ──
+            if (page.getPlatform() == PlatformType.BLUESKY) {
+                log.info("Syncing Bluesky DMs for Page: {}", page.getPageName());
+                List<PlatformCommentDto> dms = blueskyPublisher.fetchDirectMessages(page);
+                for (PlatformCommentDto dm : dms) {
+                    if (!existingIds.contains(dm.getPlatformMessageId())) {
+                        boolean isFromMe = dm.getAuthorId() != null
+                                ? page.getPlatformPageId().equals(dm.getAuthorId()) // Bluesky uses DID
+                                : page.getPageName().equalsIgnoreCase(dm.getAuthorName());
+
+                        InboxMessage msg = InboxMessage.builder()
+                                .platformMessageId(dm.getPlatformMessageId())
+                                .platformPostId(dm.getPlatformPostId())
+                                .parentMessageId(dm.getParentMessageId())
+                                .conversationId(dm.getConversationId())
+                                .messageType(MessageType.DIRECT_MESSAGE)
+                                .content(dm.getContent() == null ? "" : dm.getContent())
+                                .authorName(dm.getAuthorName())
+                                .authorId(dm.getAuthorId())
+                                .createdAt(dm.getCreatedAt())
+                                .page(page)
+                                .isRead(isFromMe)
+                                .isFromMe(isFromMe)
+                                .build();
+
+                        batchToSave.add(msg);
+                        existingIds.add(dm.getPlatformMessageId());
+                    }
+                }
+            }
+
             // Perform Bulk Insert
             if (!batchToSave.isEmpty()) {
                 log.info("Saving {} new messages in bulk for page {}", batchToSave.size(), page.getPageName());
@@ -240,6 +272,12 @@ public class InboxService {
                 threadsPublisher.replyToDM(page, message.getConversationId(), replyContent);
             } else {
                 threadsPublisher.replyToComment(page, message.getPlatformMessageId(), replyContent);
+            }
+        } else if (page.getPlatform() == PlatformType.BLUESKY) {
+            if (message.getMessageType() == MessageType.DIRECT_MESSAGE) {
+                blueskyPublisher.replyToDM(page, message.getConversationId(), replyContent);
+            } else {
+                throw new RuntimeException("Bluesky replies to comments are not implemented yet.");
             }
         } else {
             throw new RuntimeException(ErrorMessages.REPLIES_NOT_SUPPORTED + page.getPlatform());
