@@ -204,7 +204,7 @@ export default function DashboardPage() {
                         }}>{day}</span>
 
                         <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {dayPosts.slice(0, 3).map(p => (
+                          {dayPosts.slice(0, 2).map(p => (
                             <div key={p.id} style={{
                               fontSize: 10,
                               padding: '2px 6px',
@@ -219,7 +219,7 @@ export default function DashboardPage() {
                               {p.content.substring(0, 15)}
                             </div>
                           ))}
-                          {dayPosts.length > 3 && <div style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center' }}>+{dayPosts.length - 3} more</div>}
+                          {dayPosts.length > 2 && <div style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center' }}>+{dayPosts.length - 2} more</div>}
                         </div>
                       </div>
                     );

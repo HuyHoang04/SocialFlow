@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import LibraryContent from '@/app/ai-hub/library-content';
 import AiConfigContent from '@/app/ai-hub/config-content';
+import { IconBook, IconSettings } from '@/components/Icons';
 
 function AiHubContent() {
     const searchParams = useSearchParams();
@@ -17,8 +18,8 @@ function AiHubContent() {
     };
 
     const tabs = [
-        { id: 'library', label: 'Content Library', icon: '📚' },
-        { id: 'config', label: 'AI Configuration', icon: '⚙️' },
+        { id: 'library', label: 'Content Library', icon: <IconBook size={18} /> },
+        { id: 'config', label: 'AI Configuration', icon: <IconSettings size={18} /> },
     ];
 
     return (
@@ -57,7 +58,7 @@ function AiHubContent() {
                             marginBottom: '-1px'
                         }}
                     >
-                        <span style={{ fontSize: 18, opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
                         {tab.label}
                     </button>
                 ))}

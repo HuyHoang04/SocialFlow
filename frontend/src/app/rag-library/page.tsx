@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
-import { IconPlus, IconTrash, IconRefreshCw, IconFileText } from '@/components/Icons';
+import { IconPlus, IconTrash, IconRefreshCw, IconFileText, IconBook } from '@/components/Icons';
 import './rag-library.css';
 
 interface LibraryFile {
@@ -160,7 +160,10 @@ export default function RAGLibraryPage() {
             <>
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">📚 Content Library (RAG)</h1>
+                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <IconBook size={28} />
+                        Content Library (RAG)
+                    </h1>
                     <p className="page-subtitle">Manage documents for AI-powered content generation</p>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -194,7 +197,10 @@ export default function RAGLibraryPage() {
                 <div className="modal-overlay" onClick={() => !uploading && setShowUploadForm(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>📚 Upload Document</h2>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <IconBook size={20} />
+                                Upload Document
+                            </h2>
                             <button 
                                 className="modal-close"
                                 onClick={() => !uploading && setShowUploadForm(false)}

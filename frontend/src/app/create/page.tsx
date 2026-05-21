@@ -6,7 +6,7 @@ import { api, canManageBrand } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import {
-    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX, IconEdit,
+    PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX, IconEdit, IconBook,
 } from '@/components/Icons';
 import ImageEditor from '@/components/ImageEditor';
 import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews, BlueskyPostPreview, LinkedInPostPreview, ThreadsPostPreview } from '@automattic/social-previews';
@@ -1541,8 +1541,8 @@ function CreatePostContent() {
                                                 <label htmlFor="rag-toggle" style={{ cursor: 'pointer', flex: 1, margin: 0, fontSize: 13, color: 'var(--text-primary)' }}>
                                                     Use Content Library (RAG)
                                                 </label>
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                                    📚 Reference brand context
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                    <IconBook size={12} /> Reference brand context
                                                 </span>
                                             </div>
                                         )}
@@ -1582,8 +1582,8 @@ function CreatePostContent() {
 
                                         {ragResults.length > 0 && (
                                             <div style={{ marginTop: 8 }}>
-                                                <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                                                    📚 Knowledge Source
+                                                <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                                                    <IconBook size={12} /> Knowledge Source
                                                 </label>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 120, overflow: 'auto' }}>
                                                     {ragResults.map((res, idx) => (

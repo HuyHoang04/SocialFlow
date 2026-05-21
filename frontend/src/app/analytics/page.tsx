@@ -8,9 +8,18 @@ import {
     IconBarChart, IconRefreshCw, IconClock, IconTrendingUp, IconFileText,
     IconHeart, IconMessageCircle, IconShare, IconEye, IconRadio,
     IconActivity, IconCheckCircle, IconTrophy, IconUsers, IconUserPlus,
-    IconMousePointer, IconGlobe, SkeletonCard, IconSparkles,
+    IconMousePointer, IconGlobe, SkeletonCard, IconSparkles, PlatformIcon,
 } from '@/components/Icons';
 import styles from './analytics.module.css';
+
+const PLATFORM_GRADIENTS: Record<string, string> = {
+    FACEBOOK: 'linear-gradient(135deg, #1877f2, #42a5f5)',
+    LINKEDIN: 'linear-gradient(135deg, #0a66c2, #0096d6)',
+    BLUESKY: 'linear-gradient(135deg, #0085ff, #00c4ff)',
+    THREADS: 'linear-gradient(135deg, #333333, #666666)',
+    INSTAGRAM: 'linear-gradient(135deg, #e1306c, #fd1d1d, #f77737)',
+    TWITTER: 'linear-gradient(135deg, #15202b, #1d9bf0)',
+};
 
 interface PageAnalytics {
     id: string;
@@ -331,7 +340,12 @@ export default function AnalyticsPage() {
                                     <div className={styles.pagesList}>
                                         {overview!.pages.map(pg => (
                                             <div key={pg.id} className={styles.pageItem}>
-                                                <div className={styles.pageBadge}>f</div>
+                                                <div 
+                                                    className={styles.pageBadge}
+                                                    style={{ background: PLATFORM_GRADIENTS[pg.platform.toUpperCase()] || 'var(--bg-glass-strong)' }}
+                                                >
+                                                    <PlatformIcon platform={pg.platform} size={18} color="white" />
+                                                </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div className={styles.pageName}>{pg.pageName}</div>
                                                     <div className={styles.pageMeta}>Updated {fmtDate(pg.fetchedAt)}</div>

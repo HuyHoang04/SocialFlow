@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import TrendingConfigModal from './TrendingConfigModal';
 import styles from '@/styles/ai-suggestions.module.css';
+import { PlatformIcon, IconBarChart, IconSettings, IconInbox } from '@/components/Icons';
 
 interface NewsItem {
   title?: string;
@@ -247,10 +248,7 @@ export default function TrendingAnalyticsWidget() {
                 onClick={() => { setSelectedSource('google'); setCurrentPage(1); }}
                 title="Google Trends"
               >
-                {/* Google / chart icon */}
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
+                <IconBarChart size={15} />
                 Google
               </button>
 
@@ -260,13 +258,7 @@ export default function TrendingAnalyticsWidget() {
                   onClick={() => { setSelectedSource('facebook'); setCurrentPage(1); }}
                   title="Facebook Posts"
                 >
-                  {/* People / users icon */}
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
+                  <PlatformIcon platform="facebook" size={15} color={selectedSource === 'facebook' ? 'white' : undefined} />
                   Facebook
                 </button>
               )}
@@ -277,10 +269,7 @@ export default function TrendingAnalyticsWidget() {
                   onClick={() => { setSelectedSource('bluesky'); setCurrentPage(1); }}
                   title="Bluesky Trends"
                 >
-                  {/* Cloud icon for bluesky */}
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-                  </svg>
+                  <PlatformIcon platform="bluesky" size={15} color={selectedSource === 'bluesky' ? 'white' : undefined} />
                   Bluesky
                 </button>
               )}
@@ -348,7 +337,7 @@ export default function TrendingAnalyticsWidget() {
       ) : configFound === false ? (
         /* Config not set up yet */
         <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>⚙️</div>
+          <div className={styles.emptyIcon} style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><IconSettings size={48} style={{ color: 'var(--text-muted)' }} /></div>
           <div className={styles.emptyText}>
             {selectedSource === 'google'
               ? 'No Google Trends config yet'
@@ -377,7 +366,7 @@ export default function TrendingAnalyticsWidget() {
       ) : !displayData || displayData.length === 0 ? (
         /* Config exists but cache is empty */
         <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>📭</div>
+          <div className={styles.emptyIcon} style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><IconInbox size={48} style={{ color: 'var(--text-muted)' }} /></div>
           <div className={styles.emptyText}>No trending data in cache</div>
           <p className={styles.emptyHint}>
             Click &quot;Load Trending Data&quot; to fetch fresh results from the API.

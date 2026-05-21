@@ -17,6 +17,10 @@ public interface PostApprovalRepository extends JpaRepository<PostApproval, UUID
     Optional<PostApproval> findByPostIdAndApprovalLevel(UUID postId, int level);
     List<PostApproval> findByPostIdOrderByApprovalLevel(UUID postId);
     
-    @Query("SELECT a FROM PostApproval a WHERE a.post.page.connection.brand.id = :brandId")
+    @Query("SELECT a FROM PostApproval a " +
+           "LEFT JOIN FETCH a.post p " +
+           "LEFT JOIN FETCH p.createdBy cu " +
+           "LEFT JOIN FETCH a.assignedTo au " +
+           "WHERE p.page.connection.brand.id = :brandId")
     List<PostApproval> findByBrandId(@Param("brandId") UUID brandId);
 }

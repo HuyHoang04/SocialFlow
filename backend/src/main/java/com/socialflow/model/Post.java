@@ -9,7 +9,11 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "social_posts")
+@Table(name = "social_posts", indexes = {
+    @Index(name = "idx_social_posts_page", columnList = "page_id"),
+    @Index(name = "idx_social_posts_campaign", columnList = "campaign_id"),
+    @Index(name = "idx_social_posts_created_by", columnList = "created_by_id")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Post {
 
@@ -46,14 +50,17 @@ public class Post {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @OrderBy("sortOrder ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<PostMedia> mediaFiles = new ArrayList<>();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<PublishResult> publishResults = new ArrayList<>();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<PostApproval> approvals = new ArrayList<>();
 
     @PrePersist

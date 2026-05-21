@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { PlatformIcon } from '@/components/Icons';
 
 interface AppConfig {
     id: string;
@@ -137,7 +138,10 @@ export default function AppConfigsModal({ brandId, isOpen, onClose }: {
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                     }}>
                                         <div>
-                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>{platform.name}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, marginBottom: 4 }}>
+                                                <PlatformIcon platform={platform.key} size={16} />
+                                                {platform.name}
+                                            </div>
                                             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                                                 {config ? '✓ Configured' : 'Not configured'}
                                             </div>

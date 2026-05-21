@@ -42,16 +42,8 @@ public class AnalyticsService {
                 .average().orElse(0.0);
 
         // Count total posts from DB for all channels
-        List<SocialConnection> connections = socialConnectionRepository.findByBrandId(brandId);
-        int totalPosts = 0;
-        int totalPublished = 0;
-        for (SocialConnection conn : connections) {
-            for (SocialPage page : socialPageRepository.findByConnectionId(conn.getId())) {
-                List<Post> posts = postRepository.findByPageIdOrderByCreatedAtDesc(page.getId());
-                totalPosts += posts.size();
-                totalPublished += (int) posts.stream().filter(p -> p.getStatus() == com.socialflow.model.enums.PostStatus.PUBLISHED).count();
-            }
-        }
+        int totalPosts = (int) postRepository.countByPageConnectionBrandId(brandId);
+        int totalPublished = (int) postRepository.countByStatusAndPageConnectionBrandId(com.socialflow.model.enums.PostStatus.PUBLISHED, brandId);
 
         // Top posts by engagement (Sort by total interactions desc, then by Rate desc)
         List<PostAnalyticsResponse> topPosts = latestAnalytics.stream()

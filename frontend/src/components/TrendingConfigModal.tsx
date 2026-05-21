@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useBrand } from '@/lib/brand-context';
 import { api } from '@/lib/api';
 import styles from '@/styles/trending-config-modal.module.css';
+import { PlatformIcon, IconSettings, IconBarChart } from '@/components/Icons';
 
 interface TrendingConfigModalProps {
   isOpen: boolean;
@@ -135,7 +136,10 @@ export default function TrendingConfigModal({
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2>⚙️ Trending Config</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconSettings size={20} />
+            Trending Config
+          </h2>
           <button className={styles.close} onClick={onClose}>✕</button>
         </div>
 
@@ -144,20 +148,26 @@ export default function TrendingConfigModal({
           <button
             className={`${styles.tab} ${activeTab === 'google' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('google')}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
-            📊 Google Trends
+            <IconBarChart size={16} />
+            Google Trends
           </button>
           <button
             className={`${styles.tab} ${activeTab === 'facebook' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('facebook')}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
-            👥 Facebook Posts
+            <PlatformIcon platform="facebook" size={16} color={activeTab === 'facebook' ? '#1877f2' : '#888'} />
+            Facebook Posts
           </button>
           <button
             className={`${styles.tab} ${activeTab === 'bluesky' ? styles.tabActive : ''}`}
             onClick={() => setActiveTab('bluesky')}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
-            🦋 Bluesky Trends
+            <PlatformIcon platform="bluesky" size={16} color={activeTab === 'bluesky' ? '#0085ff' : '#888'} />
+            Bluesky Trends
           </button>
         </div>
 

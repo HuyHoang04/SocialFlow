@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout, canManageBrand } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { IconUsers } from '@/components/Icons';
 
 interface TeamMember {
     userId: string;
@@ -217,7 +218,9 @@ export default function TeamPage() {
                 {/* Team Members List */}
                 {!loading && teamMembers.length === 0 ? (
                     <div className="card" style={{ textAlign: 'center', padding: 60, marginBottom: 32 }}>
-                        <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.3 }}>👥</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, opacity: 0.3 }}>
+                            <IconUsers size={48} />
+                        </div>
                         <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No team members yet</p>
                         {canManageTeam && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Invite your first team member to get started</p>}
                     </div>

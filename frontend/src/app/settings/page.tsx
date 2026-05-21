@@ -6,6 +6,7 @@ import ProfileContent from './profile-content';
 import BrandSettingsContent from './brand-content';
 import AccountsContent from './accounts-content';
 import WorkflowContent from './workflow-content';
+import { IconUser, IconBriefcase, IconLink, IconCheckCircle } from '@/components/Icons';
 
 function SettingsContent() {
     const searchParams = useSearchParams();
@@ -19,10 +20,10 @@ function SettingsContent() {
     };
 
     const tabs = [
-        { id: 'profile', label: 'Profile', icon: '👤' },
-        { id: 'brand', label: 'Brand Identity', icon: '🏢' },
-        { id: 'accounts', label: 'Connected Accounts', icon: '🔗' },
-        { id: 'workflow', label: 'Approval Workflow', icon: '✓' },
+        { id: 'profile', label: 'Profile', icon: <IconUser size={18} /> },
+        { id: 'brand', label: 'Brand Identity', icon: <IconBriefcase size={18} /> },
+        { id: 'accounts', label: 'Connected Accounts', icon: <IconLink size={18} /> },
+        { id: 'workflow', label: 'Approval Workflow', icon: <IconCheckCircle size={18} /> },
     ];
 
     return (
@@ -61,7 +62,7 @@ function SettingsContent() {
                             marginBottom: '-1px'
                         }}
                     >
-                        <span style={{ fontSize: 18, opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
                         {tab.label}
                     </button>
                 ))}

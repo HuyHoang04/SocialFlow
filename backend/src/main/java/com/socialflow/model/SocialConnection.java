@@ -46,6 +46,7 @@ public class SocialConnection {
 
     @OneToMany(mappedBy = "connection", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<SocialPage> pages = new ArrayList<>();
 
     @PrePersist

@@ -228,6 +228,22 @@ export const IconMoon = (p: IconProps) => (
   <Icon {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></Icon>
 );
 
+export const IconUser = (p: IconProps) => (
+  <Icon {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Icon>
+);
+
+export const IconBriefcase = (p: IconProps) => (
+  <Icon {...p}><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></Icon>
+);
+
+export const IconInstagram = ({ size = 20, color = '#e1306c', className, style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={style}>
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke={color} strokeWidth="2" />
+    <circle cx="12" cy="12" r="4" stroke={color} strokeWidth="2" />
+    <circle cx="17.5" cy="6.5" r="1.5" fill={color} />
+  </svg>
+);
+
 // --- Platform Icons (filled, no stroke) ---
 export const IconFacebook = ({ size = 20, color = '#1877f2', className, style }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} style={style}>
@@ -260,14 +276,16 @@ export const IconThreads = ({ size = 20, color = 'currentColor', className, styl
 );
 
 // Utility: get platform icon component
-export const PlatformIcon = ({ platform, size = 20 }: { platform: string; size?: number }) => {
-  switch (platform) {
-    case 'FACEBOOK': return <IconFacebook size={size} />;
-    case 'TWITTER': return <IconTwitter size={size} />;
-    case 'LINKEDIN': return <IconLinkedin size={size} />;
-    case 'BLUESKY': return <IconBluesky size={size} />;
-    case 'THREADS': return <IconThreads size={size} />;
-    default: return <IconGlobe size={size} />;
+export const PlatformIcon = ({ platform, size = 20, color }: { platform: string; size?: number; color?: string }) => {
+  const p = platform ? platform.toUpperCase() : '';
+  switch (p) {
+    case 'FACEBOOK': return <IconFacebook size={size} color={color} />;
+    case 'TWITTER': return <IconTwitter size={size} color={color} />;
+    case 'LINKEDIN': return <IconLinkedin size={size} color={color} />;
+    case 'BLUESKY': return <IconBluesky size={size} color={color} />;
+    case 'THREADS': return <IconThreads size={size} color={color} />;
+    case 'INSTAGRAM': return <IconInstagram size={size} color={color} />;
+    default: return <IconGlobe size={size} color={color} />;
   }
 };
 
