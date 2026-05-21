@@ -234,6 +234,35 @@ export const api = {
         request(`/brands/${brandId}/campaigns`, { method: 'POST', body: JSON.stringify(data) }),
     deleteCampaign: (id: string) => request(`/campaigns/${id}`, { method: 'DELETE' }),
 
+    // Linktree / Public Profile
+    getPublicLinktree: (slugOrId: string) => request(`/public/p/${slugOrId}`),
+    getLinktreeSettings: (brandId: string) => request(`/brands/${brandId}/linktree`),
+    saveLinktreeSettings: (brandId: string, data: {
+        slug?: string;
+        bio?: string;
+        displayName?: string;
+        websiteLabel?: string;
+        bgStyle?: string;
+        bgImageUrl?: string;
+        buttonStyle?: string;
+        published?: boolean;
+        customLinks?: string;
+    }) => request(`/brands/${brandId}/linktree`, { method: 'PUT', body: JSON.stringify(data) }),
+    uploadLinktreeBg: async (brandId: string, file: File) => {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE}/brands/${brandId}/linktree/background`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+        });
+        await handleFetchResponse(res);
+        return res.json();
+    },
+    deleteLinktreeBg: (brandId: string) =>
+        request(`/brands/${brandId}/linktree/background`, { method: 'DELETE' }),
+
     // Inbox
     syncInbox: (brandId: string) => request(`/brands/${brandId}/inbox/sync`, { method: 'POST' }),
     getInbox: (brandId: string) => request(`/brands/${brandId}/inbox`),

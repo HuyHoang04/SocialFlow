@@ -20,10 +20,10 @@ function SettingsContent() {
     };
 
     const tabs = [
-        { id: 'profile', label: 'Profile', icon: <IconUser size={18} /> },
-        { id: 'brand', label: 'Brand Identity', icon: <IconBriefcase size={18} /> },
+        { id: 'profile',  label: 'Profile',           icon: <IconUser size={18} /> },
+        { id: 'brand',    label: 'Brand Identity',     icon: <IconBriefcase size={18} /> },
         { id: 'accounts', label: 'Connected Accounts', icon: <IconLink size={18} /> },
-        { id: 'workflow', label: 'Approval Workflow', icon: <IconCheckCircle size={18} /> },
+        { id: 'workflow', label: 'Approval Workflow',  icon: <IconCheckCircle size={18} /> },
     ];
 
     return (
@@ -69,8 +69,8 @@ function SettingsContent() {
             </div>
 
             <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                {activeTab === 'profile' && <ProfileContent />}
-                {activeTab === 'brand' && <BrandSettingsContent />}
+                {activeTab === 'profile'  && <ProfileContent />}
+                {activeTab === 'brand'    && <BrandSettingsContent />}
                 {activeTab === 'accounts' && <AccountsContent />}
                 {activeTab === 'workflow' && <WorkflowContent />}
             </div>

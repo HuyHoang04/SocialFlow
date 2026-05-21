@@ -1,0 +1,318 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 20px 80px;
+  position: relative;
+  background: #1a1a2e;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ─── Background Gradients ─────────────────────────────────────── */
+.bg-gradient-purple  { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.bg-gradient-ocean   { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+.bg-gradient-sunset  { background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #fda085 100%); }
+.bg-gradient-forest  { background: linear-gradient(135deg, #134e5e 0%, #71b280 100%); }
+.bg-gradient-night   { background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); }
+.bg-gradient-peach   { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+.bg-gradient-aurora  { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+.bg-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Frosted overlay over background image */
+.bg-image::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Card ─────────────────────────────────────────────────────── */
+.card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* ─── Avatar ────────────────────────────────────────────────────── */
+.avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  object-fit: cover;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  margin-bottom: 16px;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+
+.avatarInitials {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 800;
+  color: white;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+
+/* ─── Text ──────────────────────────────────────────────────────── */
+.name {
+  font-size: 26px;
+  font-weight: 800;
+  color: white;
+  text-align: center;
+  margin: 0 0 8px;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  letter-spacing: -0.5px;
+}
+
+.bio {
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+  margin: 0 0 32px;
+  max-width: 360px;
+  line-height: 1.6;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.2);
+}
+
+/* ─── Social Buttons ────────────────────────────────────────────── */
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  letter-spacing: 0.1px;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+  opacity: 0.95;
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+/* Button styles */
+.buttonStyleSquare { border-radius: 8px; }
+.buttonStylePill    { border-radius: 9999px; }
+.buttonStyleRounded { border-radius: 14px; }
+
+/* Platform-tinted buttons */
+.platform-facebook { background: rgba(24, 119, 242, 0.6); }
+.platform-instagram { background: linear-gradient(135deg, rgba(225,48,108,0.6) 0%, rgba(253,121,61,0.6) 100%); }
+.platform-twitter   { background: rgba(15, 20, 25, 0.6); }
+.platform-linkedin  { background: rgba(10, 102, 194, 0.6); }
+.platform-bluesky   { background: rgba(0, 133, 255, 0.5); }
+.platform-threads   { background: rgba(0, 0, 0, 0.5); }
+.platform-telegram  { background: rgba(0, 136, 204, 0.6); }
+.platform-whatsapp  { background: rgba(37, 211, 102, 0.6); }
+.platform-youtube   { background: rgba(255, 0, 0, 0.6); }
+.platform-tiktok    { background: rgba(0, 0, 0, 0.6); }
+.platform-custom    { background: rgba(255, 255, 255, 0.15); }
+.platform-website   { background: rgba(255,255,255,0.2); }
+
+.buttonIcon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.customIconImage {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* ─── Website link ──────────────────────────────────────────────── */
+.websiteLink {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.websiteLink:hover {
+  color: white;
+}
+
+/* ─── Footer ────────────────────────────────────────────────────── */
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 48px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+}
+
+.footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+.footer a:hover { color: rgba(255,255,255,0.8); }
+
+/* ─── Not published state ───────────────────────────────────────── */
+.notPublished {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0f0f1a;
+  color: rgba(255,255,255,0.5);
+  font-size: 18px;
+  gap: 16px;
+}
+
+/* ─── Premium WordPress-style Content Blocks ────────────────────── */
+.blockHeader {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 24px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.blockText {
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14.5px;
+  line-height: 1.6;
+  text-align: justify;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.blockImageContainer {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease;
+  cursor: pointer;
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.blockImageContainer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.blockImage {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.blockImageContainer:hover .blockImage {
+  transform: scale(1.025);
+}
+
+.blockImageOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+  padding: 16px 20px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.videoWrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  height: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  background: #000;
+}
+
+.videoIframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ─── Mobile ────────────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .page { padding: 40px 16px 60px; }
+  .name  { font-size: 22px; }
+  .avatar, .avatarInitials { width: 80px; height: 80px; }
+  .avatarInitials { font-size: 28px; }
+}

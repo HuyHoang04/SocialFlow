@@ -5,7 +5,7 @@ import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconZap,
     IconChevronLeft, IconChevronRight, IconSettings,
-    IconUsers, IconCheckCircle
+    IconUsers, IconCheckCircle, IconGlobe
 } from './Icons';
 
 interface SidebarProps {
@@ -28,8 +28,13 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
         { href: '/ai-hub', icon: <IconZap size={20} />, label: 'AI Hub' },
         { href: '/team', icon: <IconUsers size={20} />, label: 'Team' },
         { href: '/approvals', icon: <IconCheckCircle size={20} />, label: 'Approvals' },
+        { href: '/public-page', icon: <IconGlobe size={20} />, label: 'Public Page' },
         { href: '/settings', icon: <IconSettings size={20} />, label: 'Settings' },
     ];
+
+    const isLinkActive = (href: string) => {
+        return pathname === href;
+    };
 
     return (
         <>
@@ -65,18 +70,21 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                 </div>
 
                 <nav className="sidebar-nav">
-                    {nav.map(item => (
-                        <Link 
-                            key={item.href} 
-                            href={item.href}
-                            className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-                            title={collapsed ? item.label : undefined}
-                            onClick={onCloseMobile}
-                        >
-                            <span className="nav-icon">{item.icon}</span>
-                            <span className="nav-label">{item.label}</span>
-                        </Link>
-                    ))}
+                    {nav.map(item => {
+                        const active = isLinkActive(item.href);
+                        return (
+                            <Link 
+                                key={item.href} 
+                                href={item.href}
+                                className={`nav-item ${active ? 'active' : ''}`}
+                                title={collapsed ? item.label : undefined}
+                                onClick={onCloseMobile}
+                            >
+                                <span className="nav-icon">{item.icon}</span>
+                                <span className="nav-label">{item.label}</span>
+                            </Link>
+                        );
+                    })}
                 </nav>
             </aside>
         </>

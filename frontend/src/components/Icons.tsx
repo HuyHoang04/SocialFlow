@@ -275,6 +275,30 @@ export const IconThreads = ({ size = 20, color = 'currentColor', className, styl
   </svg>
 );
 
+export const IconTelegram = ({ size = 20, color = '#0088cc', className, style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} style={style}>
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.57-3.26 3.6-1.52 4.35-1.78 4.84-1.79.11 0 .35.03.5.16.13.12.17.28.18.39-.01.08-.01.2-.02.26z"/>
+  </svg>
+);
+
+export const IconWhatsapp = ({ size = 20, color = '#25d366', className, style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} style={style}>
+    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.725 1.451 5.485.002 9.948-4.463 9.95-9.95.001-2.658-1.034-5.157-2.914-7.038C16.53 1.734 14.032.7 11.372.7c-5.482 0-9.944 4.461-9.946 9.95 0 2.02.531 3.993 1.539 5.733l-.999 3.648 3.733-.979zm11.366-7.618c-.3-.15-1.774-.875-2.046-.975-.27-.1-.466-.15-.662.15-.196.3-.759.95-.93 1.15-.17.199-.34.224-.64.075-.3-.15-1.267-.467-2.414-1.492-.893-.797-1.496-1.78-1.671-2.08-.176-.3-.019-.462.13-.611.135-.134.3-.35.45-.525.15-.173.2-.299.3-.499.1-.2.05-.375-.025-.525-.075-.15-.662-1.597-.907-2.192-.239-.574-.482-.497-.662-.506-.17-.008-.367-.01-.563-.01-.196 0-.514.074-.783.374-.269.3-1.028 1.006-1.028 2.457 0 1.452 1.056 2.854 1.203 3.054.147.2 2.078 3.174 5.034 4.453.703.304 1.252.486 1.68.622.709.226 1.354.194 1.864.118.568-.085 1.774-.725 2.022-1.424.249-.699.249-1.299.174-1.424-.075-.125-.27-.199-.57-.349z"/>
+  </svg>
+);
+
+export const IconYoutube = ({ size = 20, color = '#ff0000', className, style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} style={style}>
+    <path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 0 0-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.003 3.003 0 0 0 2.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
+export const IconTiktok = ({ size = 20, color = 'currentColor', className, style }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className} style={style}>
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.95 1.12 2.27 1.9 3.73 2.23v3.91c-1.8-.17-3.47-.94-4.75-2.18-.18-.17-.35-.35-.51-.54v7.07c.12 3.25-1.99 6.27-5.11 7.21-3.21.98-6.79-.47-8.19-3.48-1.53-3.13-.37-7.14 2.76-8.86 1.74-.99 3.86-1.12 5.71-.38v4.06c-1.22-.59-2.73-.41-3.77.47-1.19.98-1.46 2.73-.6 4.02.82 1.29 2.5 1.83 3.91 1.25 1.15-.47 1.89-1.59 1.89-2.83V.02h-.03z"/>
+  </svg>
+);
+
 // Utility: get platform icon component
 export const PlatformIcon = ({ platform, size = 20, color }: { platform: string; size?: number; color?: string }) => {
   const p = platform ? platform.toUpperCase() : '';
@@ -285,6 +309,10 @@ export const PlatformIcon = ({ platform, size = 20, color }: { platform: string;
     case 'BLUESKY': return <IconBluesky size={size} color={color} />;
     case 'THREADS': return <IconThreads size={size} color={color} />;
     case 'INSTAGRAM': return <IconInstagram size={size} color={color} />;
+    case 'TELEGRAM': return <IconTelegram size={size} color={color} />;
+    case 'WHATSAPP': return <IconWhatsapp size={size} color={color} />;
+    case 'YOUTUBE': return <IconYoutube size={size} color={color} />;
+    case 'TIKTOK': return <IconTiktok size={size} color={color} />;
     default: return <IconGlobe size={size} color={color} />;
   }
 };
