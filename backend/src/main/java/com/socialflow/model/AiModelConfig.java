@@ -18,6 +18,7 @@ public class AiModelConfig {
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
     @JoinColumn(name = "brand_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Brand brand;
 
     @Column(name = "text_provider")

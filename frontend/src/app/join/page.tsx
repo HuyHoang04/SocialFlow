@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout, setToken } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
@@ -16,7 +16,7 @@ interface InvitationDetails {
     acceptedAt?: string;
 }
 
-export default function JoinPage() {
+function JoinPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const token = searchParams.get('token');
@@ -226,6 +226,24 @@ export default function JoinPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function JoinPage() {
+    return (
+        <Suspense fallback={
+            <div className="join-page">
+                <div className="join-container">
+                    <div className="join-card">
+                        <div className="join-content">
+                            <div className="loading" style={{ textAlign: 'center', padding: '40px 0' }}>Loading invitation...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }>
+            <JoinPageContent />
+        </Suspense>
     );
 }
 

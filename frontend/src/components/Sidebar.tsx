@@ -1,38 +1,22 @@
 'use client';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getUser, logout } from '@/lib/api';
-import { useBrand } from '@/lib/brand-context';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useTheme } from '@/context/ThemeContext';
 import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
-    IconImage, IconTarget, IconLink, IconLogOut, IconZap,
-    IconChevronLeft, IconChevronRight, IconFileText, IconMessageCircle, IconSettings,
-    IconSun, IconMoon, IconUsers, IconCheckCircle
+    IconImage, IconTarget, IconZap,
+    IconChevronLeft, IconChevronRight, IconSettings,
+    IconUsers, IconCheckCircle
 } from './Icons';
 
 interface SidebarProps {
     collapsed: boolean;
     onToggle: () => void;
+    mobileOpen?: boolean;
+    onCloseMobile?: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onCloseMobile }: SidebarProps) {
     const pathname = usePathname();
-    const router = useRouter();
-    const { theme, toggleTheme } = useTheme();
-    const { selectedBrand, clearBrand } = useBrand();
-    const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-
-    useEffect(() => {
-        setUser(getUser());
-    }, []);
-
-    const handleSwitchBrand = () => {
-        clearBrand();
-        router.push('/brands');
-    };
 
     const nav = [
         { href: '/dashboard', icon: <IconDashboard size={20} />, label: 'Dashboard' },
@@ -48,84 +32,53 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     ];
 
     return (
-        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-            <div className="sidebar-header">
-                <div className="sidebar-logo">
-                    <span className="sidebar-logo-icon">
-                        <img
-                            src="/logo.svg"
-                            alt="SocialFlow"
-                            style={{
-                                width: collapsed ? 48 : 140,
-                                height: 'auto',
-                                maxHeight: collapsed ? 32 : 60,
-                                transition: '0.3s',
-                                marginBottom: collapsed ? 0 : 8,
-                                objectFit: 'contain'
-                            }}
-                        />
-                    </span>
-                    <span className="sidebar-logo-text">SocialFlow</span>
-                </div>
-                <button className="sidebar-toggle" onClick={onToggle}
-                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-                    {collapsed ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
-                </button>
-            </div>
+        <>
+            {/* Backdrop overlay for mobile drawer */}
+            <div 
+                className={`sidebar-overlay ${mobileOpen ? 'active' : ''}`} 
+                onClick={onCloseMobile}
+            />
 
-            {selectedBrand && (
-                <div className="sidebar-brand" onClick={handleSwitchBrand} title="Switch brand" style={{ cursor: 'pointer' }}>
-                    <div className="sidebar-brand-avatar" style={selectedBrand.logoUrl ? { padding: 0, overflow: 'hidden' } : {}}>
-                        {selectedBrand.logoUrl ? (
-                            <img src={selectedBrand.logoUrl} alt={selectedBrand.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
-                        ) : (
-                            selectedBrand.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-                        )}
+            <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+                <div className="sidebar-header">
+                    <div className="sidebar-logo">
+                        <span className="sidebar-logo-icon">
+                            <img
+                                src="/logo.svg"
+                                alt="SocialFlow"
+                                style={{
+                                    width: collapsed ? 48 : 140,
+                                    height: 'auto',
+                                    maxHeight: collapsed ? 32 : 60,
+                                    transition: '0.3s',
+                                    marginBottom: collapsed ? 0 : 8,
+                                    objectFit: 'contain'
+                                }}
+                            />
+                        </span>
+                        <span className="sidebar-logo-text">SocialFlow</span>
                     </div>
-                    <div className="sidebar-brand-info">
-                        <span className="sidebar-brand-name">{selectedBrand.name}</span>
-                        <span className="sidebar-brand-switch">Switch brand →</span>
-                    </div>
+                    <button className="sidebar-toggle" onClick={onToggle}
+                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+                        {collapsed ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+                    </button>
                 </div>
-            )}
 
-            <nav className="sidebar-nav">
-                {nav.map(item => (
-                    <Link key={item.href} href={item.href}
-                        className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-                        title={collapsed ? item.label : undefined}>
-                        <span className="nav-icon">{item.icon}</span>
-                        <span className="nav-label">{item.label}</span>
-                    </Link>
-                ))}
-            </nav>
-            <div className="sidebar-footer">
-                {user && (
-                    <div className="user-info">
-                        <div className="user-avatar" style={(user as any).avatarUrl ? { padding: 0, overflow: 'hidden' } : {}}>
-                            {(user as any).avatarUrl ? (
-                                <img src={(user as any).avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
-                            ) : (
-                                user.name[0]?.toUpperCase()
-                            )}
-                        </div>
-                        <div>
-                            <div className="user-name">{user.name}</div>
-                            <div className="user-email">{user.email}</div>
-                        </div>
-                    </div>
-                )}
-                <button className="nav-item" onClick={toggleTheme} title={collapsed ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : undefined}>
-                    <span className="nav-icon">
-                        {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-                    </span>
-                    <span className="nav-label">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-                </button>
-                <button className="nav-item" onClick={logout} style={{ marginTop: 8 }}>
-                    <span className="nav-icon"><IconLogOut size={18} /></span>
-                    <span className="nav-label">Logout</span>
-                </button>
-            </div>
-        </aside>
+                <nav className="sidebar-nav">
+                    {nav.map(item => (
+                        <Link 
+                            key={item.href} 
+                            href={item.href}
+                            className={`nav-item ${pathname === item.href ? 'active' : ''}`}
+                            title={collapsed ? item.label : undefined}
+                            onClick={onCloseMobile}
+                        >
+                            <span className="nav-icon">{item.icon}</span>
+                            <span className="nav-label">{item.label}</span>
+                        </Link>
+                    ))}
+                </nav>
+            </aside>
+        </>
     );
 }

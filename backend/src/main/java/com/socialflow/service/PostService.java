@@ -180,7 +180,7 @@ public class PostService {
 
         // Update content (use platform-specific if available, else fallback to common)
         String postContent = request.getContent();
-        if (request.getPlatformContent() != null && request.getPlatformContent().containsKey(post.getPage().getId())) {
+        if (request.getPlatformContent() != null && post.getPage() != null && request.getPlatformContent().containsKey(post.getPage().getId())) {
             postContent = request.getPlatformContent().get(post.getPage().getId());
         }
         post.setContent(postContent);
@@ -244,6 +244,10 @@ public class PostService {
     public PostResponse publishPost(UUID postId, User user) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.POST_NOT_FOUND));
+
+        if (post.getPage() == null) {
+            throw new RuntimeException("Post must be assigned to a page before publishing");
+        }
 
         // Check if post requires approval and has all required approvals
         Brand brand = post.getPage().getConnection().getBrand();
@@ -324,13 +328,17 @@ public class PostService {
             throw new RuntimeException("Only DRAFT posts can be submitted for approval");
         }
 
+        if (post.getPage() == null) {
+            throw new RuntimeException("Post must be assigned to a page before submitting for approval");
+        }
+
         Brand brand = post.getPage().getConnection().getBrand();
         approvalWorkflowService.submitForApproval(postId, assignedToManagerId);
     }
 
     public List<PostResponse> getPendingApprovalsForUser(UUID userId, UUID brandId) {
         List<PostApproval> approvals = postApprovalRepository.findByAssignedToId(userId).stream()
-                .filter(a -> a.getPost().getPage().getConnection().getBrand().getId().equals(brandId))
+                .filter(a -> a.getPost().getPage() != null && a.getPost().getPage().getConnection() != null && a.getPost().getPage().getConnection().getBrand().getId().equals(brandId))
                 .filter(a -> a.getStatus().equals(com.socialflow.model.enums.ApprovalStatus.PENDING))
                 .collect(Collectors.toList());
 
@@ -428,7 +436,7 @@ public class PostService {
 
     private PostResponse toResponse(Post post) {
         SocialPage page = post.getPage();
-        SocialConnection conn = page.getConnection();
+        SocialConnection conn = page != null ? page.getConnection() : null;
 
         // Build approvals list
         List<PostApprovalResponse> approvalResponses = new ArrayList<>();
@@ -460,13 +468,13 @@ public class PostService {
                 .campaignName(post.getCampaign() != null ? post.getCampaign().getName() : null)
                 .createdByUserId(post.getCreatedBy() != null ? post.getCreatedBy().getId() : null)
                 .createdByName(post.getCreatedBy() != null ? post.getCreatedBy().getName() : null)
-                .page(PostResponse.PageInfo.builder()
+                .page(page != null ? PostResponse.PageInfo.builder()
                         .id(page.getId())
                         .pageName(page.getPageName())
                         .platform(page.getPlatform())
-                        .brandName(conn.getBrand().getName())
-                        .brandId(conn.getBrand().getId())
-                        .build())
+                        .brandName(conn != null && conn.getBrand() != null ? conn.getBrand().getName() : null)
+                        .brandId(conn != null && conn.getBrand() != null ? conn.getBrand().getId() : null)
+                        .build() : null)
                 .mediaFiles(post.getMediaFiles().stream()
                         .map(m -> PostResponse.MediaInfo.builder()
                                 .id(m.getId())

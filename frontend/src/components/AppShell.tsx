@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getUser, isTokenExpired, logout } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import Sidebar from './Sidebar';
-import { IconMenu, IconSettings } from './Icons';
+import Topbar from './Topbar';
 import ChatDrawer from './ChatDrawer';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -44,18 +44,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className={`app-layout ${collapsed ? 'collapsed' : ''}`}>
-            <Sidebar collapsed={collapsed} onToggle={toggleCollapse} />
-            <button className="mobile-menu-btn" onClick={() => setMobileOpen(!mobileOpen)}>
-                <IconMenu size={22} />
-            </button>
-            <main className="main-content">
-                <div className="main-bg-effects">
-                    <div className="main-bg-orb main-bg-orb-1" />
-                    <div className="main-bg-orb main-bg-orb-2" />
-                </div>
-                {children}
-                <ChatDrawer />
-            </main>
+            <Sidebar 
+                collapsed={collapsed} 
+                onToggle={toggleCollapse} 
+                mobileOpen={mobileOpen} 
+                onCloseMobile={() => setMobileOpen(false)} 
+            />
+            <div className="app-container">
+                <Topbar 
+                    collapsed={collapsed} 
+                    onToggleSidebar={toggleCollapse} 
+                    onToggleMobileSidebar={() => setMobileOpen(!mobileOpen)} 
+                />
+                <main className="main-content">
+                    <div className="main-bg-effects">
+                        <div className="main-bg-orb main-bg-orb-1" />
+                        <div className="main-bg-orb main-bg-orb-2" />
+                    </div>
+                    {children}
+                    <ChatDrawer />
+                </main>
+            </div>
         </div>
     );
 }

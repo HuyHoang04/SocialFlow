@@ -209,6 +209,8 @@ public class ApprovalWorkflowService {
         List<PostApproval> approvals = postApprovalRepository.findByAssignedToId(userId);
         return approvals.stream()
                 .filter(a -> a.getStatus() == ApprovalStatus.PENDING &&
+                        a.getPost().getPage() != null &&
+                        a.getPost().getPage().getConnection() != null &&
                         a.getPost().getPage().getConnection().getBrand().getId().equals(brandId))
                 .map(PostApproval::getPost)
                 .collect(Collectors.toList());
