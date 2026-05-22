@@ -1,10 +1,16 @@
 version: '3.8'
 
+networks:
+  socialflow-net:
+    driver: bridge
+
 services:
   backend:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/backend:latest
     container_name: socialflow-backend
     restart: always
+    depends_on:
+      - ai-service
     environment:
       # Su dung link Neon duoc truyen tu GitLab
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
@@ -12,22 +18,106 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_FLYWAY_ENABLED: "false"
+
+      # JWT
       JWT_SECRET: ${JWT_SECRET}
+
+      # External APIs
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY}
+      SERPAPI_KEY: ${SERPAPI_KEY}
+
+      # App URLs
+      APP_BASE_URL: ${APP_BASE_URL:-https://socialflow.io.vn}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://socialflow.io.vn}
+
+      # Facebook OAuth
       FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID}
       FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
+      OAUTH_FACEBOOK_REDIRECT_URI: "https://socialflow.io.vn/api/oauth/facebook/callback"
+
+      # Instagram OAuth
+      INSTAGRAM_CLIENT_ID: ${INSTAGRAM_CLIENT_ID}
+      INSTAGRAM_CLIENT_SECRET: ${INSTAGRAM_CLIENT_SECRET}
+      OAUTH_INSTAGRAM_REDIRECT_URI: "https://socialflow.io.vn/api/oauth/instagram/callback"
+      INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET}
+
+      # Threads OAuth
+      THREADS_CLIENT_ID: ${THREADS_CLIENT_ID}
+      THREADS_CLIENT_SECRET: ${THREADS_CLIENT_SECRET}
+      OAUTH_THREADS_REDIRECT_URI: "https://socialflow.io.vn/api/oauth/threads/callback"
+
+      # LinkedIn OAuth
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
+      OAUTH_LINKEDIN_REDIRECT_URI: "https://socialflow.io.vn/api/oauth/linkedin/callback"
+
+      # Twitter / X OAuth
+      # TWITTER_CONSUMER_KEY: ${TWITTER_CONSUMER_KEY}
+      # TWITTER_CONSUMER_SECRET: ${TWITTER_CONSUMER_SECRET}
+      # TWITTER_BEARER_TOKEN: ${TWITTER_BEARER_TOKEN}
+      # TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      # TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      # OAUTH_TWITTER_REDIRECT_URI: "https://socialflow.io.vn/api/oauth/twitter/callback"
+
+      # Webhook Verification Tokens
+      WEBHOOK_VERIFY_TOKEN: ${WEBHOOK_VERIFY_TOKEN}
+      WEBHOOK_INSTAGRAM_VERIFY_TOKEN: ${WEBHOOK_INSTAGRAM_VERIFY_TOKEN}
+      WEBHOOK_THREADS_VERIFY_TOKEN: ${WEBHOOK_THREADS_VERIFY_TOKEN}
+
+      # AI keys
       GROQ_API_KEY: ${GROQ_API_KEY}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+
+      # Cloudinary
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+
+      # AI Service URL (Docker internal)
+      AI_SERVICE_URL: http://ai-service:5000
     ports:
       - "8080:8080"
+    volumes:
+      - uploads-data:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - socialflow-net
 
   ai-service:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/ai_service:latest
     container_name: socialflow-ai
     restart: always
     environment:
-      # Su dung link Neon cho AI Service (Python format)
-      DATABASE_URL: postgresql://${SPRING_DATASOURCE_USERNAME}:${SPRING_DATASOURCE_PASSWORD}@ep-super-frost-amjd7bup-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
+      # Chung DB voi backend (Neon PostgreSQL) - format Python
+      DATABASE_URL: postgresql://${SPRING_DATASOURCE_USERNAME}:${SPRING_DATASOURCE_PASSWORD}@${NEON_DB_HOST:-ep-cool-cell-ailqmlxj-pooler.c-4.us-east-1.aws.neon.tech}/neondb?sslmode=require
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      PIXAZO_API_KEY: ${PIXAZO_API_KEY}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    expose:
+      - "5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - socialflow-net
 
   frontend:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/socialflow/frontend:latest
@@ -35,6 +125,13 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - socialflow-net
 
   nginx:
     image: nginx:alpine
@@ -49,3 +146,18 @@ services:
     depends_on:
       - frontend
       - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - socialflow-net
+
+volumes:
+  uploads-data:
