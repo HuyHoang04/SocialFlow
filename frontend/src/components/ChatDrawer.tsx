@@ -421,15 +421,15 @@ export default function ChatDrawer() {
                                 ) : (
                                     sessions.map(s => (
                                         <div
-                                            key={s.sessionId}
-                                            className={`history-item ${activeSessionId === s.sessionId ? 'active' : ''}`}
-                                            onClick={() => handleSelectSession(s.sessionId)}
+                                            key={s.id || s.sessionId}
+                                            className={`history-item ${activeSessionId === (s.id || s.sessionId) ? 'active' : ''}`}
+                                            onClick={() => handleSelectSession(s.id || s.sessionId)}
                                         >
                                             <IconMessageCircle size={14} />
                                             <span className="history-preview">{s.lastMessage || 'New Chat'}</span>
                                             <button
                                                 className="delete-btn"
-                                                onClick={(e) => handleDeleteSession(e, s.sessionId)}
+                                                onClick={(e) => handleDeleteSession(e, s.id || s.sessionId)}
                                             >
                                                 <IconTrash size={12} />
                                             </button>
