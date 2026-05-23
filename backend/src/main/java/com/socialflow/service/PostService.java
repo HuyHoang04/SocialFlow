@@ -87,12 +87,13 @@ public class PostService {
                     log.info("  ✓ Linked existing media asset {} (ID: {}) to post", filename, media.getId());
                 } else {
                     // Create new if not found (fallback)
+                    String mediaUrl = filename != null && filename.startsWith("http") ? filename : "/api/media/" + filename;
                     media = com.socialflow.model.PostMedia.builder()
                             .filename(filename)
                             .originalName(filename)
                             .contentType("image/jpeg")
                             .fileSize(0L)
-                            .url("/api/media/" + filename)
+                            .url(mediaUrl)
                             .sortOrder(i)
                             .uploader(currentUser)
                             .build();
@@ -220,12 +221,13 @@ public class PostService {
                     String filename = request.getMediaFilenames().get(i);
                     if (filename == null || filename.isBlank()) continue;
                     
+                    String mediaUrl = filename != null && filename.startsWith("http") ? filename : "/api/media/" + filename;
                     PostMedia media = PostMedia.builder()
                             .filename(filename)
                             .originalName(filename)
                             .contentType("image/jpeg")
                             .fileSize(0L)
-                            .url("/api/media/" + filename)
+                            .url(mediaUrl)
                             .sortOrder(i)
                             .post(post)
                             .uploader(currentUser)
@@ -413,13 +415,14 @@ public class PostService {
                     log.info("  ✓ Linked existing media asset {} (ID: {}) to draft post {}", filename, media.getId(), post.getId());
                 } else {
                     // Create new if not found (fallback for AI-generated images or external links)
+                    String mediaUrl = filename != null && filename.startsWith("http") ? filename : "/api/media/" + filename;
                     media = com.socialflow.model.PostMedia.builder()
                             .post(post)
                             .uploader(uploader)
                             .filename(filename)
                             .originalName("ai_gen_" + i + ".png")
                             .contentType("image/png")
-                            .url("/api/media/" + filename)
+                            .url(mediaUrl)
                             .fileSize(0L)
                             .sortOrder(i)
                             .build();

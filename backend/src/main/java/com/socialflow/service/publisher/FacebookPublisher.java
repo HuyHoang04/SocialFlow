@@ -44,17 +44,26 @@ public class FacebookPublisher implements CommentFetcher {
 
             if (media != null && !media.isEmpty()) {
                 PostMedia first = media.get(0);
+                
+                byte[] imageBytes;
+                if (first.getUrl() != null && first.getUrl().startsWith("http")) {
+                    imageBytes = new org.springframework.web.client.RestTemplate().getForObject(first.getUrl(), byte[].class);
+                } else {
+                    Path imagePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
+                    imageBytes = java.nio.file.Files.readAllBytes(imagePath);
+                }
 
                 if (first.getContentType().startsWith("image/")) {
                     // Two-step: upload unpublished photo → attach to feed post
-                    Path imagePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
-                    byte[] imageBytes = java.nio.file.Files.readAllBytes(imagePath);
-
+                    
                     // Step 1: Upload photo as unpublished
                     MultipartBodyBuilder photoBuilder = new MultipartBodyBuilder();
-                    photoBuilder.part("source", new FileSystemResource(imagePath.toFile()))
-                            .header("Content-Disposition",
-                                    "form-data; name=\"source\"; filename=\"" + first.getOriginalName() + "\"");
+                    photoBuilder.part("source", new org.springframework.core.io.ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
+                        @Override
+                        public String getFilename() {
+                            return first.getOriginalName() != null ? first.getOriginalName() : "image.jpg";
+                        }
+                    }).header("Content-Disposition", "form-data; name=\"source\"; filename=\"" + (first.getOriginalName() != null ? first.getOriginalName() : "image.jpg") + "\"");
                     photoBuilder.part("published", "false");
                     photoBuilder.part("access_token", page.getPageAccessToken());
 
@@ -94,9 +103,18 @@ public class FacebookPublisher implements CommentFetcher {
                     }
 
                 } else if (first.getContentType().startsWith("video/")) {
-                    Path videoPath = Paths.get(uploadDir).resolve(first.getFilename());
                     MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                    builder.part("source", new FileSystemResource(videoPath.toFile()));
+                    if (imageBytes != null) {
+                        builder.part("source", new org.springframework.core.io.ByteArrayResource(imageBytes) {
+                            @Override
+                            public String getFilename() {
+                                return first.getOriginalName() != null ? first.getOriginalName() : "video.mp4";
+                            }
+                        });
+                    } else {
+                        Path videoPath = Paths.get(uploadDir).resolve(first.getFilename());
+                        builder.part("source", new org.springframework.core.io.FileSystemResource(videoPath.toFile()));
+                    }
                     builder.part("description", post.getContent());
                     builder.part("access_token", page.getPageAccessToken());
 

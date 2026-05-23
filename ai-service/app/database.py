@@ -20,13 +20,16 @@ class DatabaseClient:
     def get_connection(self):
         """Get a fresh database connection (don't reuse singleton)"""
         try:
-            conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD
-            )
+            if getattr(self, 'db_url', None):
+                conn = psycopg2.connect(self.db_url)
+            else:
+                conn = psycopg2.connect(
+                    host=DB_HOST,
+                    port=DB_PORT,
+                    database=DB_NAME,
+                    user=DB_USER,
+                    password=DB_PASSWORD
+                )
             logger.debug(f"Created fresh connection to PostgreSQL")
             return conn
         except Exception as e:
