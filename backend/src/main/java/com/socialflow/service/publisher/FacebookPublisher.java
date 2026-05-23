@@ -55,32 +55,41 @@ public class FacebookPublisher implements CommentFetcher {
 
                 if (first.getContentType().startsWith("image/")) {
                     // Two-step: upload unpublished photo → attach to feed post
+                    JsonNode photoResp = null;
                     
-                    // Step 1: Upload photo as unpublished
-                    MultipartBodyBuilder photoBuilder = new MultipartBodyBuilder();
-                    photoBuilder.part("source", new org.springframework.core.io.ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
-                        @Override
-                        public String getFilename() {
-                            return first.getOriginalName() != null ? first.getOriginalName() : "image.jpg";
-                        }
-                    }).header("Content-Disposition", "form-data; name=\"source\"; filename=\"" + (first.getOriginalName() != null ? first.getOriginalName() : "image.jpg") + "\"");
-                    photoBuilder.part("published", "false");
-                    photoBuilder.part("access_token", page.getPageAccessToken());
-
-                    JsonNode photoResp = client.post()
-                            .uri("/{pageId}/photos", page.getPlatformPageId())
-                            .contentType(MediaType.MULTIPART_FORM_DATA)
-                            .body(BodyInserters.fromMultipartData(photoBuilder.build()))
-                            .exchangeToMono(resp -> {
-                                if (resp.statusCode().isError()) {
-                                    return resp.bodyToMono(String.class).map(body -> {
-                                        log.error("Facebook photo upload error {}: {}", resp.statusCode(), body);
-                                        throw new RuntimeException(resp.statusCode() + " " + body);
-                                    });
-                                }
-                                return resp.bodyToMono(JsonNode.class);
-                            })
-                            .block();
+                    if (first.getUrl() != null && first.getUrl().startsWith("http")) {
+                        // Upload via external URL
+                        Map<String, Object> photoBody = new LinkedHashMap<>();
+                        photoBody.put("url", first.getUrl());
+                        photoBody.put("published", "false");
+                        photoBody.put("access_token", page.getPageAccessToken());
+                        
+                        photoResp = client.post()
+                                .uri("/{pageId}/photos", page.getPlatformPageId())
+                                .bodyValue(photoBody)
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+                    } else {
+                        // Step 1: Upload photo as unpublished via multipart
+                        MultipartBodyBuilder photoBuilder = new MultipartBodyBuilder();
+                        photoBuilder.part("source", new org.springframework.core.io.ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
+                            @Override
+                            public String getFilename() {
+                                return first.getOriginalName() != null ? first.getOriginalName() : "image.jpg";
+                            }
+                        }).header("Content-Disposition", "form-data; name=\"source\"; filename=\"" + (first.getOriginalName() != null ? first.getOriginalName() : "image.jpg") + "\"");
+                        photoBuilder.part("published", "false");
+                        photoBuilder.part("access_token", page.getPageAccessToken());
+    
+                        photoResp = client.post()
+                                .uri("/{pageId}/photos", page.getPlatformPageId())
+                                .contentType(MediaType.MULTIPART_FORM_DATA)
+                                .body(BodyInserters.fromMultipartData(photoBuilder.build()))
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+                    }
 
                     if (photoResp != null && photoResp.has("id")) {
                         String photoId = photoResp.get("id").asText();
