@@ -9,7 +9,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
 # Backend integration
-JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")  # Java backend URL
+JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://backend:8080")  # Java backend URL
 
 # PostgreSQL Configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")
