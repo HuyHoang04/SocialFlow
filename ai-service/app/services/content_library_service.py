@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 class ContentLibraryService:
     """Manage content library uploads and text extraction"""
     
-    def __init__(self, upload_dir: str = "/uploads/rag-library"):
+    def __init__(self, upload_dir: str = "uploads/rag-library"):
         self.upload_dir = upload_dir
         self.max_file_size = 10 * 1024 * 1024  # 10MB
         
