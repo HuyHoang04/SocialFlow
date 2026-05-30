@@ -47,39 +47,63 @@ public class FacebookPublisher implements CommentFetcher {
 
                 if (first.getContentType().startsWith("image/")) {
                     // Two-step: upload unpublished photo → attach to feed post
-                    Path imagePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
-                    byte[] imageBytes = java.nio.file.Files.readAllBytes(imagePath);
-
                     // Step 1: Upload photo as unpublished
-                    MultipartBodyBuilder photoBuilder = new MultipartBodyBuilder();
-                    photoBuilder.part("source", new FileSystemResource(imagePath.toFile()))
-                            .header("Content-Disposition",
-                                    "form-data; name=\"source\"; filename=\"" + first.getOriginalName() + "\"");
-                    photoBuilder.part("published", "false");
-                    photoBuilder.part("access_token", page.getPageAccessToken());
+                    JsonNode photoResp;
+                    boolean isExternalUrl = first.getUrl() != null && first.getUrl().startsWith("http");
+                    if (isExternalUrl) {
+                        // Cloudinary or other external storage — use URL-based upload
+                        Map<String, Object> photoBody = new LinkedHashMap<>();
+                        photoBody.put("url", first.getUrl());
+                        photoBody.put("published", "false");
+                        photoBody.put("access_token", page.getPageAccessToken());
 
-                    JsonNode photoResp = client.post()
-                            .uri("/{pageId}/photos", page.getPlatformPageId())
-                            .contentType(MediaType.MULTIPART_FORM_DATA)
-                            .body(BodyInserters.fromMultipartData(photoBuilder.build()))
-                            .exchangeToMono(resp -> {
-                                if (resp.statusCode().isError()) {
-                                    return resp.bodyToMono(String.class).map(body -> {
-                                        log.error("Facebook photo upload error {}: {}", resp.statusCode(), body);
-                                        throw new RuntimeException(resp.statusCode() + " " + body);
-                                    });
-                                }
-                                return resp.bodyToMono(JsonNode.class);
-                            })
-                            .block();
+                        photoResp = client.post()
+                                .uri("/{pageId}/photos", page.getPlatformPageId())
+                                .bodyValue(photoBody)
+                                .exchangeToMono(resp -> {
+                                    if (resp.statusCode().isError()) {
+                                        return resp.bodyToMono(String.class).map(body -> {
+                                            log.error("Facebook photo upload error {}: {}", resp.statusCode(), body);
+                                            throw new RuntimeException(resp.statusCode() + " " + body);
+                                        });
+                                    }
+                                    return resp.bodyToMono(JsonNode.class);
+                                })
+                                .block();
+                    } else {
+                        // Local file fallback
+                        Path imagePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
+                        MultipartBodyBuilder photoBuilder = new MultipartBodyBuilder();
+                        photoBuilder.part("source", new FileSystemResource(imagePath.toFile()))
+                                .header("Content-Disposition",
+                                        "form-data; name=\"source\"; filename=\"" + first.getOriginalName() + "\"");
+                        photoBuilder.part("published", "false");
+                        photoBuilder.part("access_token", page.getPageAccessToken());
+
+                        photoResp = client.post()
+                                .uri("/{pageId}/photos", page.getPlatformPageId())
+                                .contentType(MediaType.MULTIPART_FORM_DATA)
+                                .body(BodyInserters.fromMultipartData(photoBuilder.build()))
+                                .exchangeToMono(resp -> {
+                                    if (resp.statusCode().isError()) {
+                                        return resp.bodyToMono(String.class).map(body -> {
+                                            log.error("Facebook photo upload error {}: {}", resp.statusCode(), body);
+                                            throw new RuntimeException(resp.statusCode() + " " + body);
+                                        });
+                                    }
+                                    return resp.bodyToMono(JsonNode.class);
+                                })
+                                .block();
+                    }
 
                     if (photoResp != null && photoResp.has("id")) {
                         String photoId = photoResp.get("id").asText();
 
                         // Step 2: Create feed post with attached photo
+                        // attached_media must be a JSON array when sending JSON body
                         Map<String, Object> feedBody = new LinkedHashMap<>();
                         feedBody.put("message", post.getContent());
-                        feedBody.put("attached_media[0]", "{\"media_fbid\":\"" + photoId + "\"}");
+                        feedBody.put("attached_media", List.of(Map.of("media_fbid", photoId)));
                         feedBody.put("access_token", page.getPageAccessToken());
 
                         response = client.post()
@@ -94,19 +118,33 @@ public class FacebookPublisher implements CommentFetcher {
                     }
 
                 } else if (first.getContentType().startsWith("video/")) {
-                    Path videoPath = Paths.get(uploadDir).resolve(first.getFilename());
-                    MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                    builder.part("source", new FileSystemResource(videoPath.toFile()));
-                    builder.part("description", post.getContent());
-                    builder.part("access_token", page.getPageAccessToken());
+                    boolean isExternalVideo = first.getUrl() != null && first.getUrl().startsWith("http");
+                    if (isExternalVideo) {
+                        response = client.post()
+                                .uri("/{pageId}/videos", page.getPlatformPageId())
+                                .bodyValue(Map.of(
+                                        "file_url", first.getUrl(),
+                                        "description", post.getContent(),
+                                        "access_token", page.getPageAccessToken()
+                                ))
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+                    } else {
+                        Path videoPath = Paths.get(uploadDir).resolve(first.getFilename());
+                        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+                        builder.part("source", new FileSystemResource(videoPath.toFile()));
+                        builder.part("description", post.getContent());
+                        builder.part("access_token", page.getPageAccessToken());
 
-                    response = client.post()
-                            .uri("/{pageId}/videos", page.getPlatformPageId())
-                            .contentType(MediaType.MULTIPART_FORM_DATA)
-                            .body(BodyInserters.fromMultipartData(builder.build()))
-                            .retrieve()
-                            .bodyToMono(JsonNode.class)
-                            .block();
+                        response = client.post()
+                                .uri("/{pageId}/videos", page.getPlatformPageId())
+                                .contentType(MediaType.MULTIPART_FORM_DATA)
+                                .body(BodyInserters.fromMultipartData(builder.build()))
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+                    }
                 } else {
                     response = postText(client, post, page);
                 }
