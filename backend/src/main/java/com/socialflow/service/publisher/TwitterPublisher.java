@@ -59,12 +59,24 @@ public class TwitterPublisher implements CommentFetcher {
             // Upload media if present
             if (media != null && !media.isEmpty()) {
                 PostMedia first = media.get(0);
-                Path filePath = Paths.get(uploadDir).resolve(first.getFilename());
+                
+                byte[] imageBytes;
+                if (first.getUrl() != null && first.getUrl().startsWith("http")) {
+                    imageBytes = new org.springframework.web.client.RestTemplate().getForObject(first.getUrl(), byte[].class);
+                } else {
+                    Path filePath = Paths.get(uploadDir).resolve(first.getFilename());
+                    imageBytes = java.nio.file.Files.readAllBytes(filePath);
+                }
 
                 WebClient uploadClient = webClientBuilder.baseUrl("https://upload.twitter.com").build();
 
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                builder.part("media", new FileSystemResource(filePath.toFile()));
+                builder.part("media", new org.springframework.core.io.ByteArrayResource(imageBytes != null ? imageBytes : new byte[0]) {
+                    @Override
+                    public String getFilename() {
+                        return first.getOriginalName() != null ? first.getOriginalName() : "image.jpg";
+                    }
+                });
 
                 JsonNode uploadResp = uploadClient.post()
                         .uri("/1.1/media/upload.json")

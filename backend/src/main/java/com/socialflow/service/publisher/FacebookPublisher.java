@@ -44,6 +44,14 @@ public class FacebookPublisher implements CommentFetcher {
 
             if (media != null && !media.isEmpty()) {
                 PostMedia first = media.get(0);
+                
+                byte[] imageBytes;
+                if (first.getUrl() != null && first.getUrl().startsWith("http")) {
+                    imageBytes = new org.springframework.web.client.RestTemplate().getForObject(first.getUrl(), byte[].class);
+                } else {
+                    Path imagePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
+                    imageBytes = java.nio.file.Files.readAllBytes(imagePath);
+                }
 
                 if (first.getContentType().startsWith("image/")) {
                     // Two-step: upload unpublished photo → attach to feed post

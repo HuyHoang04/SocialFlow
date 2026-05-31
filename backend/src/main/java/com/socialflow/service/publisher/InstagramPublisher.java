@@ -175,12 +175,24 @@ public class InstagramPublisher implements CommentFetcher {
 
         try {
             PostMedia first = media.get(0);
-            Path filePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
+            
+            byte[] fileBytes;
+            if (first.getUrl() != null && first.getUrl().startsWith("http")) {
+                fileBytes = new org.springframework.web.client.RestTemplate().getForObject(first.getUrl(), byte[].class);
+            } else {
+                Path filePath = Paths.get(uploadDir).resolve(first.getFilename()).toAbsolutePath();
+                fileBytes = java.nio.file.Files.readAllBytes(filePath);
+            }
 
             if (first.getContentType().startsWith("image/")) {
                 // Upload image
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                builder.part("file", new FileSystemResource(filePath.toFile()));
+                builder.part("file", new org.springframework.core.io.ByteArrayResource(fileBytes != null ? fileBytes : new byte[0]) {
+                    @Override
+                    public String getFilename() {
+                        return first.getOriginalName() != null ? first.getOriginalName() : "image.jpg";
+                    }
+                });
                 builder.part("access_token", accessToken);
 
                 // For testing: return a mock ID (in production, get from API response)
@@ -189,7 +201,12 @@ public class InstagramPublisher implements CommentFetcher {
             } else if (first.getContentType().startsWith("video/")) {
                 // Upload video
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                builder.part("file", new FileSystemResource(filePath.toFile()));
+                builder.part("file", new org.springframework.core.io.ByteArrayResource(fileBytes != null ? fileBytes : new byte[0]) {
+                    @Override
+                    public String getFilename() {
+                        return first.getOriginalName() != null ? first.getOriginalName() : "video.mp4";
+                    }
+                });
                 builder.part("access_token", accessToken);
 
                 return UUID.randomUUID().toString();
