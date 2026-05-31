@@ -2513,6 +2513,28 @@ a:hover {
   cursor: not-allowed;
 }
 
+/* Option styling - works in Chromium browsers */
+select option {
+  background: #ffffff;
+  color: #000000;
+}
+
+select option:hover {
+  background: #f0f0f0;
+}
+
+select option:disabled {
+  color: #cccccc;
+}
+
+/* Dark mode options */
+@media (prefers-color-scheme: dark) {
+  select option {
+    background: #ffffff;
+    color: #000000;
+  }
+}
+
 .team-list {
   display: flex;
   flex-direction: column;

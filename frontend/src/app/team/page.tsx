@@ -15,6 +15,11 @@ interface TeamMember {
     isAdmin: boolean;
 }
 
+interface WorkflowConfig {
+    enabled: boolean;
+    approvalLevels: number;
+}
+
 export default function TeamPage() {
     const router = useRouter();
     const { selectedBrand } = useBrand();
@@ -23,10 +28,15 @@ export default function TeamPage() {
     const [error, setError] = useState<string | null>(null);
     const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
     
+    // Workflow config state
+    const [workflowConfig, setWorkflowConfig] = useState<WorkflowConfig>({ enabled: false, approvalLevels: 1 });
+    const [savingWorkflow, setSavingWorkflow] = useState(false);
+    const [workflowMessage, setWorkflowMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    
     // Invitation form state
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole] = useState<'CREATOR'>('CREATOR');
+    const [inviteRole, setInviteRole] = useState<'CREATOR' | 'MANAGER'>('CREATOR');
     const [inviting, setInviting] = useState(false);
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -52,6 +62,15 @@ export default function TeamPage() {
         try {
             const members = await api.getTeamMembers(selectedBrand.id);
             setTeamMembers(members);
+            
+            // Load workflow config
+            try {
+                const config = await api.getWorkflowConfig(selectedBrand.id);
+                setWorkflowConfig(config);
+            } catch (err: any) {
+                console.warn('Failed to load workflow config:', err);
+                setWorkflowConfig({ enabled: false, approvalLevels: 1 });
+            }
         } catch (err: any) {
             if (err?.message !== 'Unauthorized') {
                 setError(err?.message || 'Failed to load team members');
@@ -85,6 +104,7 @@ export default function TeamPage() {
             
             // Reset form
             setInviteEmail('');
+            setInviteRole('CREATOR');
             setShowInviteForm(false);
             setCopied(false);
             
@@ -141,12 +161,42 @@ export default function TeamPage() {
         }
     };
 
+    const handleSaveWorkflow = async () => {
+        if (!selectedBrand) return;
+
+        setSavingWorkflow(true);
+        setWorkflowMessage(null);
+        try {
+            await api.updateWorkflowConfig(selectedBrand.id, workflowConfig.enabled, 1);
+            setWorkflowMessage({ type: 'success', text: 'Approval workflow settings updated! ✨' });
+            setTimeout(() => setWorkflowMessage(null), 3000);
+        } catch (err: any) {
+            setWorkflowMessage({ type: 'error', text: err.message || 'Failed to update workflow config' });
+        } finally {
+            setSavingWorkflow(false);
+        }
+    };
+
     const isCurrentUserAdmin = teamMembers.some(m => m.userId === user?.userId && m.role === 'ADMIN');
     const isCurrentUserManager = teamMembers.some(m => m.userId === user?.userId && m.role === 'MANAGER');
+    const currentUserRole = teamMembers.find(m => m.userId === user?.userId)?.role;
 
     // Check permission from JWT token (faster than API response)
     const canManageFromToken = selectedBrand ? canManageBrand(selectedBrand.id) : false;
-    const canManageTeam = canManageFromToken || isCurrentUserAdmin || isCurrentUserManager;
+    const canManageTeam = (canManageFromToken || isCurrentUserAdmin || isCurrentUserManager) && currentUserRole !== 'CREATOR';
+    const canEditAllRoles = isCurrentUserAdmin || canManageFromToken;
+    const canEditCreatorOnly = isCurrentUserManager && !canManageFromToken;
+
+    const canEditMember = (memberId: string, memberRole: string) => {
+        if (memberId === user?.userId) return false;
+        if (canEditAllRoles && memberRole !== 'ADMIN') return true;
+        if (canEditCreatorOnly && memberRole === 'CREATOR') return true;
+        return false;
+    };
+
+    const canRemoveMember = (memberId: string, memberRole: string) => {
+        return canEditMember(memberId, memberRole);
+    };
 
     return (
         <AppShell>
@@ -160,6 +210,67 @@ export default function TeamPage() {
                 {/* Error/Success Messages */}
                 {error && <div className="error-message" style={{ marginBottom: 20 }}>{error}</div>}
                 {loading && <div className="loading" style={{ marginBottom: 20 }}>Loading team members...</div>}
+
+                {/* Workflow Config Card */}
+                {canManageTeam && !loading && (
+                    <div className="card" style={{ marginBottom: 32 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                            <div>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px 0' }}>Approval Workflow</h3>
+                                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>Control how posts are reviewed before publishing</p>
+                            </div>
+                        </div>
+
+                        {workflowMessage && (
+                            <div style={{
+                                padding: '12px 16px',
+                                borderRadius: 'var(--radius-sm)',
+                                marginBottom: 16,
+                                background: workflowMessage.type === 'success' ? 'var(--success-bg)' : 'var(--error-bg)',
+                                color: workflowMessage.type === 'success' ? 'var(--success)' : 'var(--error)',
+                                fontSize: 13,
+                                display: 'flex', alignItems: 'center', gap: 8
+                            }}>
+                                <span>{workflowMessage.type === 'success' ? '✅' : '❌'}</span>
+                                {workflowMessage.text}
+                            </div>
+                        )}
+
+                        <div style={{
+                            padding: 16, borderRadius: 'var(--radius)',
+                            background: 'var(--bg-glass-strong)',
+                            border: '1px solid var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            marginBottom: 16
+                        }}>
+                            <div>
+                                <p style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 500 }}>
+                                    Require post approval before publishing
+                                </p>
+                                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    When enabled, creators must submit posts for approval
+                                </p>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={workflowConfig.enabled}
+                                    onChange={(e) => setWorkflowConfig({ ...workflowConfig, enabled: e.target.checked })}
+                                    style={{ cursor: 'pointer', width: 20, height: 20 }}
+                                />
+                            </label>
+                        </div>
+
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleSaveWorkflow}
+                            disabled={savingWorkflow}
+                            style={{ width: '100%' }}
+                        >
+                            {savingWorkflow ? 'Saving...' : 'Save Workflow Settings'}
+                        </button>
+                    </div>
+                )}
 
                 {/* Invite Form Card - Always Visible */}
                 {canManageTeam && (
@@ -192,16 +303,33 @@ export default function TeamPage() {
                             </div>
                             <div className="form-group" style={{ marginTop: 12 }}>
                                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>Role</label>
-                                <div style={{
-                                    padding: '10px 14px',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: 'var(--bg-glass)',
-                                    color: 'var(--text-primary)',
-                                    fontSize: 13
-                                }}>
-                                    Creator (Can create posts)
-                                </div>
+                                <select
+                                    value={inviteRole}
+                                    onChange={(e) => setInviteRole(e.target.value as 'CREATOR' | 'MANAGER')}
+                                    disabled={inviting}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 14px',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: 'var(--bg-glass)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: 13,
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        appearance: 'none',
+                                        WebkitAppearance: 'none',
+                                        MozAppearance: 'none',
+                                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B8C4A9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                        backgroundRepeat: 'no-repeat',
+                                        backgroundPosition: 'right 4px center',
+                                        backgroundSize: '16px',
+                                        paddingRight: '24px'
+                                    }}
+                                >
+                                    <option value="CREATOR">Creator - Can create posts</option>
+                                    {canEditAllRoles && <option value="MANAGER">Manager - Can manage team & approve posts</option>}
+                                </select>
                             </div>
                         </div>
 
@@ -282,8 +410,8 @@ export default function TeamPage() {
                                                     }}
                                                 >
                                                     <option value="CREATOR">Creator</option>
-                                                    <option value="MANAGER">Manager</option>
-                                                    <option value="ADMIN">Admin</option>
+                                                    {canEditAllRoles && <option value="MANAGER">Manager</option>}
+                                                    {canEditAllRoles && <option value="ADMIN">Admin</option>}
                                                 </select>
                                                 <button
                                                     className="btn btn-sm"
@@ -314,19 +442,19 @@ export default function TeamPage() {
                                                 }}>
                                                     {member.role}
                                                 </span>
-                                                {canManageTeam && member.userId !== user?.userId && member.role !== 'ADMIN' && (
+                                                {canEditMember(member.userId, member.role) && (
                                                     <button
                                                         className="btn btn-sm"
                                                         style={{ background: 'var(--bg-glass)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                                                         onClick={() => {
                                                             setEditingUserId(member.userId);
-                                                            setNewRole(member.role === 'ADMIN' ? 'MANAGER' : member.role);
+                                                            setNewRole(member.role === 'ADMIN' ? 'MANAGER' : member.role as 'MANAGER' | 'CREATOR');
                                                         }}
                                                     >
                                                         Edit
                                                     </button>
                                                 )}
-                                                {canManageTeam && member.userId !== user?.userId && member.role !== 'ADMIN' && (
+                                                {canRemoveMember(member.userId, member.role) && (
                                                     <button
                                                         className="btn btn-sm btn-danger"
                                                         onClick={() => handleRemoveMember(member.userId)}

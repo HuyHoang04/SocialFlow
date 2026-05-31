@@ -311,7 +311,11 @@ function CreatePostContent() {
         
         Promise.all([
             api.getAllPagesForBrand(brand.id).then(p => { setPages(p); setSelectedPages([]); }),
-            api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); }),
+            api.getCampaigns(brand.id).then(c => { setCampaigns(c); setSelectedCampaign(''); }).catch(err => {
+                console.warn('Failed to load campaigns:', err);
+                setCampaigns([]);
+                setSelectedCampaign('');
+            }),
             // Load workflow config
             api.getWorkflowConfig(brand.id).then(config => { 
                 setWorkflowConfig(config); 
@@ -1252,32 +1256,36 @@ function CreatePostContent() {
                                 Leave empty to publish immediately
                             </div>
 
-                            {campaigns.length > 0 && (
-                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
-                                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>
-                                        Campaign (optional)
-                                    </label>
-                                    <select
-                                        value={selectedCampaign || ''}
-                                        onChange={e => setSelectedCampaign(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '8px 12px',
-                                            fontSize: 12,
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg-glass)',
-                                            color: 'var(--text-primary)',
-                                            fontFamily: 'inherit',
-                                        }}
-                                    >
-                                        <option style={{ color: "black" }} value="">No Campaign</option>
-                                        {campaigns.map(c => (
-                                            <option style={{ color: "black" }} key={c.id} value={c.id}>{c.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+                            {/* Campaign selection - always show */}
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
+                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>
+                                    Campaign (optional)
+                                </label>
+                                <select
+                                    value={selectedCampaign || ''}
+                                    onChange={e => setSelectedCampaign(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        fontSize: 12,
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: 'var(--bg-glass)',
+                                        color: 'var(--text-primary)',
+                                        fontFamily: 'inherit',
+                                    }}
+                                >
+                                    <option value="">No Campaign</option>
+                                    {campaigns.map(c => (
+                                        <option style={{ color: "black" }} key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                {campaigns.length === 0 && (
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                                        No campaigns created yet. <a href="/campaigns" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Create one</a>
+                                    </div>
+                                )}
+                            </div>
 
                             {workflowConfig?.enabled && (
                                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 12 }}>
@@ -1300,11 +1308,11 @@ function CreatePostContent() {
                                         disabled={teamMembers.length === 0}
                                     >
                                         {isCurrentUserAdminOrManager ? (
-                                            <option style={{ color: "black" }} value="">
+                                            <option value="">
                                                 None (Publish directly)
                                             </option>
                                         ) : (
-                                            <option style={{ color: "black" }} value="" disabled>
+                                            <option value="" disabled>
                                                 {teamMembers.length === 0 ? 'No approvers available' : 'Select an approver'}
                                             </option>
                                         )}
@@ -1459,11 +1467,11 @@ function CreatePostContent() {
                                                     cursor: 'pointer'
                                                 }}
                                             >
-                                                <option style={{ color: "black" }} value="casual">Casual & Friendly</option>
-                                                <option style={{ color: "black" }} value="professional">Professional</option>
-                                                <option style={{ color: "black" }} value="exciting">Exciting & Energetic</option>
-                                                <option style={{ color: "black" }} value="humorous">Humorous</option>
-                                                <option style={{ color: "black" }} value="informative">Informative</option>
+                                                <option value="casual">Casual & Friendly</option>
+                                                <option value="professional">Professional</option>
+                                                <option value="exciting">Exciting & Energetic</option>
+                                                <option value="humorous">Humorous</option>
+                                                <option value="informative">Informative</option>
                                             </select>
                                         </div>
 
