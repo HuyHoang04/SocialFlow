@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import { IconUpload, IconFilm, IconImage, IconTrash, IconSearch, IconX, IconEdit } from '@/components/Icons';
 import ImageEditor from '@/components/ImageEditor';
 
@@ -16,6 +17,7 @@ interface MediaAsset {
 }
 
 export default function AssetsPage() {
+    const { toast } = useToast();
     const [assets, setAssets] = useState<MediaAsset[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -71,7 +73,7 @@ export default function AssetsPage() {
 
     const handleDelete = async (id: string, postId?: string) => {
         if (postId) {
-            alert('This media is currently used in a post and cannot be deleted.');
+            toast('This media is currently used in a post and cannot be deleted.', 'error');
             return;
         }
         if (!confirm('Are you sure you want to permanently delete this media?')) return;
@@ -80,7 +82,7 @@ export default function AssetsPage() {
             await api.deleteMedia(id);
             setAssets(prev => prev.filter(a => a.id !== id));
         } catch (err: unknown) {
-            alert(err instanceof Error ? err.message : 'Delete failed');
+            toast(err instanceof Error ? err.message : 'Delete failed', 'error');
         }
     };
 

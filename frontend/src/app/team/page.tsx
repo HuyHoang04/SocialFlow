@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout, canManageBrand } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import { IconUsers } from '@/components/Icons';
 
 interface TeamMember {
@@ -18,6 +19,7 @@ interface TeamMember {
 export default function TeamPage() {
     const router = useRouter();
     const { selectedBrand } = useBrand();
+    const { toast } = useToast();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function TeamPage() {
     const handleRemoveMember = async (userId: string) => {
         if (!user?.userId || !selectedBrand) return;
         if (userId === user.userId) {
-            alert('You cannot remove yourself from the team');
+            toast('You cannot remove yourself from the team', 'error');
             return;
         }
         if (!confirm('Remove this team member?')) return;
@@ -127,7 +129,7 @@ export default function TeamPage() {
             await api.removeTeamMember(selectedBrand.id, userId);
             await loadTeam();
         } catch (err: any) {
-            alert(err?.message || 'Failed to remove team member');
+            toast(err?.message || 'Failed to remove team member', 'error');
         }
         setDeletingUserId(null);
     };

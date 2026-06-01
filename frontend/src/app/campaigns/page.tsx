@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import { IconPlus, IconTrash, IconCalendar, IconTarget } from '@/components/Icons';
 
 interface Campaign {
@@ -16,6 +17,7 @@ interface Campaign {
 
 export default function CampaignsPage() {
     const { selectedBrand: brand } = useBrand();
+    const { toast } = useToast();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -76,7 +78,7 @@ export default function CampaignsPage() {
             await api.deleteCampaign(id);
             setCampaigns(prev => prev.filter(c => c.id !== id));
         } catch (err: any) {
-            alert(err.message || 'Delete failed');
+            toast(err.message || 'Delete failed', 'error');
         }
     };
 

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import TrendingAnalyticsWidget from '@/components/TrendingAnalyticsWidget';
@@ -74,6 +75,7 @@ interface AnalyticsOverview {
 
 export default function AnalyticsPage() {
     const { selectedBrand: brand } = useBrand();
+    const { toast } = useToast();
     const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
     const [postAnalytics, setPostAnalytics] = useState<PostAnalytics[]>([]);
     const [syncing, setSyncing] = useState(false);
@@ -117,7 +119,7 @@ export default function AnalyticsPage() {
             setLastSynced(new Date().toLocaleTimeString());
             await loadAnalytics(brand.id);
         } catch (e: unknown) {
-            alert('Sync failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+            toast('Sync failed: ' + (e instanceof Error ? e.message : 'Unknown error'), 'error');
         } finally {
             setSyncing(false);
         }

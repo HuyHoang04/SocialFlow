@@ -21,6 +21,10 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Shared across all posts created in the same multi-platform publish action
+    @Column(name = "group_id")
+    private UUID groupId;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { BrandProvider } from "@/lib/brand-context";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "SocialFlow - Multi-Platform Publisher",
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ThemeProvider>
-          <BrandProvider>{children}</BrandProvider>
+          <BrandProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </BrandProvider>
         </ThemeProvider>
       </body>
     </html>

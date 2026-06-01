@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import {
     PlatformIcon, IconSend, IconRefreshCw, IconTrash, IconTarget,
     IconCheckCircle, IconX, IconLink,
@@ -42,6 +43,7 @@ function getMediaUrl(url: string) {
 }
 
 export default function PostDetailPage() {
+    const { toast } = useToast();
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
@@ -151,14 +153,14 @@ export default function PostDetailPage() {
                                 const approver = members.find((m: any) => m.role === 'ADMIN' || m.role === 'MANAGER');
                                 if (approver) {
                                     await api.submitForApproval(post.id, approver.userId);
-                                    alert('Submitted for approval!');
+                                    toast('Submitted for approval!', 'success');
                                     load(); // Reload post
                                 } else {
-                                    alert('No Admin or Manager found to assign approval!');
+                                    toast('No Admin or Manager found to assign approval!', 'error');
                                 }
                             } catch (err) {
                                 console.error('Failed to submit for approval:', err);
-                                alert('Failed to submit for approval');
+                                toast('Failed to submit for approval', 'error');
                             }
                         }}>
                             <IconSend size={16} /> Submit for Approval

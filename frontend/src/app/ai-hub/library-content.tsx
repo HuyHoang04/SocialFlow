@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
+import { useToast } from '@/components/Toast';
 import { IconPlus, IconTrash, IconRefreshCw, IconFileText } from '@/components/Icons';
 import '../rag-library/rag-library.css';
 
@@ -15,6 +16,7 @@ interface LibraryFile {
 
 export default function LibraryContent() {
     const { selectedBrand: brand } = useBrand();
+    const { toast } = useToast();
     const [files, setFiles] = useState<LibraryFile[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -78,7 +80,7 @@ export default function LibraryContent() {
             await api.ragDeleteFile(brand.id, id);
             setFiles(prev => prev.filter(f => f.id !== id));
         } catch (err: any) {
-            alert(err.message || 'Delete failed');
+            toast(err.message || 'Delete failed', 'error');
         }
     };
 

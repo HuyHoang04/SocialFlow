@@ -10,7 +10,10 @@ import java.util.UUID;
 public class PostApprovalResponse {
     private UUID id;
     private UUID postId;
+    private UUID groupId;
     private String content;
+    private String pageName;
+    private String platform;
     private String createdByName;
     private String createdByEmail;
     private UUID assignedToUserId;

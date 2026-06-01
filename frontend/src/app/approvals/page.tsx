@@ -4,13 +4,17 @@ import { useRouter } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { PlatformIcon } from '@/components/Icons';
 import { FacebookPostPreview, TwitterPostPreview, InstagramPreviews, BlueskyPostPreview, LinkedInPostPreview, ThreadsPostPreview } from '@automattic/social-previews';
 import '@automattic/social-previews/style.css';
 
 interface PostApproval {
     id: string;
     postId: string;
+    groupId?: string;
     content: string;
+    pageName?: string;
+    platform?: string;
     createdByName: string;
     createdByEmail: string;
     assignedToUserId: string;
@@ -305,7 +309,7 @@ export default function ApprovalsPage() {
             }}
         >
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
                     <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 2 }}>
                         <strong style={{ color: 'var(--text-primary)' }}>{approval.createdByName}</strong>
@@ -316,16 +320,26 @@ export default function ApprovalsPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(approval.createdAt)}</div>
                 </div>
                 <span style={{
-                    fontSize: 10,
-                    padding: '3px 10px',
-                    borderRadius: '4px',
-                    fontWeight: 600,
-                    background: 'var(--accent-glow)',
-                    color: 'var(--accent)'
+                    fontSize: 10, padding: '3px 10px', borderRadius: '4px',
+                    fontWeight: 600, background: 'var(--accent-glow)', color: 'var(--accent)'
                 }}>
                     L{approval.approvalLevel}
                 </span>
             </div>
+
+            {/* Platform badge */}
+            {approval.platform && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 5, fontSize: 11,
+                        background: 'var(--bg-glass-strong)', padding: '3px 8px',
+                        borderRadius: 20, color: 'var(--text-secondary)', width: 'fit-content'
+                    }}>
+                        <PlatformIcon platform={approval.platform} size={12} />
+                        <span>{approval.pageName ?? approval.platform}</span>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             <div style={{ marginBottom: 12 }}>

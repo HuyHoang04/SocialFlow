@@ -105,6 +105,9 @@ public class PostService {
 
         List<PostResponse> responses = new ArrayList<>();
 
+        // Single groupId shared across all posts created in this batch (multi-platform publish)
+        UUID groupId = UUID.randomUUID();
+
         for (UUID pageId : request.getPageIds()) {
             SocialPage page = pageRepository.findById(pageId)
                     .orElseThrow(() -> new RuntimeException(ErrorMessages.PAGE_NOT_FOUND + pageId));
@@ -134,6 +137,7 @@ public class PostService {
                     .scheduledTime(scheduledTime)
                     .campaign(campaign)
                     .page(page)
+                    .groupId(groupId)
                     .build();
             post = postRepository.save(post);
 
@@ -445,6 +449,10 @@ public class PostService {
                 approvalResponses.add(PostApprovalResponse.builder()
                         .id(approval.getId())
                         .postId(approval.getPost().getId())
+                        .groupId(approval.getPost().getGroupId())
+                        .content(approval.getPost().getContent())
+                        .pageName(approval.getPost().getPage() != null ? approval.getPost().getPage().getPageName() : null)
+                        .platform(approval.getPost().getPage() != null ? approval.getPost().getPage().getPlatform().name() : null)
                         .assignedToUserId(approval.getAssignedTo().getId())
                         .assignedToName(approval.getAssignedTo().getName())
                         .assignedToEmail(approval.getAssignedTo().getEmail())
@@ -459,6 +467,7 @@ public class PostService {
 
         return PostResponse.builder()
                 .id(post.getId())
+                .groupId(post.getGroupId())
                 .content(post.getContent())
                 .status(post.getStatus())
                 .createdAt(post.getCreatedAt())

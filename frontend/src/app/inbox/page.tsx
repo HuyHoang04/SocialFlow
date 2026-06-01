@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
+import { useToast } from '@/components/Toast';
 import { PlatformIcon, IconRefreshCw, IconInbox, IconSend, IconSparkles } from '@/components/Icons';
 
 interface InboxMessage {
@@ -34,6 +35,7 @@ type ActiveTab = 'comments' | 'messages';
 
 export default function InboxPage() {
     const { selectedBrand: brand } = useBrand();
+    const { toast } = useToast();
     const [messages, setMessages] = useState<InboxMessage[]>([]);
     const [activeTab, setActiveTab] = useState<ActiveTab>('comments');
     const [selectedComment, setSelectedComment] = useState<InboxMessage | null>(null);
@@ -230,7 +232,7 @@ export default function InboxPage() {
             setReplyContent('');
             await loadInbox();
         } catch (err: unknown) {
-            alert(err instanceof Error ? err.message : 'Reply failed');
+            toast(err instanceof Error ? err.message : 'Reply failed', 'error');
         } finally {
             setSendingReply(false);
         }
@@ -247,7 +249,7 @@ export default function InboxPage() {
             const res = await api.getAiReplySuggestion(targetId);
             setReplyContent(res.suggestion || '');
         } catch (err: unknown) {
-            alert(err instanceof Error ? err.message : 'Failed to get AI suggestion');
+            toast(err instanceof Error ? err.message : 'Failed to get AI suggestion', 'error');
         } finally {
             setSuggestingAi(false);
         }

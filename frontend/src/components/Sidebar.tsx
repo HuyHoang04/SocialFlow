@@ -5,7 +5,7 @@ import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
     IconImage, IconTarget, IconZap,
     IconChevronLeft, IconChevronRight, IconSettings,
-    IconUsers, IconCheckCircle, IconGlobe
+    IconUsers, IconCheckCircle, IconGlobe, IconUser
 } from './Icons';
 
 interface SidebarProps {
@@ -28,6 +28,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
         { href: '/ai-hub', icon: <IconZap size={20} />, label: 'AI Hub' },
         { href: '/team', icon: <IconUsers size={20} />, label: 'Team' },
         { href: '/approvals', icon: <IconCheckCircle size={20} />, label: 'Approvals' },
+        { href: '/profile-manager', icon: <IconUser size={20} />, label: 'Page Profiles' },
         { href: '/public-page', icon: <IconGlobe size={20} />, label: 'Public Page' },
         { href: '/settings', icon: <IconSettings size={20} />, label: 'Settings' },
     ];

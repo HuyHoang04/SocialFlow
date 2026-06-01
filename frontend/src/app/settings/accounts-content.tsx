@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
+import { useToast } from '@/components/Toast';
 import AppConfigsModal from '@/components/AppConfigsModal';
 
 // Load Facebook App ID from backend dynamically
@@ -105,6 +106,7 @@ const PLATFORMS = [
 
 export default function AccountsContent() {
     const { selectedBrand: brand } = useBrand();
+    const { toast } = useToast();
     const [connections, setConnections] = useState<Connection[]>([]);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
@@ -173,7 +175,7 @@ export default function AccountsContent() {
         if (platform === 'facebook') {
             if (!brand) return;
             if (!window.FB) {
-                alert('Facebook SDK chưa tải xong. Vui lòng chờ vài giây rồi thử lại.');
+                toast('Facebook SDK chưa tải xong. Vui lòng chờ vài giây rồi thử lại.', 'error');
                 return;
             }
             setConnecting('facebook');
@@ -181,7 +183,7 @@ export default function AccountsContent() {
                 if (response.authResponse) {
                     api.facebookConnect({ accessToken: response.authResponse.accessToken, brandId: brand.id })
                         .then(() => { setSuccessMsg('Facebook'); loadConnections(); })
-                        .catch((err: Error) => alert('Facebook connect failed: ' + err.message))
+                        .catch((err: Error) => toast('Facebook connect failed: ' + err.message, 'error'))
                         .finally(() => setConnecting(null));
                 } else { setConnecting(null); }
             }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging' });
@@ -195,7 +197,7 @@ export default function AccountsContent() {
                     // Mở popup OAuth thay vì redirect toàn trang
                     const popup = window.open(res.url, `${platform}_auth`, 'width=600,height=700,resizable=yes,scrollbars=yes');
                     if (!popup) {
-                        alert('Popup bị chặn. Vui lòng cho phép popup cho trang web này.');
+                        toast('Popup bị chặn. Vui lòng cho phép popup cho trang web này.', 'error');
                         setConnecting(null);
                         return;
                     }
@@ -245,7 +247,7 @@ export default function AccountsContent() {
             setBskyHandle(''); setBskyAppPassword(''); setShowBskyForm(false);
             loadConnections();
         } catch (err: unknown) {
-            alert('Bluesky connect failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            toast('Bluesky connect failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
         } finally { setConnecting(null); }
     };
 

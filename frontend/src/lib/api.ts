@@ -189,6 +189,8 @@ export const api = {
     // Pages
     getPages: (connId: string) => request(`/connections/${connId}/pages`),
     getAllPagesForBrand: (brandId: string) => request(`/brands/${brandId}/pages`),
+    updatePageProfile: (pageId: string, data: { bio?: string; coverImageUrl?: string; avatarUrl?: string; website?: string }) =>
+        request(`/social-pages/${pageId}/profile`, { method: 'PUT', body: JSON.stringify(data) }),
 
     // Posts
     getPosts: (brandId?: string) => request(`/posts${brandId ? `?brandId=${brandId}` : ''}`),

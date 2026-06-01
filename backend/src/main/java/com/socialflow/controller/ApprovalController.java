@@ -96,10 +96,14 @@ public class ApprovalController {
     }
 
     private PostApprovalResponse toResponse(PostApproval approval) {
+        com.socialflow.model.SocialPage page = approval.getPost().getPage();
         return PostApprovalResponse.builder()
                 .id(approval.getId())
                 .postId(approval.getPost().getId())
+                .groupId(approval.getPost().getGroupId())
                 .content(approval.getPost().getContent())
+                .pageName(page != null ? page.getPageName() : null)
+                .platform(page != null ? page.getPlatform().name() : null)
                 .createdByName(approval.getPost().getCreatedBy() != null ? approval.getPost().getCreatedBy().getName() : "Unknown")
                 .createdByEmail(approval.getPost().getCreatedBy() != null ? approval.getPost().getCreatedBy().getEmail() : "")
                 .assignedToUserId(approval.getAssignedTo().getId())
