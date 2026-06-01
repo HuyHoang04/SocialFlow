@@ -167,9 +167,15 @@ public class BrandController {
             @PathVariable UUID id,
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateTeamMemberRoleRequest request) {
-        // Check if user is ADMIN in this brand
-        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.ADMIN)) {
+        // Check if user is ADMIN or MANAGER in this brand
+        UserRole userRole = brandTeamService.getUserRoleInBrand(user.getId(), id);
+        if (userRole != UserRole.ADMIN && userRole != UserRole.MANAGER) {
             throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        
+        // MANAGER can only assign CREATOR role
+        if (userRole == UserRole.MANAGER && request.getRole() != UserRole.CREATOR) {
+            throw new RuntimeException("Managers can only assign Creator role");
         }
         
         BrandTeamMember member = brandTeamService.updateMemberRole(id, userId, request.getRole());
@@ -196,7 +202,23 @@ public class BrandController {
             @AuthenticationPrincipal User user,
             @PathVariable UUID id,
             @PathVariable UUID userId) {
-        // TODO: Check if user is ADMIN in this brand
+        // Check if user is ADMIN or MANAGER in this brand
+        UserRole userRole = brandTeamService.getUserRoleInBrand(user.getId(), id);
+        if (userRole != UserRole.ADMIN && userRole != UserRole.MANAGER) {
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        
+        // Get the member to check their role
+        BrandTeamMember memberToRemove = brandTeamService.getTeamMembers(id).stream()
+                .filter(m -> m.getUser().getId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Team member not found"));
+        
+        // MANAGER can only remove CREATOR role members
+        if (userRole == UserRole.MANAGER && memberToRemove.getRole() != UserRole.CREATOR) {
+            throw new RuntimeException("Managers can only remove Creator role members");
+        }
+        
         brandTeamService.removeTeamMember(id, userId);
         return ResponseEntity.noContent().build();
     }
@@ -208,8 +230,14 @@ public class BrandController {
             @PathVariable UUID id,
             @Valid @RequestBody CreateInvitationRequest request) {
         // Check if user is ADMIN or MANAGER in this brand
-        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.MANAGER)) {
+        UserRole userRole = brandTeamService.getUserRoleInBrand(user.getId(), id);
+        if (userRole != UserRole.ADMIN && userRole != UserRole.MANAGER) {
             throw new RuntimeException("Only brand ADMIN or MANAGER can create invitations");
+        }
+        
+        // MANAGER can only invite CREATOR role
+        if (userRole == UserRole.MANAGER && request.getRole() != UserRole.CREATOR) {
+            throw new RuntimeException("Managers can only invite members with Creator role");
         }
         
         InvitationResponse response = userInvitationService.createInvitation(id, request.getEmail(), request.getRole());
@@ -244,7 +272,11 @@ public class BrandController {
             @AuthenticationPrincipal User user,
             @PathVariable UUID id,
             @Valid @RequestBody WorkflowConfigRequest request) {
-        // TODO: Check if user is ADMIN in this brand
+        // Check if user is ADMIN or MANAGER in this brand
+        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.MANAGER)) {
+            throw new RuntimeException("Only brand ADMIN or MANAGER can update workflow config");
+        }
+        
         ApprovalWorkflowConfig config = approvalWorkflowService.updateWorkflowConfig(id, request.getEnabled(), request.getApprovalLevels());
         return ResponseEntity.ok(toWorkflowConfigResponse(config));
     }

@@ -170,64 +170,6 @@ export default function AssetsPage() {
 
             {error && <div className="error-msg" style={{ marginBottom: 24, borderRadius: 12 }}>{error}</div>}
 
-            {/* Modern Upload Zone */}
-            <div
-                className="card"
-                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files); }}
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                    border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    background: dragOver ? 'rgba(108, 92, 231, 0.08)' : 'var(--bg-glass)',
-                    marginBottom: 40,
-                    padding: '60px 40px',
-                    borderRadius: 24,
-                    boxShadow: dragOver ? '0 12px 24px rgba(108, 92, 231, 0.1)' : 'none',
-                    transform: dragOver ? 'scale(1.01)' : 'scale(1)',
-                }}
-            >
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,video/*"
-                    multiple
-                    onChange={e => handleFileUpload(e.target.files)}
-                    style={{ display: 'none' }}
-                />
-                {uploading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-                        <div className="spinner" style={{ width: 48, height: 48, borderWidth: 4 }} />
-                        <div>
-                            <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>Uploading...</div>
-                            <div style={{ fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>Optimizing your media assets</div>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div style={{ 
-                            width: 80, height: 80, borderRadius: '24px', 
-                            background: 'linear-gradient(135deg, var(--accent) 0%, #a29bfe 100%)', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 24px',
-                            boxShadow: '0 10px 20px rgba(108, 92, 231, 0.2)'
-                        }}>
-                            <IconUpload size={40} color="white" />
-                        </div>
-                        <h3 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-                            Upload New Media
-                        </h3>
-                        <p style={{ fontSize: 16, color: 'var(--text-muted)', maxWidth: 450, margin: '0 auto' }}>
-                            Drag images or videos here, or click to browse. <br/>
-                            <span style={{ fontSize: 14, opacity: 0.8 }}>MAX 50MB per file.</span>
-                        </p>
-                    </>
-                )}
-            </div>
-
             {/* Gallery Grid - FIXED LAYOUT */}
             {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>
@@ -255,6 +197,66 @@ export default function AssetsPage() {
                     gap: 24,
                     width: '100%' 
                 }}>
+                    {/* Upload Zone Card */}
+                    <div
+                        className="card group"
+                        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files); }}
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                            padding: 0,
+                            borderRadius: 20,
+                            overflow: 'hidden',
+                            position: 'relative',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                            background: dragOver ? 'rgba(108, 92, 231, 0.08)' : 'var(--bg-card)',
+                            cursor: 'pointer',
+                            boxShadow: dragOver ? '0 12px 24px rgba(108, 92, 231, 0.1)' : '0 4px 12px rgba(0,0,0,0.1)',
+                            height: 340,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transform: dragOver ? 'scale(1.02)' : 'scale(1)'
+                        }}
+                    >
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*,video/*"
+                            multiple
+                            onChange={e => handleFileUpload(e.target.files)}
+                            style={{ display: 'none' }}
+                        />
+                        <div style={{ textAlign: 'center', padding: 24 }}>
+                            {uploading ? (
+                                <>
+                                    <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3, margin: '0 auto 12px' }} />
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Uploading...</div>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ 
+                                        width: 64, height: 64, borderRadius: '16px', 
+                                        background: 'linear-gradient(135deg, var(--accent) 0%, #a29bfe 100%)', 
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        margin: '0 auto 12px',
+                                        boxShadow: '0 8px 16px rgba(108, 92, 231, 0.15)'
+                                    }}>
+                                        <IconUpload size={32} color="white" />
+                                    </div>
+                                    <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4, margin: 0 }}>
+                                        Upload
+                                    </h3>
+                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0', maxWidth: '100%' }}>
+                                        Click or drag
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
                     {filteredAssets.map(asset => (
                         <div 
                             key={asset.id} 

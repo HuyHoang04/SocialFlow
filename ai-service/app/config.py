@@ -9,7 +9,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
 # Backend integration
-JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")  # Java backend URL
+JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://backend:8080")  # Java backend URL
 
 # PostgreSQL Configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -17,7 +17,7 @@ DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "socialflow")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DB_URL = "postgresql://neondb_owner:npg_Vis08FoSalfC@ep-super-frost-amjd7bup-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # Feature Flags & Fallback Configuration
 ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() in ("true", "1", "yes")

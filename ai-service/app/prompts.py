@@ -22,6 +22,7 @@ Requirements:
 - Match the specified tone
 - Optimized for {platform}
 - Keep it concise and impactful
+- Text and icon only no .md formatting
 """
 
 # ==================== RAG CONTENT GENERATION ====================
@@ -69,6 +70,7 @@ HASHTAGS: #keyword1, #keyword2, #keyword3, #keyword4, #keyword5
 KEYWORDS: relevant, keyword, phrases, for, content
 TRENDING_TOPICS: trending, topic, area
 
+Text and icon only no .md formatting
 Do NOT include any explanations, reasoning, or preamble. Output only the three lines above."""
 
 # ==================== VALID TONE VALUES ====================
@@ -209,7 +211,7 @@ Your goal is to help users plan and create high-quality social media content and
 - **PLATFORM SETUP**: Do NOT assign specific social media accounts or IDs. Use generic names like "Facebook", "LinkedIn" as suggestions only.
 
 ### RESPONSE FORMAT:
-- Use Markdown for structure (headings, lists, bold text).
+- Use text and icon only no .md formatting
 - Be concise but thorough.
 - **DATA BLOCK (FINAL EXECUTION ONLY)**: When you generate final content (Step 4), you MUST append a JSON block at the end of your message using ` ```json ` tags. The JSON MUST follow this exact structure to match our system DTOs:
   {{

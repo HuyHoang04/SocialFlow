@@ -206,8 +206,14 @@ public class LinkedInPublisher implements CommentFetcher {
                 String assetUrn = registerResp.get("value").get("asset").asText();
 
                 // Upload binary
-                Path filePath = Paths.get(uploadDir).resolve(media.get(0).getFilename());
-                byte[] fileBytes = Files.readAllBytes(filePath);
+                byte[] fileBytes;
+                PostMedia firstMedia = media.get(0);
+                if (firstMedia.getUrl() != null && firstMedia.getUrl().startsWith("http")) {
+                    fileBytes = new org.springframework.web.client.RestTemplate().getForObject(firstMedia.getUrl(), byte[].class);
+                } else {
+                    Path filePath = Paths.get(uploadDir).resolve(firstMedia.getFilename());
+                    fileBytes = java.nio.file.Files.readAllBytes(filePath);
+                }
 
                 webClientBuilder.build().put()
                         .uri(uploadUrl)

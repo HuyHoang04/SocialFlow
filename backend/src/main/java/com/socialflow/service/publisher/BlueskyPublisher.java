@@ -400,8 +400,13 @@ public class BlueskyPublisher implements CommentFetcher {
                 for (PostMedia m : media) {
                     if (!m.getContentType().startsWith("image/")) continue;
 
-                    Path filePath = Paths.get(uploadDir).resolve(m.getFilename());
-                    byte[] fileBytes = Files.readAllBytes(filePath);
+                    byte[] fileBytes;
+                    if (m.getUrl() != null && m.getUrl().startsWith("http")) {
+                        fileBytes = new org.springframework.web.client.RestTemplate().getForObject(m.getUrl(), byte[].class);
+                    } else {
+                        Path filePath = Paths.get(uploadDir).resolve(m.getFilename());
+                        fileBytes = java.nio.file.Files.readAllBytes(filePath);
+                    }
 
                     JsonNode blobResp = bsky.post()
                             .uri("/com.atproto.repo.uploadBlob")
