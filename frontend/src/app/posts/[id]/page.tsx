@@ -26,6 +26,7 @@ interface Post {
     publishedAt: string | null;
     scheduledTime: string | null;
     campaignName?: string;
+    groupId?: string;
     page: { id: string; pageName: string; platform: string; brandName: string };
     mediaFiles: { id: string; url: string; contentType: string; originalName: string }[];
     publishResults: PublishResult[];
@@ -51,6 +52,7 @@ export default function PostDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isCurrentUserAdminOrManager, setIsCurrentUserAdminOrManager] = useState(false);
     const [workflowConfig, setWorkflowConfig] = useState<any>(null);
+    const [siblings, setSiblings] = useState<Post[]>([]);
 
     const load = useCallback(async () => {
         try {
@@ -74,20 +76,25 @@ export default function PostDetailPage() {
                 }
 
                 try {
-                    const [config, members] = await Promise.all([
-                        api.getWorkflowConfig(brandId),
-                        api.getTeamMembers(brandId)
+                    const [config, members, allPosts] = await Promise.all([
+                        api.getWorkflowConfig(brandId).catch(() => null),
+                        api.getTeamMembers(brandId).catch(() => []),
+                        api.getPosts(brandId).catch(() => [])
                     ]);
 
                     setWorkflowConfig(config);
 
-                    if (currentUserId) {
+                    if (p.groupId && allPosts.length > 0) {
+                        const groupSiblings = allPosts.filter((x: any) => x.groupId === p.groupId);
+                        setSiblings(groupSiblings);
+                    }
+
+                    if (currentUserId && members) {
                         const currentUserMember = members.find((m: any) => m.email === currentUserId || m.userId === currentUserId);
                         if (currentUserMember) {
                             const role = currentUserMember.role;
                             const isPrivileged = role === 'ADMIN' || role === 'MANAGER';
                             setIsCurrentUserAdminOrManager(isPrivileged);
-                            console.log(`Current user role: ${role}, isPrivileged: ${isPrivileged}`);
                         }
                     }
                 } catch (err) {
@@ -128,6 +135,136 @@ export default function PostDetailPage() {
             case 'FAILED': return 'badge badge-failed';
             default: return 'badge';
         }
+    };
+
+    const renderPlatformEmbed = (url: string, platform: string) => {
+        if (!url) return null;
+        const p = platform.toLowerCase();
+
+        const containerStyle: React.CSSProperties = {
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden',
+            background: 'var(--bg-secondary)',
+            width: '100%', 
+            maxWidth: 500,
+            margin: '0 auto', // Center the embed horizontally
+            border: '1px solid var(--border)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        };
+
+        if (p === 'facebook') {
+            const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&show_text=true&width=500`;
+            return (
+                <div style={containerStyle}>
+                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0" allowFullScreen={true} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+                </div>
+            );
+        }
+
+        if (p === 'twitter' || p === 'x') {
+             const embedUrl = `https://twitframe.com/show?url=${encodeURIComponent(url)}`;
+             return (
+                <div style={containerStyle}>
+                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0"></iframe>
+                </div>
+             );
+        }
+
+        if (p === 'instagram') {
+            let embedUrl = url;
+            if (!embedUrl.includes('/embed')) {
+                embedUrl = embedUrl.endsWith('/') ? embedUrl + 'embed' : embedUrl + '/embed';
+            }
+            return (
+                <div style={containerStyle}>
+                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 600, maxHeight: 850 }} scrolling="no" frameBorder="0" allowtransparency="true"></iframe>
+                </div>
+            );
+        }
+
+        if (p === 'tiktok') {
+            const match = url.match(/video\/(\d+)/);
+            if (match) {
+                const videoId = match[1];
+                const embedUrl = `https://www.tiktok.com/embed/v2/${videoId}`;
+                return (
+                    <div style={{ ...containerStyle, maxWidth: 350 }}>
+                        <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 650, maxHeight: 850 }} scrolling="no" frameBorder="0" allow="encrypted-media;"></iframe>
+                    </div>
+                );
+            }
+        }
+
+        if (p === 'linkedin') {
+            const match = url.match(/urn:li:[a-zA-Z0-9_:-]+/);
+            if (match) {
+                const urn = match[0];
+                const embedUrl = `https://www.linkedin.com/embed/feed/update/${urn}`;
+                return (
+                    <div style={containerStyle}>
+                        <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0" allowFullScreen={true}></iframe>
+                    </div>
+                );
+            }
+        }
+
+        if (p === 'bluesky') {
+            const srcDoc = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <style>
+                        body { margin: 0; display: flex; justify-content: center; font-family: sans-serif; }
+                        #embed-container { width: 100%; max-width: 100%; }
+                    </style>
+                </head>
+                <body>
+                    <div id="embed-container" style="padding: 20px; text-align: center; color: #666;">Loading Bluesky post...</div>
+                    <script>
+                        fetch('https://embed.bsky.app/oembed?url=${encodeURIComponent(url)}')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.html) {
+                                    document.getElementById('embed-container').innerHTML = data.html;
+                                    // React/innerHTML doesn't execute scripts by default, so we inject it manually
+                                    const script = document.createElement('script');
+                                    script.src = "https://embed.bsky.app/static/embed.js";
+                                    script.async = true;
+                                    script.charset = "utf-8";
+                                    document.body.appendChild(script);
+                                } else {
+                                    document.getElementById('embed-container').innerHTML = "Embed failed.";
+                                }
+                            })
+                            .catch(err => {
+                                document.getElementById('embed-container').innerHTML = "Failed to load embed.";
+                            });
+                    </script>
+                </body>
+                </html>
+            `;
+            return (
+                <div style={containerStyle}>
+                    <iframe srcDoc={srcDoc} width="100%" style={{ border: 'none', overflow: 'auto', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 850 }} scrolling="yes" frameBorder="0"></iframe>
+                </div>
+            );
+        }
+
+        if (p === 'threads') {
+            let embedUrl = url;
+            if (!embedUrl.includes('/embed')) {
+                embedUrl = embedUrl.endsWith('/') ? embedUrl + 'embed' : embedUrl + '/embed';
+            }
+            return (
+                <div style={{ ...containerStyle, maxWidth: 400 }}>
+                    <iframe src={embedUrl} width="100%" height="500" style={{ border: 'none', overflow: 'hidden' }} scrolling="no" frameBorder="0"></iframe>
+                </div>
+            );
+        }
+        
+        return null;
     };
 
     if (loading) return <AppShell><div className="loading-center"><div className="spinner" /></div></AppShell>;
@@ -182,82 +319,128 @@ export default function PostDetailPage() {
                 </div>
             </div>
 
-            <div className="card" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <span className={badgeClass(post.status)}>{post.status}</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                        Created: {new Date(post.createdAt).toLocaleString('vi-VN')}
-                        {post.scheduledTime && ` · Scheduled for: ${new Date(post.scheduledTime).toLocaleString('vi-VN')}`}
-                        {post.publishedAt && ` · Published: ${new Date(post.publishedAt).toLocaleString('vi-VN')}`}
-                    </span>
+            {siblings.length > 1 && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginRight: 8 }}>Platforms in this group:</span>
+                    {siblings.map(sib => (
+                        <button
+                            key={sib.id}
+                            onClick={() => router.push(`/posts/${sib.id}`)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                padding: '6px 12px', borderRadius: 20,
+                                fontSize: 12, fontWeight: 600,
+                                cursor: 'pointer', transition: 'var(--transition)',
+                                background: sib.id === post.id ? 'var(--accent-glow)' : 'var(--bg-glass)',
+                                color: sib.id === post.id ? 'var(--accent)' : 'var(--text-secondary)',
+                                border: `1px solid ${sib.id === post.id ? 'var(--accent)' : 'var(--border)'}`
+                            }}
+                        >
+                            {platformIcon(sib.page.platform)} {sib.page.platform}
+                        </button>
+                    ))}
                 </div>
-                <p style={{ fontSize: 15, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{post.content}</p>
-
-                {/* Media Attachments */}
-                {post.mediaFiles && post.mediaFiles.length > 0 && (
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                        gap: 12, marginTop: 16, paddingTop: 16,
-                        borderTop: '1px solid var(--border)',
-                    }}>
-                        {post.mediaFiles.map(m => (
-                            <div key={m.id} style={{
-                                borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-                                border: '1px solid var(--border)',
-                            }}>
-                                {m.contentType.startsWith('image/') ? (
-                                    <img src={getMediaUrl(m.url)} alt={m.originalName}
-                                        style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
-                                ) : m.contentType.startsWith('video/') ? (
-                                    <video src={getMediaUrl(m.url)} controls
-                                        style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
-                                ) : null}
-                                <div style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-muted)' }}>
-                                    {m.originalName}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {post.publishResults.length > 0 && (
-                <>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Publish Results</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {post.publishResults.map(r => (
-                            <div key={r.id} className={`result-item ${r.success ? 'result-success' : 'result-failed'}`}>
-                                <span style={{ fontSize: 24 }}>{r.success ? <IconCheckCircle size={24} color="var(--success)" /> : <IconX size={24} color="var(--error)" />}</span>
-                                <div style={{ flex: 1 }}>
-                                    {r.success ? (
-                                        <>
-                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>Published successfully</div>
-                                            {r.platformPostUrl && (
-                                                <a href={r.platformPostUrl} target="_blank" rel="noopener noreferrer"
-                                                    style={{ fontSize: 13, color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <IconLink size={13} /> View on platform →
-                                                </a>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div style={{ fontWeight: 600, color: 'var(--error)', marginBottom: 4 }}>
-                                                Publish failed
-                                            </div>
-                                            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                                {r.errorMessage || 'Unknown error'}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                    {new Date(r.createdAt).toLocaleString('vi-VN')}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </>
             )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24, alignItems: 'start' }}>
+                {/* Left Column: Post Content */}
+                <div className="card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <span className={badgeClass(post.status)}>{post.status}</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                            Created: {new Date(post.createdAt).toLocaleString('vi-VN')}
+                            {post.scheduledTime && ` · Scheduled: ${new Date(post.scheduledTime).toLocaleString('vi-VN')}`}
+                            {post.publishedAt && ` · Published: ${new Date(post.publishedAt).toLocaleString('vi-VN')}`}
+                        </span>
+                    </div>
+                    <p style={{ fontSize: 15, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{post.content}</p>
+
+                    {/* Media Attachments */}
+                    {post.mediaFiles && post.mediaFiles.length > 0 && (
+                        <div style={{
+                            display: 'grid', 
+                            gridTemplateColumns: post.mediaFiles.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))',
+                            gap: 12, marginTop: 16, paddingTop: 16,
+                            borderTop: '1px solid var(--border)',
+                        }}>
+                            {post.mediaFiles.map(m => (
+                                <div key={m.id} style={{
+                                    borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--bg-secondary)'
+                                }}>
+                                    {m.contentType.startsWith('image/') ? (
+                                        <img src={getMediaUrl(m.url)} alt={m.originalName}
+                                            style={{ 
+                                                width: '100%', 
+                                                height: post.mediaFiles.length === 1 ? 'auto' : 200, 
+                                                maxHeight: post.mediaFiles.length === 1 ? 'calc(100vh - 350px)' : 200,
+                                                objectFit: post.mediaFiles.length === 1 ? 'contain' : 'cover', 
+                                                display: 'block' 
+                                            }} />
+                                    ) : m.contentType.startsWith('video/') ? (
+                                        <video src={getMediaUrl(m.url)} controls
+                                            style={{ 
+                                                width: '100%', 
+                                                height: post.mediaFiles.length === 1 ? 'auto' : 200, 
+                                                maxHeight: post.mediaFiles.length === 1 ? 'calc(100vh - 350px)' : 200,
+                                                objectFit: 'contain', 
+                                                display: 'block' 
+                                            }} />
+                                    ) : null}
+                                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
+                                        {m.originalName}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Column: Publish Results & Embeds */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {post.publishResults.length > 0 && (
+                        <div className="card">
+                            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Publish Status</h2>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {post.publishResults.map(r => (
+                                    <div key={r.id} className={`result-item ${r.success ? 'result-success' : 'result-failed'}`}>
+                                        <span style={{ fontSize: 24 }}>{r.success ? <IconCheckCircle size={24} color="var(--success)" /> : <IconX size={24} color="var(--error)" />}</span>
+                                        <div style={{ flex: 1 }}>
+                                            {r.success ? (
+                                                <>
+                                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Published successfully</div>
+                                                    {r.platformPostUrl && (
+                                                        <a href={r.platformPostUrl} target="_blank" rel="noopener noreferrer"
+                                                            style={{ fontSize: 13, color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
+                                                            <IconLink size={13} /> View on platform →
+                                                        </a>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div style={{ fontWeight: 600, color: 'var(--error)', marginBottom: 4 }}>
+                                                        Publish failed
+                                                    </div>
+                                                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                                                        {r.errorMessage || 'Unknown error'}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {post.publishResults.map(r => r.success && r.platformPostUrl ? (
+                        <div key={'embed-'+r.id}>
+                            {renderPlatformEmbed(r.platformPostUrl, post.page.platform)}
+                        </div>
+                    ) : null)}
+                </div>
+            </div>
         </AppShell>
     );
 }
