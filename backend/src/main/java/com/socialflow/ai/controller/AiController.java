@@ -481,6 +481,96 @@ public class AiController {
     }
     
     /**
+     * Get extracted text content of a library file
+     * GET /api/ai/rag/content/{itemId}?brand_id={brandId}
+     */
+    @GetMapping("/rag/content/{itemId}")
+    public ResponseEntity<RagContentResponse> getRagFileContent(
+            @PathVariable String itemId,
+            @RequestParam(name = "brand_id") String brandId) {
+        try {
+            if (brandId == null || brandId.isEmpty()) {
+                return ResponseEntity.badRequest().body(RagContentResponse.builder()
+                    .success(false)
+                    .error("brand_id is required")
+                    .build());
+            }
+            
+            log.info("→ Get RAG file content | Brand: {} | Item: {}", brandId, itemId);
+            
+            RagContentResponse response = aiServiceClient.getRagFileContent(brandId, itemId);
+            
+            if (response != null && response.isSuccess()) {
+                log.info("✓ Get RAG file content successful");
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("✗ Get RAG file content failed: {}", response != null ? response.getError() : "Unknown error");
+                return ResponseEntity.badRequest().body(response != null ? response : 
+                    RagContentResponse.builder().success(false).error("Unknown error").build());
+            }
+            
+        } catch (Exception e) {
+            log.error("✗ Get RAG file content error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagContentResponse.builder()
+                    .success(false)
+                    .error("Get content failed: " + e.getMessage())
+                    .build());
+        }
+    }
+    
+    /**
+     * Update extracted text content of a library file
+     * PUT /api/ai/rag/content/{itemId}
+     */
+    @PutMapping("/rag/content/{itemId}")
+    public ResponseEntity<RagUpdateResponse> updateRagFileContent(
+            @PathVariable String itemId,
+            @Valid @RequestBody RagUpdateRequest request,
+            BindingResult bindingResult) {
+        try {
+            if (bindingResult.hasErrors()) {
+                String errorMessage = bindingResult.getAllErrors().stream()
+                    .map(error -> error.getDefaultMessage())
+                    .collect(Collectors.joining(", "));
+                return ResponseEntity.badRequest().body(RagUpdateResponse.builder()
+                    .success(false)
+                    .error("Validation failed: " + errorMessage)
+                    .build());
+            }
+            
+            String brandId = request.getBrandId();
+            if (brandId == null || brandId.isEmpty()) {
+                return ResponseEntity.badRequest().body(RagUpdateResponse.builder()
+                    .success(false)
+                    .error("brand_id is required in request body")
+                    .build());
+            }
+            
+            log.info("→ Update RAG file content | Brand: {} | Item: {}", brandId, itemId);
+            
+            RagUpdateResponse response = aiServiceClient.updateRagFileContent(brandId, itemId, request);
+            
+            if (response != null && response.isSuccess()) {
+                log.info("✓ Update RAG file content successful");
+                return ResponseEntity.ok(response);
+            } else {
+                log.warn("✗ Update RAG file content failed: {}", response != null ? response.getError() : "Unknown error");
+                return ResponseEntity.badRequest().body(response != null ? response : 
+                    RagUpdateResponse.builder().success(false).error("Unknown error").build());
+            }
+            
+        } catch (Exception e) {
+            log.error("✗ Update RAG file content error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                RagUpdateResponse.builder()
+                    .success(false)
+                    .error("Update content failed: " + e.getMessage())
+                    .build());
+        }
+    }
+
+    /**
      * Generate content using RAG
      * POST /api/ai/rag/generate-content
      */

@@ -144,10 +144,11 @@ class RagService:
             
             # Generate embeddings for all chunks at once
             try:
+                from app.config import DEFAULT_EMBEDDING_MODEL
                 embedding_response = await self.embedding_service.embed(
                     brand_id=brand_id,
                     texts=chunks,  # Pass all chunks
-                    model=model,
+                    model=model or DEFAULT_EMBEDDING_MODEL,
                     provider=provider
                 )
                 
@@ -302,10 +303,14 @@ class RagService:
                         variation_prompt, 
                         provider=provider or "openrouter", 
                         model=model or DEFAULT_OPENROUTER_MODEL,
-                        max_tokens=100
+                        max_words=100
                     )
-                    if response.success:
-                        variations = [v.strip() for v in response.content.split('\n') if v.strip()]
+                    
+                    is_success = response.get("success") if isinstance(response, dict) else getattr(response, "success", False)
+                    content = response.get("content", "") if isinstance(response, dict) else getattr(response, "content", "")
+                    
+                    if is_success and content:
+                        variations = [v.strip() for v in content.split('\n') if v.strip()]
                         queries.extend(variations[:2])
                         logger.info(f"🔍 Generated variations: {variations[:2]}")
                 except Exception as e:
@@ -315,12 +320,13 @@ class RagService:
             all_results = []
             seen_chunk_ids = set()
             
+            from app.config import DEFAULT_EMBEDDING_MODEL
             for q in queries:
                 # Get embedding for each variation
                 query_response = await self.embedding_service.embed(
                     brand_id=brand_id,
                     texts=[q],
-                    model=model,
+                    model=model or DEFAULT_EMBEDDING_MODEL,
                     provider="openrouter"
                 )
                 
@@ -1037,3 +1043,70 @@ class RagService:
         Same as generate_content_with_rag for now.
         """
         return await self.generate_content_with_rag(request, ai_service)
+
+    async def get_library_file_content(self, brand_id: str, library_id: str) -> Optional[str]:
+        """Get the extracted text content of a library file"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            query = "SELECT extracted_text FROM content_library_item WHERE id = %s AND brand_id = %s AND is_deleted = FALSE"
+            cursor.execute(query, (library_id, brand_id))
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Get library content error: {e}")
+            return None
+        finally:
+            if cursor:
+                try: cursor.close()
+                except: pass
+            if conn:
+                try: conn.close()
+                except: pass
+
+    async def update_library_file_content(self, brand_id: str, library_id: str, new_text: str, provider: Optional[str] = None, model: Optional[str] = None) -> bool:
+        """Update the extracted text of a library file and re-embed it"""
+        db_client = get_db_client()
+        conn = db_client.get_connection()
+        cursor = None
+        try:
+            cursor = conn.cursor()
+            
+            # 1. Update text in DB
+            query = "UPDATE content_library_item SET extracted_text = %s, updated_at = NOW() WHERE id = %s AND brand_id = %s AND is_deleted = FALSE"
+            cursor.execute(query, (new_text, library_id, brand_id))
+            if cursor.rowcount == 0:
+                logger.warning(f"Library item not found for update: {library_id}")
+                return False
+                
+            # 2. Delete old embeddings
+            del_query = "DELETE FROM rag_embedding WHERE library_item_id = %s AND brand_id = %s"
+            cursor.execute(del_query, (library_id, brand_id))
+            conn.commit()
+            
+            # 3. Re-generate embeddings
+            total_chunks, saved = await self.generate_embeddings_for_file(
+                brand_id=brand_id,
+                library_item_id=library_id,
+                extracted_text=new_text,
+                model=model,
+                provider=provider
+            )
+            logger.info(f"Updated content and re-embedded: {saved}/{total_chunks} chunks saved")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Update library content error: {e}")
+            if conn:
+                try: conn.rollback()
+                except: pass
+            return False
+        finally:
+            if cursor:
+                try: cursor.close()
+                except: pass
+            if conn:
+                try: conn.close()
+                except: pass

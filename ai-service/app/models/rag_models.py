@@ -200,3 +200,24 @@ class RagGenerateContentResponse(BaseModel):
                 "error": None
             }
         }
+
+class RagContentResponse(BaseModel):
+    """Response containing extracted text for a library file"""
+    success: bool = Field(..., description="Operation success status")
+    brand_id: str = Field(..., description="Brand UUID")
+    library_id: str = Field(..., description="Library Item UUID")
+    content: Optional[str] = Field(default=None, description="Extracted text content")
+    error: Optional[str] = Field(default=None, description="Error message if failed")
+
+class RagUpdateRequest(BaseModel):
+    """Request to update extracted text for a library file"""
+    brand_id: str = Field(..., description="Brand UUID")
+    content: str = Field(..., description="New extracted text content")
+    provider: Optional[str] = Field(default=None, description="Embedding provider override")
+    model: Optional[str] = Field(default=None, description="Embedding model override")
+
+class RagUpdateResponse(BaseModel):
+    """Response after updating extracted text"""
+    success: bool = Field(..., description="Operation success status")
+    message: str = Field(..., description="Operation message")
+    error: Optional[str] = Field(default=None, description="Error message if failed")

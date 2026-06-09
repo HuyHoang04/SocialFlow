@@ -418,6 +418,23 @@ export const api = {
         return request(url, { method: 'DELETE' });
     },
 
+    // Content Library - Get file content
+    ragGetFileContent: (brandId: string, libraryId: string) => {
+        console.log('📄 API: ragGetFileContent called | brandId:', brandId, 'libraryId:', libraryId);
+        const url = `/ai/rag/content/${libraryId}?brand_id=${brandId}`;
+        console.log('🔗 Request URL:', url);
+        return request(url);
+    },
+
+    // Content Library - Update file content
+    ragUpdateFileContent: (data: { brand_id: string; library_id: string; content: string; provider?: string; model?: string; }) => {
+        console.log('📝 API: ragUpdateFileContent called | brandId:', data.brand_id, 'libraryId:', data.library_id);
+        const { library_id, ...bodyData } = data;
+        const url = `/ai/rag/content/${library_id}`;
+        console.log('🔗 Request URL:', url);
+        return request(url, { method: 'PUT', body: JSON.stringify(bodyData) });
+    },
+
     // RAG + Content Generation
     ragGenerateContent: (data: {
         brand_id: string;

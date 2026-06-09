@@ -10,7 +10,8 @@ from app.models.rag_models import (
     RagSearchRequest, RagSearchResponse,
     RagGenerateContentRequest, RagGenerateContentResponse,
     RagStatusResponse, RagLibraryResponse, 
-    RagUploadResponse, RagDeleteResponse
+    RagUploadResponse, RagDeleteResponse,
+    RagContentResponse, RagUpdateRequest, RagUpdateResponse
 )
 
 logger = setup_logger(__name__)
@@ -218,6 +219,92 @@ async def delete_library_file(
             message="",
             error=f"Server error: {str(e)}"
         )
+
+
+@router.get("/library/{brand_id}/{library_id}/content", response_model=RagContentResponse)
+async def get_library_content(
+    brand_id: str,
+    library_id: str,
+    rag_service: RagService = Depends(get_rag_service)
+) -> RagContentResponse:
+    """Get extracted text content of a library file"""
+    try:
+        logger.info(f"Get content endpoint | Brand: {brand_id} | Library ID: {library_id}")
+        
+        content = await rag_service.get_library_file_content(brand_id, library_id)
+        
+        if content is not None:
+            return RagContentResponse(
+                success=True,
+                brand_id=brand_id,
+                library_id=library_id,
+                content=content
+            )
+        else:
+            return RagContentResponse(
+                success=False,
+                brand_id=brand_id,
+                library_id=library_id,
+                error="Library item or content not found"
+            )
+            
+    except Exception as e:
+        logger.error(f"Get content endpoint error: {e}")
+        return RagContentResponse(
+            success=False,
+            brand_id=brand_id,
+            library_id=library_id,
+            error=f"Server error: {str(e)}"
+        )
+
+
+@router.put("/library/{brand_id}/{library_id}/content", response_model=RagUpdateResponse)
+async def update_library_content(
+    brand_id: str,
+    library_id: str,
+    request: RagUpdateRequest,
+    rag_service: RagService = Depends(get_rag_service)
+) -> RagUpdateResponse:
+    """Update extracted text content and re-embed"""
+    try:
+        logger.info(f"Update content endpoint | Brand: {brand_id} | Library ID: {library_id}")
+        
+        # Verify brand_id matches
+        if brand_id != request.brand_id:
+            return RagUpdateResponse(
+                success=False,
+                message="",
+                error="Brand ID mismatch in path and body"
+            )
+            
+        success = await rag_service.update_library_file_content(
+            brand_id=brand_id,
+            library_id=library_id,
+            new_text=request.content,
+            provider=request.provider,
+            model=request.model
+        )
+        
+        if success:
+            return RagUpdateResponse(
+                success=True,
+                message=f"Updated and re-embedded content for {library_id}"
+            )
+        else:
+            return RagUpdateResponse(
+                success=False,
+                message="",
+                error="Failed to update content"
+            )
+            
+    except Exception as e:
+        logger.error(f"Update content endpoint error: {e}")
+        return RagUpdateResponse(
+            success=False,
+            message="",
+            error=f"Server error: {str(e)}"
+        )
+
 
 
 @router.post("/generate-content", response_model=RagGenerateContentResponse)

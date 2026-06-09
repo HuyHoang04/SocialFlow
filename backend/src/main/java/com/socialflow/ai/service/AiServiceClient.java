@@ -654,6 +654,73 @@ public class AiServiceClient {
         }
     }
     
+    /**
+     * Get RAG file content
+     * GET /rag/library/{brand_id}/{library_id}/content
+     */
+    public RagContentResponse getRagFileContent(String brandId, String libraryId) {
+        try {
+            log.info("Calling Python AI Service: GET /rag/library/{}/{}/content", brandId, libraryId);
+            
+            String url = UriComponentsBuilder.fromHttpUrl(pythonServiceUrl)
+                .path("/rag/library/{brand_id}/{library_id}/content")
+                .buildAndExpand(brandId, libraryId)
+                .toUriString();
+            
+            ResponseEntity<RagContentResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(getHeaders()),
+                RagContentResponse.class
+            );
+            
+            log.info("✓ Get RAG file content successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Get RAG file content failed: {}", e.getMessage());
+            return RagContentResponse.builder()
+                .success(false)
+                .error("Failed to call Python service: " + e.getMessage())
+                .build();
+        }
+    }
+    
+    /**
+     * Update RAG file content
+     * PUT /rag/library/{brand_id}/{library_id}/content
+     */
+    public RagUpdateResponse updateRagFileContent(String brandId, String libraryId, RagUpdateRequest request) {
+        try {
+            log.info("Calling Python AI Service: PUT /rag/library/{}/{}/content", brandId, libraryId);
+            
+            String url = UriComponentsBuilder.fromHttpUrl(pythonServiceUrl)
+                .path("/rag/library/{brand_id}/{library_id}/content")
+                .buildAndExpand(brandId, libraryId)
+                .toUriString();
+            
+            Map<String, Object> payload = injectConfig(request, brandId, "embedding");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
+            
+            ResponseEntity<RagUpdateResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.PUT,
+                entity,
+                RagUpdateResponse.class
+            );
+            
+            log.info("✓ Update RAG file content successful");
+            return response.getBody();
+            
+        } catch (RestClientException e) {
+            log.error("✗ Update RAG file content failed: {}", e.getMessage());
+            return RagUpdateResponse.builder()
+                .success(false)
+                .error("Failed to call Python service: " + e.getMessage())
+                .build();
+        }
+    }
+    
     // ==================== CHAT ENDPOINTS ====================
     
     /**
