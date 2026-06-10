@@ -253,21 +253,23 @@ function CreatePostContent() {
     // AI modal state
     const [aiModal, setAiModal] = useState<{ isOpen: boolean; type: 'generate' | 'enhance' | 'hashtags' | null }>({ isOpen: false, type: null });
     const [aiOptions, setAiOptions] = useState({
-        provider: 'groq',
-        model: '',
         tone: 'casual',
-        length: 'medium',
-        customPrompt: '',
-        useRag: false
+        category: 'Promotional',
+        targetAudience: '',
+        keyMessage: '',
+        callToAction: '',
+        useRag: true,
     });
     const [aiLoading, setAiLoading] = useState(false);
     const [generatedContent, setGeneratedContent] = useState('');
+    const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([]);
     const [ragResults, setRagResults] = useState<any[]>([]);
     const [isGenerationComplete, setIsGenerationComplete] = useState(false);
 
     // Image generation state
     const [imageModal, setImageModal] = useState<{ isOpen: boolean; mode: 'generate' | 'search' | null }>({ isOpen: false, mode: null });
     const [imagePrompt, setImagePrompt] = useState('');
+    const [imageOptions, setImageOptions] = useState({ style: '', lighting: '', details: '' });
     const [imageSearchQuery, setImageSearchQuery] = useState('');
     const [imageCount, setImageCount] = useState(1);
     const [generatedImages, setGeneratedImages] = useState<any[]>([]);
@@ -450,31 +452,26 @@ function CreatePostContent() {
         if (!brand) return;
         setAiLoading(true);
         try {
-            if (aiOptions.useRag) {
-                // Use RAG endpoint
-                const result = await api.ragGenerateContent({
-                    brand_id: brand.id,
-                    prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
-                    tone: aiOptions.tone,
-                    rag_limit: 5,
-                    rag_threshold: 0.7
-                });
-                setGeneratedContent(result.caption || result.content || '');
-                setRagResults(result.rag_results || []);
-                setIsGenerationComplete(true);
-            } else {
-                // Use regular generation
-                const result = await api.generateContent({
-                    brand_id: brand.id,
-                    prompt: aiOptions.customPrompt || 'Generate an engaging social media caption',
-                    tone: aiOptions.tone,
-                    platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
-                    max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
-                });
-                setGeneratedContent(result.caption || result.content || '');
-                setRagResults([]);
-                setIsGenerationComplete(true);
-            }
+            const platforms = selectedPages.map(p => pages.find(pg => pg.id === p)?.platform).filter(Boolean) as string[];
+            
+            // Compose fragmented prompt
+            const composedBrief = `
+Target Audience: ${aiOptions.targetAudience || 'General'}
+Key Message: ${aiOptions.keyMessage || 'Engaging content'}
+Call to Action: ${aiOptions.callToAction || 'None'}
+            `.trim();
+
+            const result = await api.generateCaptionBatch({
+                brand_id: brand.id,
+                platforms: platforms.length > 0 ? platforms : ['general'],
+                category: aiOptions.category,
+                tone: aiOptions.tone,
+                user_brief: composedBrief,
+                use_rag: aiOptions.useRag,
+                scheduled_time: scheduledTime || undefined
+            });
+            setGeneratedCaptions(result);
+            setIsGenerationComplete(true);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'AI generation failed');
         } finally {
@@ -482,9 +479,14 @@ function CreatePostContent() {
         }
     };
 
-    const confirmGeneratedContent = () => {
-        setContent(generatedContent);
+    const confirmGeneratedContent = (captionText?: string) => {
+        if (captionText) {
+            setContent(captionText);
+        } else {
+            setContent(generatedContent);
+        }
         setGeneratedContent('');
+        setGeneratedCaptions([]);
         setRagResults([]);
         setIsGenerationComplete(false);
         setAiModal({ isOpen: false, type: null });
@@ -492,6 +494,7 @@ function CreatePostContent() {
 
     const cancelGeneration = () => {
         setGeneratedContent('');
+        setGeneratedCaptions([]);
         setRagResults([]);
         setIsGenerationComplete(false);
         setAiModal({ isOpen: false, type: null });
@@ -499,12 +502,13 @@ function CreatePostContent() {
 
     const handleGenerateImage = async () => {
         if (!brand) return;
-        if (!imagePrompt.trim()) return setError('Please enter image prompt');
+        const composedImagePrompt = `Style: ${imageOptions.style}\nLighting: ${imageOptions.lighting}\nSubject: ${imagePrompt}\nAdditional Details: ${imageOptions.details}`.trim();
+        if (!imagePrompt.trim() && !imageOptions.details.trim()) return setError('Please enter image prompt');
         setImageLoading(true);
         try {
             const result = await api.generateImage({
                 brand_id: brand.id,
-                prompt: imagePrompt,
+                prompt: composedImagePrompt,
                 count: imageCount
             });
             // Extract images array from response
@@ -522,10 +526,17 @@ function CreatePostContent() {
     const confirmGeneratedImages = async () => {
         if (generatedImages.length === 0) return;
         try {
-            // Add first generated image to media (user can add more by regenerating)
-            await addImageToMedia(generatedImages[0].url || generatedImages[0]);
+            const indicesToKeep = selectedImages.size > 0 ? Array.from(selectedImages) : Array.from(generatedImages.keys());
+            for (const idx of indicesToKeep) {
+                const img = generatedImages[idx];
+                await addImageToMedia(img.url || img);
+            }
             setIsImageGenerationComplete(false);
             setGeneratedImages([]);
+            setImagePrompt('');
+            setImageCount(1);
+            setImageModal({ isOpen: false, mode: null });
+            setSelectedImages(new Set());
             setImagePrompt('');
             setImageCount(1);
         } catch (err: unknown) {
@@ -656,9 +667,8 @@ function CreatePostContent() {
                 content: content,
                 tone: aiOptions.tone,
                 platform: selectedPages.length > 0 ? pages.find(p => p.id === selectedPages[0])?.platform : undefined,
-                max_words: aiOptions.length === 'short' ? 50 : aiOptions.length === 'long' ? 300 : 150
             });
-            setGeneratedContent(result.rewritten || result.content || '');
+            setGeneratedContent(result.rewritten_content || result.rewritten || result.content || '');
             setRagResults([]);
             setIsGenerationComplete(true);
         } catch (err: unknown) {
@@ -675,9 +685,18 @@ function CreatePostContent() {
             const result = await api.optimizeKeywords({
                 brand_id: brand.id,
                 content: content,
-                max_hashtags: aiOptions.length === 'short' ? 3 : aiOptions.length === 'long' ? 15 : 8
             });
-            setGeneratedContent(content + '\n\n' + (result.hashtags || result.keywords || []).map((tag: string) => `#${tag}`).join(' '));
+            
+            // Result is a string from filter_hashtag_response
+            let formattedHashtags = result.hashtags || result.keywords;
+            if (typeof formattedHashtags === 'string') {
+                setGeneratedContent(content + '\n\n' + formattedHashtags);
+            } else if (Array.isArray(formattedHashtags)) {
+                setGeneratedContent(content + '\n\n' + formattedHashtags.map((tag: string) => tag.startsWith('#') ? tag : `#${tag}`).join(' '));
+            } else {
+                setGeneratedContent(content);
+            }
+            
             setRagResults([]);
             setIsGenerationComplete(true);
         } catch (err: unknown) {
@@ -1477,83 +1496,139 @@ function CreatePostContent() {
 
                                         <div>
                                             <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                                Length
+                                                Category
                                             </label>
-                                            <div style={{ display: 'flex', gap: 8 }}>
-                                                {['short', 'medium', 'long'].map(len => (
-                                                    <button
-                                                        key={len}
-                                                        onClick={() => setAiOptions({ ...aiOptions, length: len })}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '10px 12px',
-                                                            border: aiOptions.length === len ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                                            borderRadius: 'var(--radius-sm)',
-                                                            background: aiOptions.length === len ? 'var(--accent)' : 'var(--bg-glass)',
-                                                            color: aiOptions.length === len ? 'white' : 'var(--text-primary)',
-                                                            fontSize: 12,
-                                                            fontWeight: aiOptions.length === len ? 600 : 500,
-                                                            cursor: 'pointer',
-                                                            textTransform: 'capitalize'
-                                                        }}
-                                                    >
-                                                        {len}
-                                                    </button>
-                                                ))}
-                                            </div>
+                                            <select
+                                                value={aiOptions.category}
+                                                onChange={e => setAiOptions({ ...aiOptions, category: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px 12px',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    background: 'var(--bg-glass)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: 14,
+                                                    fontFamily: 'inherit',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option value="Promotional">Promotional</option>
+                                                <option value="Educational">Educational</option>
+                                                <option value="Entertaining">Entertaining</option>
+                                            </select>
                                         </div>
 
                                         {(aiModal.type === 'generate' || aiModal.type === 'enhance') && (
-                                            <div style={{ gridColumn: 'span 2' }}>
-                                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                                    Instructions (optional)
+                                            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                {/* Checkbox RAG */}
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={aiOptions.useRag} 
+                                                        onChange={e => setAiOptions({ ...aiOptions, useRag: e.target.checked })}
+                                                        style={{ accentColor: 'var(--primary)', width: 16, height: 16 }}
+                                                    />
+                                                    Use Brand Library (RAG) Context
                                                 </label>
-                                                <textarea
-                                                    value={aiOptions.customPrompt}
-                                                    onChange={e => setAiOptions({ ...aiOptions, customPrompt: e.target.value })}
-                                                    placeholder={aiModal.type === 'generate' ? 'E.g., Create a caption about our new product launch...' : 'E.g., Make it more funny and engaging...'}
-                                                    rows={2}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: 12,
-                                                        border: '1px solid var(--border)',
-                                                        borderRadius: 'var(--radius-sm)',
-                                                        background: 'var(--bg-glass)',
-                                                        color: 'var(--text-primary)',
-                                                        fontFamily: 'inherit',
-                                                        fontSize: 14,
-                                                        resize: 'none'
-                                                    }}
-                                                />
+
+                                                {/* Fragmented Prompt Fields */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                                    <div>
+                                                        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Target Audience (optional)</span>
+                                                        </label>
+                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                            {['Gen Z', 'Millennials', 'Professionals', 'Tech Fans'].map(t => (
+                                                                <button 
+                                                                    key={t} type="button" 
+                                                                    onClick={() => setAiOptions(prev => ({
+                                                                        ...prev,
+                                                                        targetAudience: prev.targetAudience ? (prev.targetAudience.includes(t) ? prev.targetAudience : `${prev.targetAudience}, ${t}`) : t
+                                                                    }))}
+                                                                    style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: 'var(--bg-glass)', color: 'var(--primary)', border: '1px solid rgba(108, 92, 231, 0.2)', cursor: 'pointer' }}
+                                                                >
+                                                                    + {t}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <input
+                                                            value={aiOptions.targetAudience}
+                                                            onChange={e => setAiOptions({ ...aiOptions, targetAudience: e.target.value })}
+                                                            placeholder="E.g., Gen Z, Tech Enthusiasts..."
+                                                            style={{
+                                                                width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                                background: 'var(--bg-glass)', color: 'var(--text-primary)', fontSize: 13
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Call to Action (optional)</span>
+                                                        </label>
+                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                            {['Buy now', 'Learn more', 'Subscribe', 'Tag a friend'].map(t => (
+                                                                <button 
+                                                                    key={t} type="button" 
+                                                                    onClick={() => setAiOptions(prev => ({
+                                                                        ...prev,
+                                                                        callToAction: prev.callToAction ? (prev.callToAction.includes(t) ? prev.callToAction : `${prev.callToAction}, ${t}`) : t
+                                                                    }))}
+                                                                    style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: 'var(--bg-glass)', color: 'var(--primary)', border: '1px solid rgba(108, 92, 231, 0.2)', cursor: 'pointer' }}
+                                                                >
+                                                                    + {t}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <input
+                                                            value={aiOptions.callToAction}
+                                                            onChange={e => setAiOptions({ ...aiOptions, callToAction: e.target.value })}
+                                                            placeholder="E.g., Buy now, Read more..."
+                                                            style={{
+                                                                width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                                background: 'var(--bg-glass)', color: 'var(--text-primary)', fontSize: 13
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Key Message / Detailed Instructions</span>
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                        {[
+                                                            { label: 'Product Launch', tmpl: 'We are excited to launch [Product Name]! It features [Key Feature] and [Benefit]. Available starting [Date].' },
+                                                            { label: 'Sale / Promo', tmpl: 'Special offer: Get [X]% off on [Product/Category] until [Date]. Use code [CODE].' },
+                                                            { label: 'Giveaway', tmpl: 'We are hosting a giveaway! Win a [Prize]. To enter: 1. Like this post, 2. Tag [N] friends, 3. Follow us. Ends on [Date].' },
+                                                            { label: 'Event / Webinar', tmpl: 'Join us for [Event Name] on [Date] at [Location/Link]. We will be discussing [Topic].' }
+                                                        ].map(t => (
+                                                            <button 
+                                                                key={t.label} type="button" 
+                                                                onClick={() => setAiOptions(prev => ({
+                                                                    ...prev,
+                                                                    keyMessage: prev.keyMessage ? `${prev.keyMessage}\n\n${t.tmpl}` : t.tmpl
+                                                                }))}
+                                                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--accent)', border: '1px solid rgba(0, 210, 255, 0.2)', cursor: 'pointer' }}
+                                                            >
+                                                                📝 {t.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <textarea
+                                                        value={aiOptions.keyMessage}
+                                                        onChange={e => setAiOptions({ ...aiOptions, keyMessage: e.target.value })}
+                                                        placeholder={aiModal.type === 'generate' ? 'E.g., We are launching a new eco-friendly bottle...' : 'E.g., Make it more funny and engaging...'}
+                                                        rows={3}
+                                                        style={{
+                                                            width: '100%', padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--bg-glass)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical'
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
 
-                                        {aiModal.type === 'generate' && (
-                                            <div style={{
-                                                gridColumn: 'span 2',
-                                                padding: '10px 12px',
-                                                border: '1px solid var(--border)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                background: 'var(--bg-glass)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 10
-                                            }}>
-                                                <input
-                                                    type="checkbox"
-                                                    id="rag-toggle"
-                                                    checked={aiOptions.useRag}
-                                                    onChange={e => setAiOptions({ ...aiOptions, useRag: e.target.checked })}
-                                                    style={{ cursor: 'pointer', width: 16, height: 16 }}
-                                                />
-                                                <label htmlFor="rag-toggle" style={{ cursor: 'pointer', flex: 1, margin: 0, fontSize: 13, color: 'var(--text-primary)' }}>
-                                                    Use Content Library (RAG)
-                                                </label>
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                    <IconBook size={12} /> Reference brand context
-                                                </span>
-                                            </div>
-                                        )}
+
                                     </div>
                                 )}
 
@@ -1620,26 +1695,58 @@ function CreatePostContent() {
                                         <label style={{ fontSize: 11, color: isGenerationComplete ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
                                             {isGenerationComplete ? '✨ AI Suggested' : 'AI Result'}
                                         </label>
-                                        <div style={{
-                                            flex: 1, // Grow to fill
-                                            padding: 12,
-                                            background: isGenerationComplete ? 'white' : 'var(--bg-glass)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 13,
-                                            color: isGenerationComplete ? 'black' : 'var(--text-muted)',
-                                            lineHeight: 1.6,
-                                            minHeight: 150,
-                                            maxHeight: 300,
-                                            overflow: 'auto',
-                                            fontWeight: isGenerationComplete ? 500 : 400,
-                                            border: isGenerationComplete ? '2px solid var(--accent)' : '1px dotted var(--border)',
-                                            display: 'flex',
-                                            alignItems: !isGenerationComplete ? 'center' : 'stretch',
-                                            justifyContent: !isGenerationComplete ? 'center' : 'stretch',
-                                            textAlign: !isGenerationComplete ? 'center' : 'left'
-                                        }}>
-                                            {isGenerationComplete ? generatedContent : 'Results will appear here after generation'}
-                                        </div>
+                                        {isGenerationComplete && aiModal.type === 'generate' && generatedCaptions.length > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', maxHeight: 300, paddingRight: 4 }}>
+                                                {generatedCaptions.map((cap, idx) => (
+                                                    <div key={idx} style={{
+                                                        padding: 12,
+                                                        background: 'white',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '2px solid var(--accent)',
+                                                        color: 'black'
+                                                    }}>
+                                                        <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                                                            {cap.text || cap.caption || cap.content || (typeof cap === 'string' ? cap : '')}
+                                                        </div>
+                                                        {(cap.explanation || cap.angle || cap.reasoning) && (
+                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-glass)', padding: '6px 8px', borderRadius: 4 }}>
+                                                                <span style={{ fontWeight: 600 }}>Why:</span> {cap.explanation || cap.angle || cap.reasoning}
+                                                            </div>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => confirmGeneratedContent(cap.text || cap.caption || cap.content || (typeof cap === 'string' ? cap : ''))}
+                                                            style={{ marginTop: 8, width: '100%', padding: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600, transition: 'var(--transition)' }}
+                                                            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
+                                                            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                                                        >
+                                                            Use This Caption
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                flex: 1, // Grow to fill
+                                                padding: 12,
+                                                background: isGenerationComplete ? 'white' : 'var(--bg-glass)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: 13,
+                                                color: isGenerationComplete ? 'black' : 'var(--text-muted)',
+                                                lineHeight: 1.6,
+                                                minHeight: 150,
+                                                maxHeight: 300,
+                                                overflow: 'auto',
+                                                fontWeight: isGenerationComplete ? 500 : 400,
+                                                border: isGenerationComplete ? '2px solid var(--accent)' : '1px dotted var(--border)',
+                                                display: 'flex',
+                                                alignItems: !isGenerationComplete ? 'center' : 'stretch',
+                                                justifyContent: !isGenerationComplete ? 'center' : 'stretch',
+                                                textAlign: !isGenerationComplete ? 'center' : 'left',
+                                                whiteSpace: 'pre-wrap'
+                                            }}>
+                                                {isGenerationComplete ? generatedContent : 'Results will appear here after generation'}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1660,13 +1767,15 @@ function CreatePostContent() {
                                         >
                                             {aiLoading ? 'Regenerating...' : 'Regenerate'}
                                         </button>
-                                        <button
-                                            className="btn-modal-save"
-                                            onClick={confirmGeneratedContent}
-                                            style={{ background: 'var(--accent)' }}
-                                        >
-                                            Accept
-                                        </button>
+                                        {aiModal.type !== 'generate' && (
+                                            <button
+                                                className="btn-modal-save"
+                                                onClick={() => confirmGeneratedContent()}
+                                                style={{ background: 'var(--accent)' }}
+                                            >
+                                                Accept
+                                            </button>
+                                        )}
                                     </>
                                 ) : (
                                     <>
@@ -1736,34 +1845,171 @@ function CreatePostContent() {
 
                                 {/* Search/Prompt input - Hide when showing preview */}
                                 {!isImageGenerationComplete && (
-                                    <div>
-                                        <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
-                                            {imageModal.mode === 'generate' ? 'Describe the image you want' : 'Search for photos'}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={imageModal.mode === 'generate' ? imagePrompt : imageSearchQuery}
-                                            onChange={e => imageModal.mode === 'generate' ? setImagePrompt(e.target.value) : setImageSearchQuery(e.target.value)}
-                                            placeholder={imageModal.mode === 'generate' ? 'E.g., sunset over ocean with palm trees' : 'E.g., coffee, nature, urban'}
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px',
-                                                fontSize: 14,
-                                                border: '1px solid var(--border)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                background: 'var(--bg-glass)',
-                                                color: 'var(--text-primary)',
-                                                fontFamily: 'inherit'
-                                            }}
-                                        />
-                                    </div>
+                                    <>
+                                        {imageModal.mode === 'generate' ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                                <div>
+                                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Style (optional)</span>
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                        {['Realistic', 'Cartoon', '3D Render', 'Cinematic', 'Minimalist'].map(t => (
+                                                            <button 
+                                                                key={t} type="button" 
+                                                                onClick={() => setImageOptions(prev => ({
+                                                                    ...prev,
+                                                                    style: prev.style ? (prev.style.includes(t) ? prev.style : `${prev.style}, ${t}`) : t
+                                                                }))}
+                                                                style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: 'var(--bg-glass)', color: 'var(--primary)', border: '1px solid rgba(108, 92, 231, 0.2)', cursor: 'pointer' }}
+                                                            >
+                                                                + {t}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <input
+                                                        value={imageOptions.style}
+                                                        onChange={e => setImageOptions({ ...imageOptions, style: e.target.value })}
+                                                        placeholder="E.g., Realistic, 3D Render..."
+                                                        style={{
+                                                            width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--bg-glass)', color: 'var(--text-primary)', fontSize: 13
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Lighting / Mood (optional)</span>
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                        {['Bright', 'Dark', 'Neon', 'Sunset', 'Moody'].map(t => (
+                                                            <button 
+                                                                key={t} type="button" 
+                                                                onClick={() => setImageOptions(prev => ({
+                                                                    ...prev,
+                                                                    lighting: prev.lighting ? (prev.lighting.includes(t) ? prev.lighting : `${prev.lighting}, ${t}`) : t
+                                                                }))}
+                                                                style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: 'var(--bg-glass)', color: 'var(--primary)', border: '1px solid rgba(108, 92, 231, 0.2)', cursor: 'pointer' }}
+                                                            >
+                                                                + {t}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <input
+                                                        value={imageOptions.lighting}
+                                                        onChange={e => setImageOptions({ ...imageOptions, lighting: e.target.value })}
+                                                        placeholder="E.g., Bright, Neon..."
+                                                        style={{
+                                                            width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--bg-glass)', color: 'var(--text-primary)', fontSize: 13
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{ gridColumn: 'span 2' }}>
+                                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Subject / Main Content</span>
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                        {[
+                                                            { label: 'Coffee Shop', tmpl: 'A cozy coffee shop with warm lighting and wooden tables.' },
+                                                            { label: 'Floating Product', tmpl: 'A modern smartphone floating in space with glowing neon accents.' },
+                                                            { label: 'Desk Setup', tmpl: 'A minimalist desk setup with a laptop, plant, and coffee mug.' },
+                                                            { label: 'Happy Customer', tmpl: 'A happy customer smiling naturally while holding a shopping bag.' }
+                                                        ].map(t => (
+                                                            <button 
+                                                                key={t.label} type="button" 
+                                                                onClick={() => setImagePrompt(t.tmpl)}
+                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: '0.2s' }}
+                                                                onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                                                            >
+                                                                {t.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={imagePrompt}
+                                                        onChange={e => setImagePrompt(e.target.value)}
+                                                        placeholder="E.g., sunset over ocean with palm trees"
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px',
+                                                            fontSize: 14,
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--bg-glass)',
+                                                            color: 'var(--text-primary)',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{ gridColumn: 'span 2' }}>
+                                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Additional Details / Templates</span>
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                                                        {[
+                                                            { label: 'Product Shot', tmpl: 'Professional product photography on a clean background.' },
+                                                            { label: 'Lifestyle', tmpl: 'People using the product in a natural, bright lifestyle setting.' },
+                                                            { label: 'Abstract', tmpl: 'Abstract background with flowing shapes and brand colors.' }
+                                                        ].map(t => (
+                                                            <button 
+                                                                key={t.label} type="button" 
+                                                                onClick={() => setImageOptions(prev => ({
+                                                                    ...prev,
+                                                                    details: prev.details ? `${prev.details}\n\n${t.tmpl}` : t.tmpl
+                                                                }))}
+                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: '0.2s' }}
+                                                                onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                                                            >
+                                                                {t.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <textarea
+                                                        value={imageOptions.details}
+                                                        onChange={e => setImageOptions({ ...imageOptions, details: e.target.value })}
+                                                        placeholder="Any extra details, colors, or specific framing..."
+                                                        rows={3}
+                                                        style={{
+                                                            width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--bg-glass)', color: 'var(--text-primary)', fontSize: 13, resize: 'vertical'
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                                                    Search for photos
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={imageSearchQuery}
+                                                    onChange={e => setImageSearchQuery(e.target.value)}
+                                                    placeholder="E.g., coffee, nature, urban"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px',
+                                                        fontSize: 14,
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-glass)',
+                                                        color: 'var(--text-primary)',
+                                                        fontFamily: 'inherit'
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 {/* Results Grid - Only show when complete */}
                                 {isImageGenerationComplete && (generatedImages.length > 0 || searchResults.length > 0) && (
                                     <div>
                                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 10 }}>
-                                            {imageModal.mode === 'generate' ? 'Generated Images' : `Select images (${selectedImages.size} selected)`}
+                                            {imageModal.mode === 'generate' ? `Generated Images (${selectedImages.size} selected)` : `Select images (${selectedImages.size} selected)`}
                                         </div>
                                         <div style={{
                                             display: 'grid',
@@ -1773,15 +2019,15 @@ function CreatePostContent() {
                                             {(imageModal.mode === 'generate' ? generatedImages : searchResults).map((img, idx) => (
                                                 <div
                                                     key={idx}
-                                                    onClick={() => imageModal.mode === 'search' && toggleImageSelection(idx)}
+                                                    onClick={() => toggleImageSelection(idx)}
                                                     style={{
-                                                        cursor: imageModal.mode === 'search' ? 'pointer' : 'default',
+                                                        cursor: 'pointer',
                                                         borderRadius: 'var(--radius-sm)',
                                                         overflow: 'hidden',
-                                                        border: imageModal.mode === 'search' && selectedImages.has(idx) ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                        border: selectedImages.has(idx) ? '2px solid var(--accent)' : '1px solid var(--border)',
                                                         transition: 'var(--transition)',
                                                         position: 'relative',
-                                                        background: imageModal.mode === 'search' && selectedImages.has(idx) ? 'rgba(108, 92, 231, 0.1)' : 'transparent'
+                                                        background: selectedImages.has(idx) ? 'rgba(108, 92, 231, 0.1)' : 'transparent'
                                                     }}
                                                     onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
                                                     onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
@@ -1795,25 +2041,23 @@ function CreatePostContent() {
                                                             objectFit: 'cover'
                                                         }}
                                                     />
-                                                    {imageModal.mode === 'search' && (
-                                                        <div style={{
-                                                            position: 'absolute',
-                                                            top: 8,
-                                                            left: 8,
-                                                            width: 20,
-                                                            height: 20,
-                                                            border: '2px solid var(--accent)',
-                                                            borderRadius: 4,
-                                                            background: selectedImages.has(idx) ? 'var(--accent)' : 'transparent',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            cursor: 'pointer',
-                                                            transition: 'var(--transition)'
-                                                        }}>
-                                                            {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
-                                                        </div>
-                                                    )}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 8,
+                                                        left: 8,
+                                                        width: 20,
+                                                        height: 20,
+                                                        border: '2px solid var(--accent)',
+                                                        borderRadius: 4,
+                                                        background: selectedImages.has(idx) ? 'var(--accent)' : 'transparent',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        transition: 'var(--transition)'
+                                                    }}>
+                                                        {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                                                    </div>
                                                     {imageModal.mode === 'search' && img.photographer && (
                                                         <div style={{
                                                             padding: '6px',
@@ -1968,7 +2212,7 @@ function CreatePostContent() {
                                     </button>
                                 )}
                                 <button
-                                    className={isImageGenerationComplete || imageModal.mode === 'search' ? 'btn-modal-save' : ''}
+                                    className="btn-modal-save"
                                     onClick={
                                         imageModal.mode === 'search'
                                             ? addSelectedImages

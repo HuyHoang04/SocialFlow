@@ -16,7 +16,23 @@ interface BrandFormData {
     brandSlogan: string;
     primaryColor: string;
     secondaryColor: string;
+    aiVoiceGuidelines: string;
+    aiContentGuardrails: string;
 }
+
+const VOICE_TEMPLATES = [
+    "Professional & Authoritative",
+    "Casual & Friendly",
+    "Humorous & Witty",
+    "Inspirational & Motivating"
+];
+
+const GUARDRAIL_TEMPLATES = [
+    "No profanity or controversial topics",
+    "Never mention competitors",
+    "Avoid political or religious discussions",
+    "Do not make unverified claims"
+];
 
 export default function BrandSettingsContent() {
     const { selectedBrand, selectBrand } = useBrand();
@@ -31,7 +47,9 @@ export default function BrandSettingsContent() {
         country: '',
         brandSlogan: '',
         primaryColor: '#0066FF',
-        secondaryColor: '#666666'
+        secondaryColor: '#666666',
+        aiVoiceGuidelines: '',
+        aiContentGuardrails: ''
     });
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -54,7 +72,9 @@ export default function BrandSettingsContent() {
                 country: selectedBrand.country || '',
                 brandSlogan: selectedBrand.brandSlogan || '',
                 primaryColor: selectedBrand.primaryColor || '#0066FF',
-                secondaryColor: selectedBrand.secondaryColor || '#666666'
+                secondaryColor: selectedBrand.secondaryColor || '#666666',
+                aiVoiceGuidelines: selectedBrand.aiVoiceGuidelines || '',
+                aiContentGuardrails: selectedBrand.aiContentGuardrails || ''
             });
         }
     }, [selectedBrand]);
@@ -62,6 +82,19 @@ export default function BrandSettingsContent() {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const appendTemplate = (field: 'aiVoiceGuidelines' | 'aiContentGuardrails', text: string) => {
+        setFormData(prev => {
+            const current = prev[field].trim();
+            const prefix = current.length > 0 ? '\n' : '';
+            // Avoid adding duplicate templates
+            if (current.includes(text)) return prev;
+            return {
+                ...prev,
+                [field]: `${current}${prefix}- ${text}`
+            };
+        });
     };
 
     const generateSuggestions = async () => {
@@ -453,6 +486,47 @@ export default function BrandSettingsContent() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* AI Preferences */}
+                        <div>
+                            <h4 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>🤖 AI Preferences</h4>
+                            
+                            <div className="form-group" style={{ marginBottom: 20 }}>
+                                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12, textTransform: 'uppercase' }}>Voice & Tone Guidelines</span>
+                                </label>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                                    {VOICE_TEMPLATES.map(t => (
+                                        <button 
+                                            key={t} type="button" 
+                                            onClick={() => appendTemplate('aiVoiceGuidelines', t)}
+                                            style={{ fontSize: 11, padding: '4px 8px', borderRadius: 12, background: 'rgba(108, 92, 231, 0.1)', color: 'var(--primary)', border: '1px solid rgba(108, 92, 231, 0.2)', cursor: 'pointer' }}
+                                        >
+                                            + {t}
+                                        </button>
+                                    ))}
+                                </div>
+                                <textarea className="form-input" name="aiVoiceGuidelines" value={formData.aiVoiceGuidelines} onChange={handleInputChange} style={{ height: 100 }} placeholder="E.g., Keep it professional but friendly, use emojis sparingly..." />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 20 }}>
+                                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 12, textTransform: 'uppercase' }}>Content Guardrails</span>
+                                </label>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                                    {GUARDRAIL_TEMPLATES.map(t => (
+                                        <button 
+                                            key={t} type="button" 
+                                            onClick={() => appendTemplate('aiContentGuardrails', t)}
+                                            style={{ fontSize: 11, padding: '4px 8px', borderRadius: 12, background: 'rgba(255, 71, 87, 0.1)', color: 'var(--error)', border: '1px solid rgba(255, 71, 87, 0.2)', cursor: 'pointer' }}
+                                        >
+                                            + {t}
+                                        </button>
+                                    ))}
+                                </div>
+                                <textarea className="form-input" name="aiContentGuardrails" value={formData.aiContentGuardrails} onChange={handleInputChange} style={{ height: 100 }} placeholder="E.g., Never mention competitors, avoid controversial topics..." />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Action Buttons */}
@@ -470,7 +544,9 @@ export default function BrandSettingsContent() {
                                 country: selectedBrand.country || '',
                                 brandSlogan: selectedBrand.brandSlogan || '',
                                 primaryColor: selectedBrand.primaryColor || '#0066FF',
-                                secondaryColor: selectedBrand.secondaryColor || '#666666'
+                                secondaryColor: selectedBrand.secondaryColor || '#666666',
+                                aiVoiceGuidelines: selectedBrand.aiVoiceGuidelines || '',
+                                aiContentGuardrails: selectedBrand.aiContentGuardrails || ''
                             })}
                             style={{
                                 padding: '10px 24px',

@@ -14,6 +14,8 @@ export interface Brand {
     brandSlogan?: string;
     primaryColor?: string;
     secondaryColor?: string;
+    aiVoiceGuidelines?: string;
+    aiContentGuardrails?: string;
     connectionCount: number;
 }
 

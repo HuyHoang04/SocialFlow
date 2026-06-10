@@ -34,6 +34,10 @@ async def startup_event():
         logger.info("PostgreSQL connection established")
     else:
         logger.warning("Failed to establish PostgreSQL connection")
+        
+    # Initialize async pool
+    from app.database import get_async_pool
+    get_async_pool()
     
     logger.info("AI Service + Embedding Service + Database ready!")
 
@@ -43,6 +47,8 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("Shutdown: Closing database connection...")
     close_db_client()
+    from app.database import close_async_pool
+    await close_async_pool()
     logger.info("Database connection closed")
 
 # Include routers

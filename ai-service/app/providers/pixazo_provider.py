@@ -87,53 +87,71 @@ class PixazoProvider(BaseProvider):
                 "Ocp-Apim-Subscription-Key": self.api_key
             }
             
-            # Build request payload based on model
-            payload = self._build_payload(model, prompt, width, height, style)
+            import random
+            import asyncio
             
-            # Call Pixazo API
-            async with httpx.AsyncClient(timeout=120) as client:
-                response = await client.post(
-                    endpoint,
-                    json=payload,
-                    headers=headers
+            async def _generate_single(seed: int) -> str:
+                # Build request payload based on model
+                payload = self._build_payload(model, prompt, width, height, style)
+                if "seed" in payload:
+                    payload["seed"] = seed
+                
+                # Call Pixazo API
+                async with httpx.AsyncClient(timeout=120) as client:
+                    response = await client.post(
+                        endpoint,
+                        json=payload,
+                        headers=headers
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    # Extract image URL based on model response format
+                    image_url = self._extract_image_url(model, data)
+                    return image_url
+            
+            # Generate tasks with random seeds
+            tasks = []
+            seeds = [random.randint(1, 9999999) for _ in range(count)]
+            for seed in seeds:
+                tasks.append(_generate_single(seed))
+                
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            images = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Image {i+1} generation failed: {result}")
+                elif result:
+                    logger.info(f"Generated image {i+1}: {result[:80]}...")
+                    images.append({
+                        "url": result,
+                        "seed": seeds[i],
+                        "finish_reason": "success"
+                    })
+            
+            if images:
+                cost = self.calculate_cost(len(images), model)
+                return ImageResponse(
+                    success=True,
+                    error=None,
+                    provider="pixazo",
+                    model=model,
+                    images=images,
+                    image_count=len(images),
+                    cost=cost
                 )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Extract image URL based on model response format
-                image_url = self._extract_image_url(model, data)
-                
-                if image_url:
-                    logger.info(f"Generated image: {image_url[:80]}...")
-                    images = [
-                        {
-                            "url": image_url,
-                            "seed": 42,
-                            "finish_reason": "success"
-                        }
-                        for _ in range(count)
-                    ]
-                    cost = self.calculate_cost(count, model)
-                    return ImageResponse(
-                        success=True,
-                        error=None,
-                        provider="pixazo",
-                        model=model,
-                        images=images,
-                        image_count=len(images),
-                        cost=cost
-                    )
-                else:
-                    logger.error(f"No image URL in response: {data}")
-                    return ImageResponse(
-                        success=False,
-                        error="No image_url in response",
-                        images=[],
-                        image_count=0,
-                        provider="pixazo",
-                        model=model,
-                        cost=0.0
-                    )
+            else:
+                logger.error("All image generation requests failed or returned no URL")
+                return ImageResponse(
+                    success=False,
+                    error="Failed to generate any images",
+                    images=[],
+                    image_count=0,
+                    provider="pixazo",
+                    model=model,
+                    cost=0.0
+                )
         
         except Exception as e:
             logger.error(f"Pixazo generation failed: {e}")

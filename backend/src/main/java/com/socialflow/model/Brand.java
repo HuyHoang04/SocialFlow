@@ -39,6 +39,12 @@ public class Brand {
 
     private String secondaryColor;
 
+    @Column(columnDefinition = "TEXT")
+    private String aiVoiceGuidelines;
+
+    @Column(columnDefinition = "TEXT")
+    private String aiContentGuardrails;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

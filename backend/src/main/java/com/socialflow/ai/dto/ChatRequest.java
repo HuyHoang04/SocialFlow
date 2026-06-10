@@ -26,4 +26,7 @@ public class ChatRequest {
     @JsonProperty("context_data")
     private String contextData;
     
+    @JsonProperty("chat_mode")
+    private String chatMode;
+    
 }

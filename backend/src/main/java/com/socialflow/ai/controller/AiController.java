@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import java.util.Map;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.io.IOException;
 
@@ -46,7 +47,33 @@ public class AiController {
     private final AiServiceClient aiServiceClient;
     private final com.socialflow.ai.service.AiModelConfigService aiModelConfigService;
     
-    // ==================== TEXT GENERATION ====================
+    // ==================== TEXT GENERATION ENDPOINTS ====================
+    
+    /**
+     * Generate a batch of 3 captions
+     * POST /api/ai/generate-caption-batch
+     */
+    @PostMapping("/generate-caption-batch")
+    public ResponseEntity<?> generateCaptionBatch(@Valid @RequestBody CaptionBatchRequest request) {
+        log.info("API Request: POST /api/ai/generate-caption-batch");
+        try {
+            List<String> response = aiServiceClient.generateCaptionBatch(request);
+            if (response != null && !response.isEmpty()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "error", "Failed to generate caption batch"
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Error in generate-caption-batch API", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
     
     /**
      * Generate content using AI model

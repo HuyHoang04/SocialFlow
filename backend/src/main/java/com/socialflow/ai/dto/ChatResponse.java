@@ -27,5 +27,8 @@ public class ChatResponse {
     @JsonProperty("suggested_entities")
     private AiSuggestedEntities suggestedEntities;
     
+    @JsonProperty("suggested_replies")
+    private List<String> suggestedReplies;
+    
     private String error;
 }

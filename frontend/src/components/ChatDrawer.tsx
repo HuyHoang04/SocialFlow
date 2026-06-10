@@ -95,6 +95,13 @@ export default function ChatDrawer() {
     const [sessionsLoading, setSessionsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showHistory, setShowHistory] = useState(false);
+    
+    // Quick action tabs state
+    const [activeTab, setActiveTab] = useState<'plan' | 'generate'>('plan');
+    const [formPlatform, setFormPlatform] = useState('Facebook');
+    const [formTone, setFormTone] = useState('Professional');
+    const [formCategory, setFormCategory] = useState('Caption');
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const user = getUser();
 
@@ -192,9 +199,28 @@ export default function ChatDrawer() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const [loadingText, setLoadingText] = useState("Analyzing context...");
+
+    useEffect(() => {
+        if (!loading) return;
+        const texts = [
+            "Analyzing brand data...",
+            "Searching knowledge base...",
+            "Crafting response...",
+            "Almost there..."
+        ];
+        let i = 0;
+        setLoadingText(texts[0]);
+        const interval = setInterval(() => {
+            i = (i + 1) % texts.length;
+            setLoadingText(texts[i]);
+        }, 1500);
+        return () => clearInterval(interval);
+    }, [loading]);
+
     useEffect(() => {
         if (isOpen) scrollToBottom();
-    }, [messages, isOpen]);
+    }, [messages, isOpen, loadingText]);
 
     const loadSessions = useCallback(async () => {
         if (!brand) return;
@@ -270,22 +296,67 @@ export default function ChatDrawer() {
         return () => window.removeEventListener('socialflow-chat-open', handleExternalOpen);
     }, [brand]);
 
-    const loadHistory = useCallback(async (sessionId: string) => {
-        setLoading(true);
+    const loadHistory = useCallback(async (sessionId: string, isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             const history = await api.getChatHistory(sessionId);
-            setMessages(history.map((m: any) => ({
-                role: m.role.toLowerCase(),
-                content: m.content,
-                timestamp: m.createdAt
-            })));
+            setMessages(history.map((m: any) => {
+                let suggestedReplies = [];
+                if (m.metadata) {
+                    try {
+                        const metaObj = JSON.parse(m.metadata);
+                        if (metaObj.suggestedReplies) {
+                            suggestedReplies = metaObj.suggestedReplies;
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse message metadata", e);
+                    }
+                }
+                return {
+                    role: m.role.toLowerCase(),
+                    content: m.content,
+                    timestamp: m.createdAt,
+                    suggestedReplies
+                };
+            }));
         } catch (err: any) {
             console.error('Failed to load chat history:', err);
-            setError('Failed to load chat history');
+            if (!isSilent) setError('Failed to load chat history');
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, []);
+
+    // Load persisted session on mount
+    useEffect(() => {
+        const savedSession = localStorage.getItem('socialflow_chat_session');
+        if (savedSession && !activeSessionId) {
+            setActiveSessionId(savedSession);
+            loadHistory(savedSession);
+        }
+    }, [loadHistory]);
+
+    // Polling for background callbacks
+    useEffect(() => {
+        if (!activeSessionId || messages.length === 0) return;
+        
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.role === 'assistant' && lastMsg.content.includes("sẽ được gửi ngay sau đây...)*")) {
+            const pollInterval = setInterval(() => {
+                loadHistory(activeSessionId, true);
+            }, 3000);
+            return () => clearInterval(pollInterval);
+        }
+    }, [messages, activeSessionId, loadHistory]);
+
+    // Persist session changes
+    useEffect(() => {
+        if (activeSessionId) {
+            localStorage.setItem('socialflow_chat_session', activeSessionId);
+        } else {
+            localStorage.removeItem('socialflow_chat_session');
+        }
+    }, [activeSessionId]);
 
     const handleSelectSession = (sessionId: string) => {
         setActiveSessionId(sessionId);
@@ -298,19 +369,29 @@ export default function ChatDrawer() {
         setMessages([]);
         setInput('');
         setShowHistory(false);
+        setActiveTab('plan');
     };
 
-    const handleSendMessage = async () => {
-        if (!input.trim() || !brand || !user) return;
+    const handleSendMessage = async (customText?: string) => {
+        const finalInput = customText || input;
+        if (!finalInput.trim() || !brand || !user) return;
 
-        const userMsg = { role: 'user', content: input.trim() };
+        const userMsg = { role: 'user', content: finalInput.trim() };
         setMessages(prev => [...prev, userMsg]);
-        setInput('');
+        if (!customText) setInput('');
         setLoading(true);
         setError(null);
 
         const currentContexts = [...attachedContexts];
         setAttachedContexts([]);
+        
+        if (activeTab === 'generate') {
+            currentContexts.push({
+                _tag: '@Settings',
+                _displayLabel: 'Generation Settings',
+                text: `[SYSTEM REQUIREMENT] The user wants to generate content for Platform: ${formPlatform}, Tone: ${formTone}, Type: ${formCategory}. Strictly follow these preferences. Do NOT ask for platform unless it is missing.`
+            });
+        }
 
         const sessionId = activeSessionId || generateUUID();
         if (!activeSessionId) setActiveSessionId(sessionId);
@@ -321,16 +402,58 @@ export default function ChatDrawer() {
                 user_id: user.userId,
                 session_id: sessionId,
                 message: userMsg.content,
-                context_data: currentContexts.length > 0 ? JSON.stringify(currentContexts) : undefined
+                context_data: currentContexts.length > 0 ? JSON.stringify(currentContexts) : undefined,
+                chat_mode: activeTab
             });
 
             if (response && response.answer) {
-                setMessages(prev => [...prev, { role: 'assistant', content: response.answer }]);
+                setMessages(prev => [...prev, { 
+                    role: 'assistant', 
+                    content: response.answer,
+                    suggestedReplies: response.suggested_replies || [] 
+                }]);
             }
             loadSessions();
         } catch (err: any) {
             console.error('Failed to send message:', err);
             setError('Failed to get response');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGenerateImageFromChat = async () => {
+        const finalInput = input.trim();
+        if (!finalInput || !brand || !user) return;
+
+        const userMsg = { role: 'user', content: `Generate an image for ${formPlatform} (${formTone}): ${finalInput}` };
+        setMessages(prev => [...prev, userMsg]);
+        setInput('');
+        setLoading(true);
+        setError(null);
+
+        try {
+            const prompt = `Style: ${formTone}\nSubject: ${finalInput}`;
+            const result = await api.generateImage({
+                brand_id: brand.id,
+                prompt: prompt,
+                count: 1
+            });
+
+            if (result && result.images && result.images.length > 0) {
+                const imgUrl = result.images[0].url;
+                const assistantMsg = {
+                    role: 'assistant',
+                    content: `Here is your generated image:\n\n![Generated Image](${imgUrl})\n\n*(Would you like to make any adjustments to this image? For example: "change background to blue", "add neon style"...)*`,
+                    suggestedReplies: ["Try a different style", "Make it brighter", "Generate a similar image"]
+                };
+                setMessages(prev => [...prev, assistantMsg]);
+            } else {
+                setMessages(prev => [...prev, { role: 'assistant', content: "Failed to generate image. No image returned." }]);
+            }
+        } catch (err: any) {
+            console.error('Failed to generate image:', err);
+            setMessages(prev => [...prev, { role: 'assistant', content: "An error occurred while generating the image." }]);
         } finally {
             setLoading(false);
         }
@@ -426,7 +549,7 @@ export default function ChatDrawer() {
                                             onClick={() => handleSelectSession(s.id || s.sessionId)}
                                         >
                                             <IconMessageCircle size={14} />
-                                            <span className="history-preview">{s.lastMessage || 'New Chat'}</span>
+                                            <span className="history-preview">{s.title || 'New Chat'}</span>
                                             <button
                                                 className="delete-btn"
                                                 onClick={(e) => handleDeleteSession(e, s.id || s.sessionId)}
@@ -449,9 +572,19 @@ export default function ChatDrawer() {
                                         </div>
                                     </div>
                                     <div className="quick-chips" style={{ marginTop: 12, padding: '0 16px' }}>
-                                        <button onClick={() => setInput('Help me create a new marketing campaign for...')}>🚀 Start Campaign</button>
-                                        <button onClick={() => setInput('Write a viral post about...')}>📝 Create Viral Post</button>
-                                        <button onClick={() => setInput('Give me 5 post ideas for my brand')}>💡 Content Ideas</button>
+                                        {activeTab === 'plan' ? (
+                                            <>
+                                                <button onClick={() => setInput('Help me plan a new marketing campaign...')}>🚀 Plan a campaign</button>
+                                                <button onClick={() => setInput('Brainstorm content ideas for this month...')}>💡 Brainstorm ideas</button>
+                                                <button onClick={() => setInput('Analyze my brand strategy and positioning...')}>📊 Analyze brand</button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => { setFormCategory('Post'); setInput('Write a quick promotional post...'); }}>📝 Write a quick post</button>
+                                                <button onClick={() => { setFormCategory('Image'); setInput('Generate a high-quality image of...'); }}>🎨 Generate an image</button>
+                                                <button onClick={() => { setFormCategory('Caption'); setInput('Rewrite this caption to make it better: '); }}>✨ Rewrite a caption</button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -463,13 +596,27 @@ export default function ChatDrawer() {
                                                     ? <MarkdownMessage content={m.content} />
                                                     : m.content
                                                 }
+                                                {m.suggestedReplies && m.suggestedReplies.length > 0 && (
+                                                    <div className="suggested-replies-chips">
+                                                        {m.suggestedReplies.map((reply: string, i: number) => (
+                                                            <button 
+                                                                key={i} 
+                                                                className="chip-btn"
+                                                                onClick={() => handleSendMessage(reply)}
+                                                            >
+                                                                {reply}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
                                     {loading && (
                                         <div className="message-row assistant">
-                                            <div className="message-bubble typing">
-                                                <span></span><span></span><span></span>
+                                            <div className="message-bubble typing-advanced">
+                                                <IconSparkles className="sparkle-spin" size={16} />
+                                                <span className="loading-text">{loadingText}</span>
                                             </div>
                                         </div>
                                     )}
@@ -482,6 +629,35 @@ export default function ChatDrawer() {
                 </div>
 
                 <div className="drawer-footer">
+                    {/* Chat Action Tabs */}
+                    <div className="chat-tabs">
+                        <button className={activeTab === 'plan' ? 'active' : ''} onClick={() => setActiveTab('plan')}>Plan</button>
+                        <button className={activeTab === 'generate' ? 'active' : ''} onClick={() => setActiveTab('generate')}>Generate</button>
+                    </div>
+
+                    {/* Quick Form Options */}
+                    {activeTab === 'generate' && (
+                        <div className="quick-form-options">
+                            <select value={formPlatform} onChange={e => setFormPlatform(e.target.value)} className="quick-select">
+                                <option>Facebook</option>
+                                <option>Instagram</option>
+                                <option>Twitter</option>
+                                <option>LinkedIn</option>
+                            </select>
+                            <select value={formTone} onChange={e => setFormTone(e.target.value)} className="quick-select">
+                                <option>Professional</option>
+                                <option>Casual</option>
+                                <option>Humorous</option>
+                                <option>Inspirational</option>
+                            </select>
+                            <select value={formCategory} onChange={e => setFormCategory(e.target.value)} className="quick-select">
+                                <option>Caption</option>
+                                <option>Post</option>
+                                <option>Image</option>
+                            </select>
+                        </div>
+                    )}
+
                     {attachedContexts.length > 0 && (
                         <div className="copilot-tags-container">
                             {attachedContexts.map((ctx) => (
@@ -515,14 +691,31 @@ export default function ChatDrawer() {
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
-                                    handleSendMessage();
+                                    if (formCategory === 'Image') {
+                                        handleGenerateImageFromChat();
+                                    } else {
+                                        handleSendMessage();
+                                    }
+                                    setInput('');
                                 }
                             }}
                             rows={1}
                         />
                         <button
                             className={`send-btn ${!input.trim() || loading ? 'disabled' : ''}`}
-                            onClick={handleSendMessage}
+                            onClick={() => {
+                                if (activeTab === 'plan') {
+                                    handleSendMessage();
+                                } else {
+                                    if (formCategory === 'Image') {
+                                        handleGenerateImageFromChat();
+                                    } else {
+                                        const promptText = `Generate a final ${formCategory} for ${formPlatform}.\nTone: ${formTone}.\nTopic/Brief: ${input.trim()}`;
+                                        handleSendMessage(promptText);
+                                    }
+                                    setInput('');
+                                }
+                            }}
                             disabled={!input.trim() || loading}
                         >
                             <IconSend size={18} />
@@ -682,6 +875,29 @@ export default function ChatDrawer() {
                     border-bottom-left-radius: 4px;
                     max-width: 92%;
                 }
+                .suggested-replies-chips {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    margin-top: 12px;
+                    padding-top: 12px;
+                    border-top: 1px solid rgba(255,255,255,0.1);
+                }
+                .chip-btn {
+                    background: rgba(108, 92, 231, 0.15);
+                    border: 1px solid rgba(108, 92, 231, 0.3);
+                    color: var(--primary);
+                    padding: 6px 12px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .chip-btn:hover {
+                    background: var(--primary);
+                    color: white;
+                    transform: translateY(-2px);
+                }
 
                 .chat-welcome {
                     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -798,7 +1014,54 @@ export default function ChatDrawer() {
                 }
                 .tag-remove:hover {
                     background: rgba(255, 71, 87, 0.1);
-                    color: #ff4757;
+                    color: var(--error);
+                }
+
+                .chat-tabs {
+                    display: flex;
+                    gap: 8px;
+                    margin-bottom: 12px;
+                }
+                .chat-tabs button {
+                    flex: 1;
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid var(--border);
+                    color: var(--text-secondary);
+                    padding: 8px 0;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .chat-tabs button:hover {
+                    background: rgba(255,255,255,0.08);
+                }
+                .chat-tabs button.active {
+                    background: var(--primary-glow);
+                    border-color: var(--primary);
+                    color: var(--primary);
+                }
+
+                .quick-form-options {
+                    display: flex;
+                    gap: 8px;
+                    margin-bottom: 12px;
+                    flex-wrap: wrap;
+                }
+                .quick-select {
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid var(--border);
+                    color: var(--text-primary);
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    outline: none;
+                    flex: 1;
+                    min-width: 100px;
+                }
+                .quick-select:focus {
+                    border-color: var(--primary);
                 }
 
                 .input-wrapper {
@@ -819,7 +1082,31 @@ export default function ChatDrawer() {
                     border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
                 }
                 .send-btn.disabled { opacity: 0.5; cursor: not-allowed; }
-
+                .typing-advanced {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    color: var(--primary);
+                    font-weight: 500;
+                    background: rgba(108, 92, 231, 0.1) !important;
+                    border: 1px solid rgba(108, 92, 231, 0.2);
+                }
+                .sparkle-spin {
+                    animation: sparklePulse 1.5s infinite;
+                }
+                @keyframes sparklePulse {
+                    0% { transform: scale(0.9) rotate(0deg); opacity: 0.6; }
+                    50% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+                    100% { transform: scale(0.9) rotate(0deg); opacity: 0.6; }
+                }
+                .loading-text {
+                    font-size: 13px;
+                    animation: fadeText 1.5s infinite;
+                }
+                @keyframes fadeText {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                }
                 .typing span {
                     width: 5px; height: 5px; background: var(--text-muted); border-radius: 50%;
                     display: inline-block; margin: 0 1px; animation: bounce 1.4s infinite ease-in-out;

@@ -177,7 +177,7 @@ export default function PostDetailPage() {
             }
             return (
                 <div style={containerStyle}>
-                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 600, maxHeight: 850 }} scrolling="no" frameBorder="0" allowtransparency="true"></iframe>
+                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 600, maxHeight: 850 }} scrolling="no" frameBorder="0" allowTransparency={true}></iframe>
                 </div>
             );
         }

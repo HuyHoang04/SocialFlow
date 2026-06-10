@@ -10,7 +10,7 @@ import java.time.Duration;
  * Configuration for RestTemplate used by AI Service Client
  * Provides properly configured RestTemplate bean with:
  * - Connection timeout: 30 seconds
- * - Read timeout: 60 seconds
+ * - Read timeout: 180 seconds
  * - Proper error handling
  */
 @Configuration
@@ -20,7 +20,7 @@ public class RestTemplateConfig {
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
             .setConnectTimeout(Duration.ofSeconds(30))
-            .setReadTimeout(Duration.ofSeconds(60))
+            .setReadTimeout(Duration.ofSeconds(180))
             .build();
     }
 }

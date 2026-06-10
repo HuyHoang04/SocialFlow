@@ -23,6 +23,7 @@ class ChatRequest(BaseModel):
     image_provider: Optional[str] = None
     embedding_model: Optional[str] = None
     embedding_provider: Optional[str] = None
+    chat_mode: Optional[str] = "plan"
 
 class ChatResponse(BaseModel):
     answer: str
@@ -30,6 +31,7 @@ class ChatResponse(BaseModel):
     success: bool
     source_documents: Optional[List[Dict[str, Any]]] = None
     suggested_entities: Optional[Dict[str, Any]] = None
+    suggested_replies: Optional[List[str]] = None
     error: Optional[str] = None
 
 # ============= DEPENDENCY =============
@@ -57,7 +59,8 @@ async def send_message(
             image_model=request.image_model,
             image_provider=request.image_provider,
             embedding_model=request.embedding_model,
-            embedding_provider=request.embedding_provider
+            embedding_provider=request.embedding_provider,
+            chat_mode=request.chat_mode
         )
         return ChatResponse(**response)
     except Exception as e:

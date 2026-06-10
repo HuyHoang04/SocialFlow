@@ -22,6 +22,9 @@ from app.prompts import (
     format_optimization_prompt,
     format_content_generation_prompt,
 )
+from app.services.brand_context_service import BrandContextService
+from app.services.prompt_refiner_service import PromptRefinerService
+from app.services.response_filter_service import ResponseFilterService
 
 logger = setup_logger(__name__)
 
@@ -32,6 +35,9 @@ class AIService:
         self.groq_provider = GroqProvider()
         self.openrouter_provider = OpenRouterProvider()
         self.pixazo_provider = PixazoProvider()
+        self.brand_context = BrandContextService()
+        self.prompt_refiner = PromptRefinerService()
+        self.response_filter = ResponseFilterService()
     
     async def refresh_models(self):
         """Refresh model lists from all providers (text and image)"""
@@ -158,6 +164,62 @@ class AIService:
                 "success": False,
                 "error": f"Unknown provider: {provider}"
             }
+            
+    async def generate_caption_batch(
+        self,
+        brand_id: str,
+        platforms: list,
+        category: str,
+        tone: str,
+        user_brief: str,
+        scheduled_time: Optional[str] = None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        use_rag: bool = False
+    ) -> list:
+        """3-step pipeline: Form -> Refine -> Generate -> Filter"""
+        # Step 1: Context & Refine
+        brand_ctx = await self.brand_context.build_context_with_analytics(brand_id, scheduled_time)
+        
+        # Incorporate RAG context if requested
+        if use_rag:
+            try:
+                from app.services.rag_service import RagService
+                rag_service = RagService()
+                rag_results = await rag_service.search_similar_chunks(
+                    brand_id=brand_id,
+                    query_text=user_brief,
+                    limit=3,
+                    threshold=0.3
+                )
+                if rag_results:
+                    rag_text = "\n\n".join([f"- {r.get('text', '')}" for r in rag_results])
+                    brand_ctx += f"\n\n[Brand Content Library Guidelines / Reference Data]:\n{rag_text}"
+                    logger.info(f"RAG context successfully injected for batch generation (found {len(rag_results)} chunks)")
+            except Exception as e:
+                logger.error(f"Failed to inject RAG context for batch generation: {e}")
+
+        refined_prompt = await self.prompt_refiner.refine_caption_prompt(
+            user_brief=user_brief,
+            platforms=platforms,
+            category=category,
+            tone=tone,
+            brand_context=brand_ctx,
+            analytics_context=brand_ctx # brand_ctx has golden_hour/audience
+        )
+        
+        # Step 2: Generate
+        if provider is None: provider = "groq"
+        if model is None: model = DEFAULT_GROQ_MODEL
+        
+        raw_result = await self.generate_content(prompt=refined_prompt, provider=provider, model=model, max_words=300)
+        
+        if not raw_result["success"]:
+            raise Exception(f"Generation failed: {raw_result['error']}")
+            
+        # Step 3: Filter
+        clean_captions = self.response_filter.filter_caption_response(raw_result["content"])
+        return clean_captions
     
     async def rewrite_content(
         self,
@@ -186,6 +248,11 @@ class AIService:
                 "error": f"Invalid tone. Use one of: {', '.join(VALID_TONES)}"
             }
         
+        brand_id = "default" # We need to pass brand_id down or get it from context. Assuming it might be added.
+        # But for now, rewrite_prompt is already formatted. 
+        # Actually, let's use the new refiner and filter:
+        # We need brand_context. For now, since brand_id is not passed to rewrite_content currently,
+        # we will just use the filter for clean output.
         # Build rewrite prompt using formatter
         rewrite_prompt = format_rewrite_prompt(content, tone_lower)
         
@@ -210,7 +277,7 @@ class AIService:
                 # Rename token_count to tokens for API response consistency
                 tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                 # Extract clean rewritten content (handles verbose AI responses)
-                clean_content = self._extract_rewritten_content(result_dict["content"], content)
+                clean_content = self.response_filter.filter_enhance_response(result_dict["content"])
                 return {
                     "original_content": content,
                     "rewritten_content": clean_content,
@@ -243,7 +310,7 @@ class AIService:
                     # Rename token_count to tokens for API response consistency
                     tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                     # Extract clean rewritten content (handles verbose AI responses)
-                    clean_content = self._extract_rewritten_content(result_dict["content"], content)
+                    clean_content = self.response_filter.filter_enhance_response(result_dict["content"])
                     return {
                         "original_content": content,
                         "rewritten_content": clean_content,
@@ -274,7 +341,7 @@ class AIService:
                 # Rename token_count to tokens for API response consistency
                 tokens = result_dict.pop("token_count", result_dict.get("tokens", 0))
                 # Extract clean rewritten content (handles verbose AI responses)
-                clean_content = self._extract_rewritten_content(result_dict["content"], content)
+                clean_content = self.response_filter.filter_enhance_response(result_dict["content"])
                 return {
                     "original_content": content,
                     "rewritten_content": clean_content,

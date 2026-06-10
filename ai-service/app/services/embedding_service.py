@@ -64,7 +64,8 @@ class EmbeddingService:
         texts: List[str],
         provider: Optional[str] = None,
         model: Optional[str] = None,
-        images: Optional[List[str]] = None
+        images: Optional[List[str]] = None,
+        save: bool = False
     ) -> Dict[str, Any]:
         """
         Generate embeddings with OpenRouter (Groq doesn't support embeddings)
@@ -101,8 +102,9 @@ class EmbeddingService:
             )
             
             if result.success:
-                # Save to PostgreSQL directly
-                self._save_embeddings_to_db(brand_id, texts, result)
+                # Only save to PostgreSQL if explicitly requested
+                if save:
+                    self._save_embeddings_to_db(brand_id, texts, result)
                 return result.dict()
             
             raise Exception(result.error or "OpenRouter embedding failed")

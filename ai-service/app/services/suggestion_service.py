@@ -41,15 +41,28 @@ class SuggestionService:
             except Exception as e:
                 logger.warning(f"RAG search failed for suggestion, proceeding without context: {e}")
 
+            # Fetch Brand Context to inject into prompt
+            from app.services.brand_context_service import BrandContextService
+            brand_context_svc = BrandContextService()
+            brand_meta = await brand_context_svc.get_brand_metadata(request.brand_id)
+            
+            brand_injection = ""
+            if brand_meta.get("voice_guidelines") or brand_meta.get("content_guardrails"):
+                brand_injection = "\n### BRAND GUIDELINES:\n"
+                if brand_meta.get("voice_guidelines"):
+                    brand_injection += f"- Voice & Tone: {brand_meta['voice_guidelines']}\n"
+                if brand_meta.get("content_guardrails"):
+                    brand_injection += f"- Guardrails & Restrictions: {brand_meta['content_guardrails']}\n"
+
             # 2. Build the specialized prompt
             prompt = format_suggest_reply_prompt(
-                brand_name=request.brand_name or "our brand",
-                brand_description=request.brand_description or "a professional business",
+                brand_name=request.brand_name or brand_meta.get("name") or "our brand",
+                brand_description=request.brand_description or brand_meta.get("product_description") or "a professional business",
                 platform=request.platform,
                 message_type=request.message_type,
                 customer_name=request.customer_name or "the customer",
                 message_content=request.message_content,
-                rag_context=rag_context
+                rag_context=rag_context + brand_injection
             )
 
             # 3. Call AI Service

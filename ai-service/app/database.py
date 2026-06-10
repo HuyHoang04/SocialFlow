@@ -262,3 +262,21 @@ def close_db_client():
     if _db_client:
         _db_client.disconnect()
         _db_client = None
+
+# Global async pool
+_async_pool = None
+
+def get_async_pool():
+    """Get or create async connection pool"""
+    global _async_pool
+    if _async_pool is None:
+        from psycopg_pool import AsyncConnectionPool
+        _async_pool = AsyncConnectionPool(DB_URL, min_size=1, max_size=10, timeout=30)
+    return _async_pool
+
+async def close_async_pool():
+    """Close async connection pool"""
+    global _async_pool
+    if _async_pool:
+        await _async_pool.close()
+        _async_pool = None

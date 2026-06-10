@@ -55,6 +55,8 @@ public class BrandService {
                 .brandSlogan(request.getBrandSlogan())
                 .primaryColor(request.getPrimaryColor())
                 .secondaryColor(request.getSecondaryColor())
+                .aiVoiceGuidelines(request.getAiVoiceGuidelines())
+                .aiContentGuardrails(request.getAiContentGuardrails())
                 .user(user)
                 .build();
         brand = brandRepository.save(brand);
@@ -105,12 +107,30 @@ public class BrandService {
         brand.setBrandSlogan(request.getBrandSlogan());
         brand.setPrimaryColor(request.getPrimaryColor());
         brand.setSecondaryColor(request.getSecondaryColor());
+        if (request.getAiVoiceGuidelines() != null) {
+            brand.setAiVoiceGuidelines(request.getAiVoiceGuidelines());
+        }
+        if (request.getAiContentGuardrails() != null) {
+            brand.setAiContentGuardrails(request.getAiContentGuardrails());
+        }
         return brandRepository.save(brand);
     }
 
     public Brand updateBrandLogo(UUID brandId, String logoUrl) {
         Brand brand = getBrandById(brandId);
         brand.setLogoUrl(logoUrl);
+        return brandRepository.save(brand);
+    }
+
+    public Brand updateAIPreferences(UUID id, User user, String voiceGuidelines, String contentGuardrails) {
+        Brand brand = getBrandById(id);
+        // Check permissions: ADMIN or MANAGER
+        if (!brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.ADMIN) && 
+            !brandTeamService.hasRoleInBrand(user.getId(), id, UserRole.MANAGER)) {
+            throw new RuntimeException(ErrorMessages.NOT_AUTHORIZED);
+        }
+        brand.setAiVoiceGuidelines(voiceGuidelines);
+        brand.setAiContentGuardrails(contentGuardrails);
         return brandRepository.save(brand);
     }
 

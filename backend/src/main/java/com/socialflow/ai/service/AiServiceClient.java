@@ -25,6 +25,7 @@ import com.socialflow.ai.dto.*;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.List;
 
 /**
  * REST Client for Python AI Service
@@ -59,6 +60,37 @@ public class AiServiceClient {
     private String pythonServiceUrl;
     
     // ==================== TEXT GENERATION ENDPOINTS ====================
+    
+    /**
+     * Generate a batch of captions using AI model
+     * POST /generate-caption-batch
+     */
+    public List<String> generateCaptionBatch(CaptionBatchRequest request) {
+        try {
+            log.info("Calling Python AI Service: POST /generate-caption-batch | Brand: {}", 
+                     request.getBrandId());
+            
+            String url = pythonServiceUrl + "/generate-caption-batch";
+            Map<String, Object> payload = injectConfig(request, request.getBrandId(), "text");
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, getHeaders());
+            
+            ResponseEntity<List> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                List.class
+            );
+            
+            List<String> body = response.getBody();
+            int listSize = body != null ? body.size() : 0;
+            log.info("✓ Generate caption batch successful | Count: {}", listSize);
+            return body;
+            
+        } catch (RestClientException e) {
+            log.error("✗ Generate caption batch failed: {}", e.getMessage());
+            return List.of();
+        }
+    }
     
     /**
      * Generate content using AI model

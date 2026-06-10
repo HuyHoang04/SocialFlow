@@ -94,6 +94,28 @@ public class BrandController {
         return ResponseEntity.ok(toMap(brand));
     }
 
+    @PutMapping("/{id}/ai-preferences")
+    public ResponseEntity<Map<String, Object>> updateAIPreferences(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> request) {
+        Brand brand = brandService.updateAIPreferences(id, user, 
+            request.get("aiVoiceGuidelines"), 
+            request.get("aiContentGuardrails"));
+        return ResponseEntity.ok(toMap(brand));
+    }
+
+    @GetMapping("/public/{id}/ai-context")
+    public ResponseEntity<Map<String, String>> getBrandAiContext(@PathVariable UUID id) {
+        Brand brand = brandService.getBrandById(id);
+        Map<String, String> context = new HashMap<>();
+        context.put("name", brand.getName());
+        context.put("voice_guidelines", brand.getAiVoiceGuidelines());
+        context.put("content_guardrails", brand.getAiContentGuardrails());
+        context.put("product_description", brand.getDescription());
+        return ResponseEntity.ok(context);
+    }
+
     /**
      * Upload brand logo to Cloudinary.
      */
@@ -315,6 +337,8 @@ public class BrandController {
         map.put("brandSlogan", brand.getBrandSlogan());
         map.put("primaryColor", brand.getPrimaryColor());
         map.put("secondaryColor", brand.getSecondaryColor());
+        map.put("aiVoiceGuidelines", brand.getAiVoiceGuidelines());
+        map.put("aiContentGuardrails", brand.getAiContentGuardrails());
         map.put("createdAt", brand.getCreatedAt());
         map.put("connectionCount", brand.getConnections().size());
         return map;

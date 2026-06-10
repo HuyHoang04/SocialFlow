@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/oauth/*/callback").permitAll()
                 .requestMatchers("/api/webhook/**").permitAll()
                 .requestMatchers("/api/inbox/stream").permitAll()
+                .requestMatchers("/api/brands/public/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/media/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invitations/token/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/**").permitAll()

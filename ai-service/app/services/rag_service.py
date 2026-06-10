@@ -316,20 +316,28 @@ class RagService:
                 except Exception as e:
                     logger.warning(f"Multi-query generation failed, falling back to single query: {e}")
 
-            # Phase 2: Get embeddings for all queries and search
+            # Phase 2: Get embeddings for all queries concurrently
             all_results = []
             seen_chunk_ids = set()
             
             from app.config import DEFAULT_EMBEDDING_MODEL
-            for q in queries:
-                # Get embedding for each variation
-                query_response = await self.embedding_service.embed(
+            import asyncio
+            
+            # Gather all embedding tasks
+            embed_tasks = [
+                self.embedding_service.embed(
                     brand_id=brand_id,
                     texts=[q],
                     model=model or DEFAULT_EMBEDDING_MODEL,
-                    provider="openrouter"
+                    provider="openrouter",
+                    save=False
                 )
-                
+                for q in queries
+            ]
+            
+            query_responses = await asyncio.gather(*embed_tasks)
+            
+            for query_response in query_responses:
                 if not query_response.get("success"):
                     continue
                 
@@ -340,50 +348,49 @@ class RagService:
                 # Convert to pgvector format
                 vector_str = '[' + ', '.join(str(v) for v in query_vector) + ']'
                 
-                db_client = get_db_client()
-                conn = db_client.get_connection()
-                cursor = None
+                from app.database import get_async_pool
+                pool = get_async_pool()
+                
                 try:
-                    cursor = conn.cursor()
-                    # Phase 3: Execute vector similarity search using Cosine Similarity (<=>)
-                    # Filter by model if provided to ensure vector compatibility
-                    model_filter = ""
-                    params = [vector_str, brand_id]
-                    
-                    if model:
-                        model_filter = "AND model = %s"
-                        params.append(model)
-                    
-                    params.extend([vector_str, threshold, limit])
-                    
-                    search_sql = f"""
-                        SELECT id, library_item_id, chunk_id, chunk_text,
-                               (1 - (embedding <=> %s::vector)) AS similarity,
-                               metadata
-                        FROM rag_embedding
-                        WHERE brand_id = %s {model_filter}
-                        AND (1 - (embedding <=> %s::vector)) >= %s
-                        ORDER BY similarity DESC
-                        LIMIT %s
-                    """
-                    cursor.execute(search_sql, tuple(params))
-                    rows = cursor.fetchall()
-                    
-                    for row in rows:
-                        chunk_id = row[2]
-                        if chunk_id not in seen_chunk_ids:
-                            all_results.append({
-                                "embedding_id": row[0],
-                                "library_item_id": row[1],
-                                "chunk_id": chunk_id,
-                                "text": row[3],
-                                "similarity": float(row[4]),
-                                "metadata": row[5] or {}
-                            })
-                            seen_chunk_ids.add(chunk_id)
-                finally:
-                    if cursor: cursor.close()
-                    if conn: conn.close()
+                    async with pool.connection() as conn:
+                        async with conn.cursor() as cursor:
+                            # Phase 3: Execute vector similarity search using Cosine Similarity (<=>)
+                            model_filter = ""
+                            params = [vector_str, brand_id]
+                            
+                            if model:
+                                model_filter = "AND model = %s"
+                                params.append(model)
+                            
+                            params.extend([vector_str, threshold, limit])
+                            
+                            search_sql = f"""
+                                SELECT id, library_item_id, chunk_id, chunk_text,
+                                       (1 - (embedding <=> %s::vector)) AS similarity,
+                                       metadata
+                                FROM rag_embedding
+                                WHERE brand_id = %s {model_filter}
+                                AND (1 - (embedding <=> %s::vector)) >= %s
+                                ORDER BY similarity DESC
+                                LIMIT %s
+                            """
+                            await cursor.execute(search_sql, tuple(params))
+                            results = await cursor.fetchall()
+                            
+                            for row in results:
+                                chunk_id = row[2]
+                                if chunk_id not in seen_chunk_ids:
+                                    seen_chunk_ids.add(chunk_id)
+                                    all_results.append({
+                                        "id": row[0],
+                                        "library_item_id": row[1],
+                                        "chunk_id": chunk_id,
+                                        "text": row[3],
+                                        "similarity": float(row[4]),
+                                        "metadata": row[5] or {}
+                                    })
+                except Exception as e:
+                    logger.error(f"Vector search failed: {e}")
 
             # Sort by similarity and limit
             all_results.sort(key=lambda x: x["similarity"], reverse=True)

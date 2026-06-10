@@ -1,5 +1,6 @@
 package com.socialflow.ai.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialflow.ai.dto.AiCampaignData;
 import com.socialflow.ai.dto.AiPostData;
 import com.socialflow.ai.dto.AiSuggestedEntities;
@@ -16,7 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -32,6 +35,7 @@ public class AiChatService {
     private final PostService postService;
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
+    private final ObjectMapper objectMapper;
 
     public ChatResponse processChatMessage(ChatRequest request) {
         log.info("Processing chat message for session: {}", request.getSessionId());
@@ -39,11 +43,15 @@ public class AiChatService {
         // 1. Get or Create Session
         ChatSession session = sessionRepository.findById(UUID.fromString(request.getSessionId()))
                 .orElseGet(() -> {
+                    String title = request.getMessage() != null && !request.getMessage().isBlank() ? request.getMessage() : "New Chat";
+                    if (title.length() > 35) {
+                        title = title.substring(0, 32) + "...";
+                    }
                     ChatSession newSession = ChatSession.builder()
                             .id(UUID.fromString(request.getSessionId()))
                             .brandId(UUID.fromString(request.getBrandId()))
                             .userId(UUID.fromString(request.getUserId()))
-                            .title("New Chat")
+                            .title(title)
                             .isDeleted(false)
                             .build();
                     return sessionRepository.saveAndFlush(newSession);
@@ -68,11 +76,21 @@ public class AiChatService {
                 modelUsed = config.getTextModel();
             }
             
+            String metadataJson = null;
+            if (response.getSuggestedReplies() != null && !response.getSuggestedReplies().isEmpty()) {
+                try {
+                    metadataJson = objectMapper.writeValueAsString(Map.of("suggestedReplies", response.getSuggestedReplies()));
+                } catch (Exception e) {
+                    log.warn("Failed to serialize suggested replies to metadata: {}", e.getMessage());
+                }
+            }
+            
             ChatMessage assistantMessage = ChatMessage.builder()
                     .session(session)
                     .role("assistant")
                     .content(response.getAnswer())
                     .modelUsed(modelUsed)
+                    .metadata(metadataJson)
                     .build();
             messageRepository.save(assistantMessage);
         }
@@ -85,18 +103,19 @@ public class AiChatService {
      * - Campaign  → CampaignService.createCampaign()  (brand ownership validation included)
      * - Post      → PostService.createAiDraftPost()    (validated, transactional, no raw SQL)
      */
-    private void handleAutoSave(UUID brandId, UUID userId, AiSuggestedEntities entities) {
+    private List<Post> handleAutoSave(UUID brandId, UUID userId, AiSuggestedEntities entities) {
         log.info("Handling auto-save via service layer for brand: {}", brandId);
+        List<Post> createdPosts = new ArrayList<>();
 
         // 1. Validate brand & user exist
         if (brandRepository.findById(brandId).isEmpty()) {
             log.error("Auto-save aborted: brand not found: {}", brandId);
-            return;
+            return createdPosts;
         }
         User uploader = userRepository.findById(userId).orElse(null);
         if (uploader == null) {
             log.error("Auto-save aborted: user not found: {}", userId);
-            return;
+            return createdPosts;
         }
 
         // 2. Create Campaign via CampaignService (includes brand ownership validation)
@@ -135,18 +154,20 @@ public class AiChatService {
                     continue;
                 }
                 try {
-                    postService.createAiDraftPost(
+                    Post savedPost = postService.createAiDraftPost(
                             post.getContent(),
                             savedCampaign,
                             post.getScheduledTime(),
                             post.getMediaFilenames(),
                             uploader
                     );
+                    createdPosts.add(savedPost);
                 } catch (Exception e) {
                     log.error("Failed to create AI draft post via PostService: {}", e.getMessage());
                 }
             }
         }
+        return createdPosts;
     }
     @Transactional
     public void handleAiCallback(ChatResponse response) {
@@ -155,7 +176,26 @@ public class AiChatService {
         if (response.getSuggestedEntities() != null) {
             ChatSession session = sessionRepository.findById(UUID.fromString(response.getSessionId())).orElse(null);
             if (session != null) {
-                handleAutoSave(session.getBrandId(), session.getUserId(), response.getSuggestedEntities());
+                List<Post> createdPosts = handleAutoSave(session.getBrandId(), session.getUserId(), response.getSuggestedEntities());
+                if (!createdPosts.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Mình đã tạo xong bản nháp và hình ảnh cho bạn rồi nhé!\n\n");
+                    for (Post p : createdPosts) {
+                        sb.append("👉 **[Xem chi tiết bản nháp tại đây](/create?postId=").append(p.getId()).append(")**\n\n");
+                        if (p.getMediaFiles() != null && !p.getMediaFiles().isEmpty()) {
+                            for (PostMedia media : p.getMediaFiles()) {
+                                sb.append("![").append("Hình ảnh được tạo").append("](").append(media.getUrl()).append(")\n");
+                            }
+                        }
+                    }
+                    ChatMessage followUp = ChatMessage.builder()
+                            .session(session)
+                            .role("assistant")
+                            .content(sb.toString())
+                            .modelUsed("system-callback")
+                            .build();
+                    messageRepository.save(followUp);
+                }
             }
         }
     }

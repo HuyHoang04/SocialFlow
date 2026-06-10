@@ -3,7 +3,8 @@ from typing import Optional, List, Dict, Any
 from app.services.rag_service import RagService
 from app.utils.logger import setup_logger
 from app.prompts import (
-    CHAT_SYSTEM_PROMPT,
+    CHAT_SYSTEM_PROMPT_PLAN,
+    CHAT_SYSTEM_PROMPT_GENERATE,
     PROMPT_INJECTION_PATTERNS,
     format_chat_rag_prompt,
     format_chat_reference_prompt,
@@ -37,7 +38,8 @@ class ChatService:
         image_model: Optional[str] = None,
         image_provider: Optional[str] = None,
         embedding_model: Optional[str] = None,
-        embedding_provider: Optional[str] = None
+        embedding_provider: Optional[str] = None,
+        chat_mode: Optional[str] = "plan"
     ) -> Dict[str, Any]:
         """
         Main chat function using LangChain.
@@ -78,43 +80,25 @@ class ChatService:
                     temperature=0.7
                 )
             
-            # 3. Load History from Postgres (stateless read - Java handles writes)
+            # 3. Load History from Java Backend
             from langchain.memory import ConversationBufferMemory
             from langchain.schema import HumanMessage, AIMessage
-            import psycopg
-            from app.config import DB_URL
+            from app.config import JAVA_BACKEND_URL
+            import httpx
             
             history_messages = []
             try:
-                async with await psycopg.AsyncConnection.connect(DB_URL, autocommit=True) as conn:
-                    async with conn.cursor() as cur:
-                        from uuid import UUID
-                        # DEBUG: Check if any messages exist at all
-                        await cur.execute("SELECT count(*) FROM chat_message")
-                        total_msgs = (await cur.fetchone())[0]
-                        logger.info(f"DEBUG: Total messages in chat_message table: {total_msgs}")
+                history_url = f"{JAVA_BACKEND_URL}/api/ai/chat/history/{session_id}"
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(history_url, timeout=5.0)
+                    if resp.status_code == 200:
+                        messages = resp.json()
+                        logger.info(f"DEBUG: Total messages fetched from Java API: {len(messages)}")
                         
-                        if total_msgs > 0:
-                            await cur.execute("SELECT session_id FROM chat_message LIMIT 1")
-                            sample_sid = (await cur.fetchone())[0]
-                            logger.info(f"DEBUG: Sample session_id in DB: {sample_sid} (Type: {type(sample_sid)})")
-
-                        # Fetch last 10 messages for this session
-                        await cur.execute(
-                            "SELECT role, content FROM chat_message WHERE session_id = %s::uuid ORDER BY created_at DESC LIMIT 10",
-                            (session_id,)
-                        )
-                        rows = await cur.fetchall()
-                        logger.info(f"Loaded {len(rows)} messages from history for session {session_id}")
-                        if not rows:
-                            # Try one more time without the ::uuid cast just in case
-                            await cur.execute("SELECT role, content FROM chat_message WHERE session_id = %s ORDER BY created_at DESC LIMIT 10", (session_id,))
-                            rows = await cur.fetchall()
-                            if rows:
-                                logger.info(f"Loaded {len(rows)} messages using fallback query")
-                        # Reverse to get chronological order
-                        for role, content in reversed(rows):
-                            logger.info(f"  - History: {role}: {content[:50]}...")
+                        messages = messages[-10:] if len(messages) > 10 else messages
+                        for msg in messages:
+                            role = msg.get("role", "").lower()
+                            content = msg.get("content", "")
                             if role == "user":
                                 history_messages.append(HumanMessage(content=content))
                             else:
@@ -138,13 +122,35 @@ class ChatService:
             # 4. Prepare Prompt & Chain
             from langchain.chains import LLMChain
             from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-            from app.prompts import CHAT_SYSTEM_PROMPT, format_chat_rag_prompt, format_chat_reference_prompt
+            from app.prompts import CHAT_SYSTEM_PROMPT_PLAN, CHAT_SYSTEM_PROMPT_GENERATE, format_chat_rag_prompt, format_chat_reference_prompt
             
+            system_prompt_to_use = CHAT_SYSTEM_PROMPT_GENERATE if chat_mode == "generate" else CHAT_SYSTEM_PROMPT_PLAN
+
             prompt_template = ChatPromptTemplate.from_messages([
-                ("system", CHAT_SYSTEM_PROMPT),
+                ("system", system_prompt_to_use),
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}")
             ])
+            
+            # Fetch Brand Context to inject into system prompt
+            from app.services.brand_context_service import BrandContextService
+            brand_context_svc = BrandContextService()
+            brand_meta = await brand_context_svc.get_brand_metadata(brand_id)
+            
+            brand_system_injection = ""
+            if brand_meta.get("voice_guidelines") or brand_meta.get("content_guardrails"):
+                brand_system_injection = "\n\n### BRAND GUIDELINES (STRICTLY ADHERE):\n"
+                if brand_meta.get("voice_guidelines"):
+                    brand_system_injection += f"- Voice & Tone: {brand_meta['voice_guidelines']}\n"
+                if brand_meta.get("content_guardrails"):
+                    brand_system_injection += f"- Guardrails & Restrictions: {brand_meta['content_guardrails']}\n"
+                
+                # Create a new dynamic prompt template
+                prompt_template = ChatPromptTemplate.from_messages([
+                    ("system", system_prompt_to_use + brand_system_injection),
+                    MessagesPlaceholder(variable_name="chat_history"),
+                    ("human", "{input}")
+                ])
             
             # Build final human input with RAG context
             human_input = format_chat_rag_prompt(user_message, context_text)
@@ -171,17 +177,62 @@ class ChatService:
                 image_provider=image_provider
             ))
             
-            # 7. Add processing hint if JSON is detected
+            # 7. Add processing hint and format JSON if detected
             display_answer = answer
-            if "```json" in answer:
-                display_answer += "\n\n*(Hệ thống đang tiến hành khởi tạo nội dung và sinh ảnh minh họa. Bạn sẽ thấy các bản nháp xuất hiện trong mục Chiến dịch sau vài giây...)*"
+            import re, json
+            json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", display_answer, re.DOTALL | re.IGNORECASE)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1).strip())
+                    markdown_replacement = ""
+                    
+                    # Format campaign
+                    campaign = data.get("campaign")
+                    if campaign and isinstance(campaign, dict) and campaign.get("name"):
+                        markdown_replacement += f"🎯 **Chiến dịch: {campaign.get('name')}**\n"
+                        if campaign.get("description"):
+                            markdown_replacement += f"_{campaign.get('description')}_\n"
+                        markdown_replacement += "\n"
+                    
+                    # Format posts
+                    posts = data.get("posts", [])
+                    if posts:
+                        for idx, p in enumerate(posts):
+                            platform = p.get("platform_suggestion") or "Mạng xã hội"
+                            content = p.get("content", "").strip()
+                            if content:
+                                markdown_replacement += f"📝 **Bản nháp ({platform}):**\n\n{content}\n\n---\n"
+                    
+                    # Replace the JSON block with the markdown
+                    display_answer = display_answer[:json_match.start()] + markdown_replacement.strip() + "\n\n" + display_answer[json_match.end():]
+                except Exception as e:
+                    logger.warning(f"Failed to parse JSON for display: {e}")
+                
+                display_answer += "\n\n*(Hệ thống đang tiến hành lưu bản nháp và sinh ảnh. Link truy cập và hình ảnh sẽ được gửi ngay sau đây...)*"
+            
+            # 8. Extract suggested follow-ups
+            import re
+            suggested_replies = []
+            replies_match = re.search(r"<suggested_replies>(.*?)</suggested_replies>", display_answer, re.DOTALL | re.IGNORECASE)
+            if replies_match:
+                raw_replies = replies_match.group(1).strip()
+                suggested_replies = [r.strip() for r in raw_replies.split('|') if r.strip()]
+                # Remove the tag from the display answer
+                display_answer = re.sub(r"<suggested_replies>.*?</suggested_replies>", "", display_answer, flags=re.DOTALL | re.IGNORECASE).strip()
+            
+            if not suggested_replies:
+                if chat_mode == "generate":
+                    suggested_replies = ["Write a quick post", "Generate an image", "Rewrite a caption"]
+                else:
+                    suggested_replies = ["Plan a new campaign", "Brainstorm content ideas", "Analyze my brand"]
             
             return {
                 "answer": display_answer,
                 "source_documents": context_chunks,
                 "session_id": session_id,
                 "success": True,
-                "suggested_entities": None
+                "suggested_entities": None,
+                "suggested_replies": suggested_replies
             }
             
         except Exception as e:
@@ -221,7 +272,7 @@ class ChatService:
         import uuid
         
         # Find json block
-        match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         if not match:
             return None
             
@@ -260,7 +311,8 @@ class ChatService:
     async def _notify_java_backend(self, brand_id: str, user_id: str, session_id: str, answer: str, entities: dict):
         """Push results to Java backend callback endpoint"""
         try:
-            url = f"{JAVA_BACKEND_URL}/api/chat/callback"
+            url = f"{JAVA_BACKEND_URL}/api/ai/chat/callback"
+            logger.info(f"Triggering Java callback: {url}")
             payload = {
                 "brand_id": brand_id,
                 "user_id": user_id,

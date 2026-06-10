@@ -285,6 +285,11 @@ export default function AnalyticsPage() {
                             <EngageStat icon={<IconShare size={16} />} label="Shares" value={fmt(overview!.totalShares)} color="#fdcb6e" />
                         </div>
 
+                        {/* ── Golden Hours Section ── */}
+                        {postAnalytics.length > 0 && (
+                            <GoldenHoursSection posts={postAnalytics} />
+                        )}
+
                         {/* ── 2-col: Top Posts + Pages ── */}
                         <div className={styles.twoCol}>
                             {/* Top posts leaderboard */}
@@ -529,4 +534,63 @@ function Num({ val, color }: { val: number; color?: string }) {
         return n?.toString() ?? '0';
     };
     return <span style={{ fontWeight: 600, color: color ?? 'var(--text-primary)' }}>{fmt(val)}</span>;
+}
+
+function GoldenHoursSection({ posts }: { posts: PostAnalytics[] }) {
+    // Calculate avg engagement per hour
+    const hours = Array(24).fill(0).map(() => ({ totalEng: 0, count: 0, avg: 0 }));
+    posts.forEach(post => {
+        if (!post.publishedAt) return;
+        const hr = new Date(post.publishedAt).getHours();
+        hours[hr].totalEng += post.engagementRate;
+        hours[hr].count += 1;
+    });
+    
+    hours.forEach(h => {
+        h.avg = h.count > 0 ? h.totalEng / h.count : 0;
+    });
+    
+    const sortedHours = hours.map((h, i) => ({ hour: i, avg: h.avg, count: h.count }))
+                             .filter(h => h.count > 0)
+                             .sort((a, b) => b.avg - a.avg);
+                             
+    if (sortedHours.length < 2) return null; // Need enough data
+
+    const peakHour = sortedHours[0];
+    const secondaryHour = sortedHours[1];
+    const lowestHour = sortedHours[sortedHours.length - 1];
+
+    const formatHour = (h: number) => {
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hr = h % 12 || 12;
+        return `${hr}:00 ${ampm}`;
+    };
+
+    return (
+        <div className={styles.card} style={{ marginBottom: 20 }}>
+            <h2 className={styles.cardTitle}>
+                <IconClock size={18} color="#0984e3" /> Best Time to Post (Golden Hours)
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginTop: 16 }}>
+                <div style={{ padding: 16, background: 'var(--bg-glass-strong)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Peak Hour</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#00b894' }}>{formatHour(peakHour.hour)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{peakHour.avg.toFixed(1)}% avg engagement</div>
+                </div>
+                <div style={{ padding: 16, background: 'var(--bg-glass-strong)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Secondary Peak</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#0984e3' }}>{formatHour(secondaryHour.hour)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{secondaryHour.avg.toFixed(1)}% avg engagement</div>
+                </div>
+                <div style={{ padding: 16, background: 'var(--bg-glass-strong)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Low Activity</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#fd79a8' }}>{formatHour(lowestHour.hour)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lowestHour.avg.toFixed(1)}% avg engagement</div>
+                </div>
+            </div>
+            <div style={{ marginTop: 16, padding: 16, background: 'var(--primary-glow)', border: '1px solid var(--primary)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 14 }}>
+                <strong>Recommendation:</strong> Your audience is most active around {formatHour(peakHour.hour)}. Consider scheduling posts between {formatHour(peakHour.hour)} and {formatHour((peakHour.hour + 2) % 24)} for maximum reach.
+            </div>
+        </div>
+    );
 }

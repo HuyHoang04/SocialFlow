@@ -5,7 +5,7 @@ from app.models import (
     RewriteRequest, RewriteResponse, 
     KeywordOptimizationRequest, KeywordOptimizationResponse,
     ImageGenerationRequest, ImageGenerationResponse,
-    ImageModelsResponse
+    ImageModelsResponse, CaptionBatchRequest
 )
 from app.services.ai_service import AIService
 from app.utils.logger import setup_logger
@@ -19,6 +19,27 @@ def get_ai_service() -> AIService:
     """Get AI service singleton"""
     from app.main import ai_service
     return ai_service
+
+@router.post("/generate-caption-batch")
+async def generate_caption_batch(request: CaptionBatchRequest, ai_service: AIService = Depends(get_ai_service)):
+    """Generate batch of 3 captions using 3-step pipeline"""
+    logger.info(f"Batch generation requested for brand: {request.brand_id}")
+    try:
+        captions = await ai_service.generate_caption_batch(
+            brand_id=request.brand_id,
+            platforms=request.platforms,
+            category=request.category,
+            tone=request.tone,
+            user_brief=request.user_brief,
+            scheduled_time=request.scheduled_time,
+            provider=request.provider,
+            model=request.model,
+            use_rag=request.use_rag
+        )
+        return captions
+    except Exception as e:
+        logger.error(f"Batch generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-content", response_model=ContentResponse)
 async def generate_content(request: ContentRequest, ai_service: AIService = Depends(get_ai_service)) -> ContentResponse:

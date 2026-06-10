@@ -174,6 +174,8 @@ export const api = {
         brandSlogan?: string;
         primaryColor?: string;
         secondaryColor?: string;
+        aiVoiceGuidelines?: string;
+        aiContentGuardrails?: string;
     }) =>
         request(`/brands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBrand: (id: string) => request(`/brands/${id}`, { method: 'DELETE' }),
@@ -301,6 +303,18 @@ export const api = {
         platform?: string;
         max_words?: number;
     }) => request('/ai/generate-content', { method: 'POST', body: JSON.stringify(data) }),
+
+    generateCaptionBatch: (data: {
+        brand_id: string;
+        platforms: string[];
+        category: string;
+        tone?: string;
+        user_brief: string;
+        use_rag?: boolean;
+        scheduled_time?: string;
+        provider?: string;
+        model?: string;
+    }) => request('/ai/generate-caption-batch', { method: 'POST', body: JSON.stringify(data) }),
 
     // Content Rewrite
     rewriteContent: (data: {
@@ -489,6 +503,7 @@ export const api = {
         context_data?: string;
         provider?: string;
         model?: string;
+        chat_mode?: string;
     }) => request('/ai/chat/send', { method: 'POST', body: JSON.stringify(data) }),
 
     getChatSessions: (brandId: string) => request(`/ai/chat/sessions?brandId=${brandId}`),

@@ -18,4 +18,6 @@ public class CreateBrandRequest {
     private String brandSlogan;
     private String primaryColor;
     private String secondaryColor;
+    private String aiVoiceGuidelines;
+    private String aiContentGuardrails;
 }

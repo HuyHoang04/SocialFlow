@@ -28,6 +28,17 @@ class ContentRequest(BaseModel):
     provider: str                        # REQUIRED: "groq" or "openrouter"
     model: str                           # REQUIRED: model name or "auto"
 
+class CaptionBatchRequest(BaseModel):
+    brand_id: str
+    platforms: List[str]
+    category: str
+    tone: str = "professional"
+    user_brief: str
+    use_rag: bool = False
+    scheduled_time: Optional[str] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
 
 class ContentResponse(BaseModel):
     """Response model for content generation"""
