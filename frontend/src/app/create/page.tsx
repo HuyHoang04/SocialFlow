@@ -282,7 +282,7 @@ function CreatePostContent() {
     // Image editing state
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingMediaIndex, setEditingMediaIndex] = useState<number | null>(null);
-    const [isStockOpen, setIsStockOpen] = useState(false);
+
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
     const [libraryAssets, setLibraryAssets] = useState<any[]>([]);
     const [loadingLibrary, setLoadingLibrary] = useState(false);
@@ -1161,7 +1161,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                 </button>
                                 <button
                                     className="ai-tool-btn"
-                                    onClick={() => setIsStockOpen(true)}
+                                    onClick={() => setImageModal({ isOpen: true, mode: 'search' })}
                                     style={{ flex: 1, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: '0.2s', cursor: 'pointer' }}
                                     onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
                                     onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
