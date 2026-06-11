@@ -11,6 +11,7 @@ public class LinktreeProfileRequest {
     private String bio;
     private String displayName;
     private String websiteLabel;
+    private String website;
     private String bgStyle;
     private String bgImageUrl;
     private String buttonStyle;

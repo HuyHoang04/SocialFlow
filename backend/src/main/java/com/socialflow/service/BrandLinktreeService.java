@@ -31,20 +31,31 @@ public class BrandLinktreeService {
                 .orElseThrow(() -> new RuntimeException("Brand not found"));
 
         // Validate slug uniqueness if changed
-        if (req.getSlug() != null && !req.getSlug().isBlank()) {
-            String cleanSlug = req.getSlug().toLowerCase().replaceAll("[^a-z0-9\\-]", "-");
-            profileRepository.findBySlug(cleanSlug).ifPresent(existing -> {
-                if (!existing.getBrand().getId().equals(brandId)) {
-                    throw new RuntimeException("Slug '" + cleanSlug + "' is already taken");
-                }
-            });
-            req.setSlug(cleanSlug);
+        if (req.getSlug() != null) {
+            if (req.getSlug().isBlank()) {
+                req.setSlug(null);
+            } else {
+                String cleanSlug = req.getSlug().toLowerCase().replaceAll("[^a-z0-9\\-]", "-");
+                profileRepository.findBySlug(cleanSlug).ifPresent(existing -> {
+                    if (!existing.getBrand().getId().equals(brandId)) {
+                        throw new RuntimeException("Slug '" + cleanSlug + "' is already taken");
+                    }
+                });
+                req.setSlug(cleanSlug);
+            }
         }
 
         BrandLinktreeProfile profile = profileRepository.findByBrandId(brandId)
                 .orElse(BrandLinktreeProfile.builder().brand(brand).build());
 
-        if (req.getSlug() != null && !req.getSlug().isBlank()) profile.setSlug(req.getSlug());
+        // Wait, a better way to clear the slug:
+        // We know if they wanted to clear it, they sent "", which we converted to null.
+        // Wait, if they omit it entirely, it is also null.
+        // So we can't tell them apart without an explicit flag. But actually,
+        // since it's a PUT request containing the full form state, if slug is null,
+        // it means it should be cleared!
+        profile.setSlug(req.getSlug());
+
         if (req.getBio() != null) profile.setBio(req.getBio());
         if (req.getDisplayName() != null) profile.setDisplayName(req.getDisplayName());
         if (req.getWebsiteLabel() != null) profile.setWebsiteLabel(req.getWebsiteLabel());
@@ -53,6 +64,11 @@ public class BrandLinktreeService {
         if (req.getButtonStyle() != null) profile.setButtonStyle(req.getButtonStyle());
         if (req.getCustomLinks() != null) profile.setCustomLinks(req.getCustomLinks());
         profile.setPublished(req.isPublished());
+
+        if (req.getWebsite() != null) {
+            brand.setWebsite(req.getWebsite());
+            brandRepository.save(brand);
+        }
 
         return profileRepository.save(profile);
     }

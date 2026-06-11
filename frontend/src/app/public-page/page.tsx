@@ -255,17 +255,60 @@ function PublicPageEditorContent() {
 
         const isPublished = publishedVal !== undefined ? publishedVal : !!settings.published;
 
+        // Auto-commit any currently editing block
+        let finalCustomLinks = customLinks;
+        if (editingBlockId) {
+            finalCustomLinks = customLinks.map(block => {
+                if (block.id !== editingBlockId) return block;
+                let formattedUrl = editUrl.trim();
+                if (formattedUrl && block.type !== 'header' && block.type !== 'text') {
+                    if (!/^https?:\/\//i.test(formattedUrl)) {
+                        formattedUrl = 'https://' + formattedUrl;
+                    }
+                }
+                return {
+                    ...block,
+                    title: editTitle.trim() || undefined,
+                    url: (block.type === 'link' || block.type === 'image' || block.type === 'video') ? formattedUrl : undefined,
+                    description: block.type === 'text' ? editDescription.trim() : undefined,
+                    platform: block.type === 'link' ? (editIconType !== 'custom' ? editIconType : undefined) : undefined,
+                    iconUrl: block.type === 'link' ? (editIconType === 'custom' ? editIconUrl : undefined) : undefined,
+                    imageUrl: block.type === 'image' ? editImageUrl : undefined,
+                };
+            });
+            setCustomLinks(finalCustomLinks);
+            setEditingBlockId(null);
+        }
+
+        // Auto-commit other inline edits if active
+        let finalSettings = { ...settings };
+        if (editingName) {
+            finalSettings.displayName = tempName.trim();
+            setEditingName(false);
+        }
+        if (editingBio) {
+            finalSettings.bio = tempBio.trim();
+            setEditingBio(false);
+        }
+        if (editingWebsite) {
+            finalSettings.websiteLabel = tempWebsiteLabel.trim();
+            finalSettings.website = tempWebsiteUrl.trim();
+            setEditingWebsite(false);
+        }
+        setSettings(finalSettings);
+
         try {
             const payload = {
-                slug: settings.slug,
-                bio: settings.bio,
-                displayName: settings.displayName,
-                websiteLabel: settings.websiteLabel,
-                bgStyle: settings.bgStyle,
-                bgImageUrl: settings.bgImageUrl,
-                buttonStyle: settings.buttonStyle,
+                slug: finalSettings.slug,
+                bio: finalSettings.bio,
+                displayName: finalSettings.displayName,
+                websiteLabel: finalSettings.websiteLabel,
+                website: finalSettings.website,
+                bgStyle: finalSettings.bgStyle,
+                bgImageUrl: finalSettings.bgImageUrl,
+                buttonStyle: finalSettings.buttonStyle,
                 published: isPublished,
-                customLinks: JSON.stringify(customLinks),
+                customLinks: JSON.stringify(finalCustomLinks),
             };
 
             const updated = await api.saveLinktreeSettings(selectedBrand.id, payload);
@@ -284,17 +327,61 @@ function PublicPageEditorContent() {
         const targetState = !settings.published;
         setSaving(true);
         setMessage(null);
+
+        // Auto-commit any currently editing block
+        let finalCustomLinks = customLinks;
+        if (editingBlockId) {
+            finalCustomLinks = customLinks.map(block => {
+                if (block.id !== editingBlockId) return block;
+                let formattedUrl = editUrl.trim();
+                if (formattedUrl && block.type !== 'header' && block.type !== 'text') {
+                    if (!/^https?:\/\//i.test(formattedUrl)) {
+                        formattedUrl = 'https://' + formattedUrl;
+                    }
+                }
+                return {
+                    ...block,
+                    title: editTitle.trim() || undefined,
+                    url: (block.type === 'link' || block.type === 'image' || block.type === 'video') ? formattedUrl : undefined,
+                    description: block.type === 'text' ? editDescription.trim() : undefined,
+                    platform: block.type === 'link' ? (editIconType !== 'custom' ? editIconType : undefined) : undefined,
+                    iconUrl: block.type === 'link' ? (editIconType === 'custom' ? editIconUrl : undefined) : undefined,
+                    imageUrl: block.type === 'image' ? editImageUrl : undefined,
+                };
+            });
+            setCustomLinks(finalCustomLinks);
+            setEditingBlockId(null);
+        }
+
+        // Auto-commit other inline edits if active
+        let finalSettings = { ...settings };
+        if (editingName) {
+            finalSettings.displayName = tempName.trim();
+            setEditingName(false);
+        }
+        if (editingBio) {
+            finalSettings.bio = tempBio.trim();
+            setEditingBio(false);
+        }
+        if (editingWebsite) {
+            finalSettings.websiteLabel = tempWebsiteLabel.trim();
+            finalSettings.website = tempWebsiteUrl.trim();
+            setEditingWebsite(false);
+        }
+        setSettings(finalSettings);
+
         try {
             const payload = {
-                slug: settings.slug,
-                bio: settings.bio,
-                displayName: settings.displayName,
-                websiteLabel: settings.websiteLabel,
-                bgStyle: settings.bgStyle,
-                bgImageUrl: settings.bgImageUrl,
-                buttonStyle: settings.buttonStyle,
+                slug: finalSettings.slug,
+                bio: finalSettings.bio,
+                displayName: finalSettings.displayName,
+                websiteLabel: finalSettings.websiteLabel,
+                website: finalSettings.website,
+                bgStyle: finalSettings.bgStyle,
+                bgImageUrl: finalSettings.bgImageUrl,
+                buttonStyle: finalSettings.buttonStyle,
                 published: targetState,
-                customLinks: JSON.stringify(customLinks),
+                customLinks: JSON.stringify(finalCustomLinks),
             };
             const updated = await api.saveLinktreeSettings(selectedBrand.id, payload);
             setSettings(updated);

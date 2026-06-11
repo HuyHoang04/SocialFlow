@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
 
                 <nav className="sidebar-nav" style={{ paddingBottom: 24, paddingTop: 12 }}>
                     {navGroups.map((group, groupIdx) => (
-                        <div key={groupIdx} style={{ marginBottom: collapsed ? 8 : 20 }}>
+                        <div key={groupIdx} style={{ marginBottom: collapsed ? 4 : 8 }}>
                             {!collapsed && (
                                 <div style={{
                                     fontSize: 11,
@@ -101,7 +101,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.5px',
                                     padding: '0 16px 8px',
-                                    marginTop: groupIdx > 0 ? 8 : 0
+                                    marginTop: groupIdx > 0 ? 4 : 0
                                 }}>
                                     {group.title}
                                 </div>
