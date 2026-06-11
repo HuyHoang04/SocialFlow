@@ -31,8 +31,6 @@ build_backend:
 
 build_frontend:
   <<: *build_template
-  needs:
-    - build_backend
   script:
     - >
       docker build 
@@ -45,8 +43,6 @@ build_frontend:
 
 build_ai_service:
   <<: *build_template
-  needs:
-    - build_frontend
   script:
     - docker build -t "$ECR_REGISTRY/socialflow/ai_service:latest" ./ai-service/
     - docker push "$ECR_REGISTRY/socialflow/ai_service:latest"
