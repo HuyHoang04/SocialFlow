@@ -110,10 +110,20 @@ export default function PostDetailPage() {
 
     useEffect(() => { load(); }, [load]);
 
+    const [isPublishing, setIsPublishing] = useState(false);
+
     const publish = async () => {
-        if (!post) return;
-        await api.publishPost(post.id);
-        load();
+        if (!post || isPublishing) return;
+        setIsPublishing(true);
+        try {
+            await api.publishPost(post.id);
+            await load();
+        } catch (err) {
+            console.error(err);
+            toast('Publish failed', 'error');
+        } finally {
+            setIsPublishing(false);
+        }
     };
 
     const deletePost = async () => {
@@ -153,7 +163,15 @@ export default function PostDetailPage() {
         };
 
         if (p === 'facebook') {
-            const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&show_text=true&width=500`;
+            let safeUrl = url;
+            // Backend might return https://facebook.com/12345_67890
+            const fbMatch = url.match(/facebook\.com\/(\d+)_(\d+)/);
+            if (fbMatch) {
+                const pageId = fbMatch[1];
+                const postId = fbMatch[2];
+                safeUrl = `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
+            }
+            const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(safeUrl)}&show_text=true&width=500`;
             return (
                 <div style={containerStyle}>
                     <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0" allowFullScreen={true} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
@@ -305,10 +323,14 @@ export default function PostDetailPage() {
                     ) : (
                         <>
                             {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
-                                <button className="btn btn-primary" onClick={publish}><IconSend size={16} /> Publish Now</button>
+                                <button className="btn btn-primary" onClick={publish} disabled={isPublishing}>
+                                    <IconSend size={16} /> {isPublishing ? 'Publishing...' : 'Publish Now'}
+                                </button>
                             )}
                             {post.status === 'FAILED' && (
-                                <button className="btn btn-primary" onClick={publish}><IconRefreshCw size={16} /> Retry</button>
+                                <button className="btn btn-primary" onClick={publish} disabled={isPublishing}>
+                                    <IconRefreshCw size={16} className={isPublishing ? 'spin' : ''} /> {isPublishing ? 'Retrying...' : 'Retry'}
+                                </button>
                             )}
                         </>
                     )}
@@ -399,46 +421,54 @@ export default function PostDetailPage() {
 
                 {/* Right Column: Publish Results & Embeds */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                    {post.publishResults.length > 0 && (
-                        <div className="card">
-                            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Publish Status</h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {post.publishResults.map(r => (
-                                    <div key={r.id} className={`result-item ${r.success ? 'result-success' : 'result-failed'}`}>
-                                        <span style={{ fontSize: 24 }}>{r.success ? <IconCheckCircle size={24} color="var(--success)" /> : <IconX size={24} color="var(--error)" />}</span>
-                                        <div style={{ flex: 1 }}>
-                                            {r.success ? (
-                                                <>
-                                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Published successfully</div>
-                                                    {r.platformPostUrl && (
-                                                        <a href={r.platformPostUrl} target="_blank" rel="noopener noreferrer"
-                                                            style={{ fontSize: 13, color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
-                                                            <IconLink size={13} /> View on platform →
-                                                        </a>
+                    {(() => {
+                        const latestResult = post.publishResults && post.publishResults.length > 0
+                            ? [...post.publishResults].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+                            : null;
+
+                        return (
+                            <>
+                                {latestResult && (
+                                    <div className="card">
+                                        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Publish Status</h2>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            <div className={`result-item ${latestResult.success ? 'result-success' : 'result-failed'}`}>
+                                                <span style={{ fontSize: 24 }}>{latestResult.success ? <IconCheckCircle size={24} color="var(--success)" /> : <IconX size={24} color="var(--error)" />}</span>
+                                                <div style={{ flex: 1 }}>
+                                                    {latestResult.success ? (
+                                                        <>
+                                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>Published successfully</div>
+                                                            {latestResult.platformPostUrl && (
+                                                                <a href={latestResult.platformPostUrl} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ fontSize: 13, color: 'var(--accent-light)', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
+                                                                    <IconLink size={13} /> View on platform →
+                                                                </a>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div style={{ fontWeight: 600, color: 'var(--error)', marginBottom: 4 }}>
+                                                                Publish failed
+                                                            </div>
+                                                            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                                                                {latestResult.errorMessage || 'Unknown error'}
+                                                            </div>
+                                                        </>
                                                     )}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div style={{ fontWeight: 600, color: 'var(--error)', marginBottom: 4 }}>
-                                                        Publish failed
-                                                    </div>
-                                                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                                                        {r.errorMessage || 'Unknown error'}
-                                                    </div>
-                                                </>
-                                            )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                )}
 
-                    {post.publishResults.map(r => r.success && r.platformPostUrl ? (
-                        <div key={'embed-'+r.id}>
-                            {renderPlatformEmbed(r.platformPostUrl, post.page.platform)}
-                        </div>
-                    ) : null)}
+                                {latestResult?.success && latestResult.platformPostUrl && (
+                                    <div key={'embed-' + latestResult.id}>
+                                        {renderPlatformEmbed(latestResult.platformPostUrl, post.page.platform)}
+                                    </div>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
         </AppShell>
