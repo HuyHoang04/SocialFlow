@@ -1,5 +1,5 @@
 const API_BASE = '/api';
-const NEXT_PUBLIC_UNSPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNPLASH_ACCESS_KEY || '';
+const NEXT_PUBLIC_UNSPLASH_ACCESS_KEY = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY || '';
 const NEXT_PUBLIC_UNSPLASH_SECRET_KEY = process.env.NEXT_PUBLIC_UNSPLASH_SECRET_KEY || '';
 
 function getToken(): string | null {
