@@ -160,6 +160,7 @@ deploy_production:
             fi
             
             echo '$ECR_PASS' | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+            docker image prune -a -f
             docker compose down || true
             docker compose pull
             docker compose up -d
