@@ -24,6 +24,9 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup"""
+    from app.config import DB_URL, GROQ_API_KEY
+    db_target = DB_URL.split('@')[-1] if '@' in DB_URL else 'localhost'
+    logger.info(f"Startup: Environment variables loaded. DB Target: {db_target} | Groq Key Loaded: {bool(GROQ_API_KEY)}")
     logger.info("Startup: Loading models from provider APIs...")
     await ai_service.refresh_models()
     await embedding_service.fetch_and_cache_embedding_models()

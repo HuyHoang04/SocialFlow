@@ -17,7 +17,7 @@ DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "socialflow")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_URL = "postgresql://neondb_owner:npg_Vis08FoSalfC@ep-super-frost-amjd7bup-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require"
+DB_URL = os.getenv("DATABASE_URL", "postgresql://neondb_owner:npg_Vis08FoSalfC@ep-super-frost-amjd7bup-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require")
 
 # Feature Flags & Fallback Configuration
 ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() in ("true", "1", "yes")
