@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, setToken, setUser } from '@/lib/api';
@@ -9,12 +10,12 @@ export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const { toast } = useToast();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        
         setLoading(true);
         try {
             const res = await api.login({ email, password });
@@ -22,7 +23,7 @@ export default function LoginPage() {
             setUser({ email: res.email, name: res.name, userId: res.userId, avatarUrl: res.avatarUrl });
             router.push('/brands');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Login failed')
         } finally {
             setLoading(false);
         }
@@ -66,7 +67,7 @@ export default function LoginPage() {
                     </span>
                 </h1>
                 <p className="auth-subtitle">Sign in to manage your social presence</p>
-                {error && <div className="error-msg">{error}</div>}
+                
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label className="form-label">Email</label>

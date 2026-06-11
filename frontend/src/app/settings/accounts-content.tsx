@@ -111,7 +111,7 @@ export default function AccountsContent() {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState('');
-    const [errorMsg, setErrorMsg] = useState('');
+    
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [showAppConfigModal, setShowAppConfigModal] = useState(false);
     const fbLoaded = useRef(false);
@@ -208,14 +208,14 @@ export default function AccountsContent() {
                             window.removeEventListener('message', handleMessage);
                             clearInterval(checkPopup);
                             setSuccessMsg(platform.charAt(0).toUpperCase() + platform.slice(1));
-                            setErrorMsg('');
+                            
                             loadConnections();
                             setConnecting(null);
                             try { popup.close(); } catch (e) { }
                         } else if (event.data?.type === 'oauth_error') {
                             window.removeEventListener('message', handleMessage);
                             clearInterval(checkPopup);
-                            setErrorMsg(event.data.message || 'Authentication failed');
+                            toast('Operation failed', 'error', event.data.message || 'Authentication failed')
                             setConnecting(null);
                         }
                     };
@@ -285,20 +285,7 @@ export default function AccountsContent() {
                 </button>
             </div>
 
-            {errorMsg && (
-                <div style={{ 
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444',
-                    padding: '12px 20px', borderRadius: 'var(--radius)',
-                    marginBottom: 24, color: 'var(--text-primary)'
-                }}>
-                    <span style={{ fontSize: 20 }}>❌</span>
-                    <div style={{ flex: 1, fontSize: 13 }}>
-                        <strong style={{ color: '#ef4444' }}>Connection failed: </strong>{errorMsg}
-                    </div>
-                    <button onClick={() => setErrorMsg('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
-                </div>
-            )}
+
 
             {successMsg && (
                 <div className="success-msg" style={{ 

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
@@ -190,7 +191,7 @@ export default function ApprovalsPage() {
     const { selectedBrand } = useBrand();
     const [allApprovals, setAllApprovals] = useState<PostApproval[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { toast } = useToast();
     const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
 
     // Approval action state
@@ -217,13 +218,13 @@ export default function ApprovalsPage() {
 
     const loadApprovals = useCallback(async () => {
         if (!selectedBrand || !user) return;
-        setError(null);
+        
         try {
             const approvals = await api.getAllApprovals(user.userId, selectedBrand.id);
             setAllApprovals(approvals);
         } catch (err: any) {
             if (err?.message !== 'Unauthorized') {
-                setError(err?.message || 'Failed to load approvals');
+                toast('Operation failed', 'error', err?.message || 'Failed to load approvals')
             }
         }
         setLoading(false);
@@ -473,7 +474,7 @@ export default function ApprovalsPage() {
                 </div>
 
                 {/* Error Messages */}
-                {error && <div className="error-message" style={{ marginBottom: 20 }}>{error}</div>}
+                
                 {actionError && <div className="error-message" style={{ marginBottom: 20 }}>{actionError}</div>}
                 {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading approvals...</div>}
 

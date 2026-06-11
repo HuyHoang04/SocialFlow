@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useToast } from '@/components/Toast';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
@@ -67,7 +68,7 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   const [aiInfo, setAiInfo] = useState({ models: 0, docs: 0 });
 
   // Calendar State
@@ -78,7 +79,7 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     if (!selectedBrand) return;
     setLoading(true);
-    setError(null);
+    
     try {
       const [p, c, models] = await Promise.all([
         api.getPosts(selectedBrand.id),
@@ -107,7 +108,7 @@ export default function DashboardPage() {
 
     } catch (err) {
       console.error("Dashboard load error:", err);
-      setError("Failed to load dashboard data.");
+      toast("Failed to load dashboard data.", 'error')
     }
     setLoading(false);
   }, [selectedBrand]);
@@ -175,11 +176,6 @@ export default function DashboardPage() {
               <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
             </div>
             <div className="skeleton" style={{ width: '100%', height: 500 }} />
-          </div>
-        ) : error ? (
-          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <p style={{ marginBottom: 16 }}>{error}</p>
-            <button className="btn btn-secondary" onClick={load}>Retry</button>
           </div>
         ) : (
           <>

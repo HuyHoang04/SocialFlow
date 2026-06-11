@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, canManageBrand } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
+import { useToast } from '@/components/Toast';
 import AppShell from '@/components/AppShell';
 import {
     PlatformIcon, IconCamera, IconFilm, IconSend, IconClock, IconSave, IconX, IconEdit, IconBook,
@@ -229,7 +230,7 @@ function CreatePostContent() {
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(false);
     const [publishing, setPublishing] = useState(false);
-    const [error, setError] = useState('');
+    const { toast } = useToast();
     const [scheduledTime, setScheduledTime] = useState('');
     const [isEditingPost, setIsEditingPost] = useState(false);
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -381,7 +382,7 @@ function CreatePostContent() {
                     setScheduledTime(post.scheduledTime);
                 }
             })
-            .catch((err: any) => setError(err instanceof Error ? err.message : 'Failed to load post'))
+            .catch((err: any) => toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to load post'))
             .finally(() => setLoading(false));
     }, [postId, brand]);
 
@@ -473,7 +474,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setGeneratedCaptions(result);
             setIsGenerationComplete(true);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'AI generation failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'AI generation failed');
         } finally {
             setAiLoading(false);
         }
@@ -503,7 +504,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
     const handleGenerateImage = async () => {
         if (!brand) return;
         const composedImagePrompt = `Style: ${imageOptions.style}\nLighting: ${imageOptions.lighting}\nSubject: ${imagePrompt}\nAdditional Details: ${imageOptions.details}`.trim();
-        if (!imagePrompt.trim() && !imageOptions.details.trim()) return setError('Please enter image prompt');
+        if (!imagePrompt.trim() && !imageOptions.details.trim()) return toast('Please enter image prompt', 'error');
         setImageLoading(true);
         try {
             const result = await api.generateImage({
@@ -517,7 +518,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setGeneratedImages(images);
             setIsImageGenerationComplete(true);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Image generation failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Image generation failed');
         } finally {
             setImageLoading(false);
         }
@@ -540,7 +541,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setImagePrompt('');
             setImageCount(1);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to add image');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to add image');
         }
     };
 
@@ -570,7 +571,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setSelectedImages(new Set()); // Reset selection on new search
         } catch (err: unknown) {
             console.error('❌ Search failed:', err);
-            setError(err instanceof Error ? err.message : 'Photo search failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Photo search failed');
         } finally {
             setImageLoading(false);
         }
@@ -616,7 +617,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setSelectedImages(new Set());
             setSearchResults([]);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to add images');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to add images');
         } finally {
             setUploading(false);
         }
@@ -652,7 +653,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setGeneratedImages([]);
             setSearchResults([]);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to add image');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to add image');
         } finally {
             setUploading(false);
         }
@@ -672,7 +673,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setRagResults([]);
             setIsGenerationComplete(true);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'AI enhancement failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'AI enhancement failed');
         } finally {
             setAiLoading(false);
         }
@@ -700,7 +701,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             setRagResults([]);
             setIsGenerationComplete(true);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to generate hashtags');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to generate hashtags');
         } finally {
             setAiLoading(false);
         }
@@ -721,24 +722,24 @@ Call to Action: ${aiOptions.callToAction || 'None'}
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         setUploading(true);
-        setError('');
+        toast('', 'error');
 
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-                    setError('Only image and video files are allowed');
+                    toast('Only image and video files are allowed', 'error');
                     continue;
                 }
                 if (file.size > 50 * 1024 * 1024) {
-                    setError('File too large (max 50MB)');
+                    toast('File too large (max 50MB)', 'error');
                     continue;
                 }
                 const result = await api.uploadMedia(file);
                 setMediaFiles(prev => [...prev, result]);
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Upload failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Upload failed');
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -773,7 +774,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                 return updated;
             });
         } catch (err) {
-            setError('Failed to save edited image');
+            toast('Failed to save edited image', 'error');
         } finally {
             setUploading(false);
             setEditingMediaIndex(null);
@@ -787,7 +788,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             const data = await api.getMedia();
             setLibraryAssets(data);
         } catch (err) {
-            setError('Failed to load library');
+            toast('Failed to load library', 'error');
         } finally {
             setLoadingLibrary(false);
         }
@@ -812,8 +813,8 @@ Call to Action: ${aiOptions.callToAction || 'None'}
 
     // ===== Publish/Schedule/Draft/Submit for Approval =====
     const handleSubmit = async (forceApproval: boolean = false) => {
-        if (!content.trim()) return setError('Please enter post content');
-        if (selectedPages.length === 0) return setError('Please select at least one page');
+        if (!content.trim()) return toast('Please enter post content', 'error');
+        if (selectedPages.length === 0) return toast('Please select at least one page', 'error');
 
         // Check if approval workflow is enabled, not scheduled, and (user is not Admin/Manager OR forced)
         const needsApproval = workflowConfig?.enabled && !scheduledTime && (!isCurrentUserAdminOrManager || forceApproval);
@@ -826,17 +827,17 @@ Call to Action: ${aiOptions.callToAction || 'None'}
 
         // If approval needed but no approvers available
         if (needsApproval && teamMembers.length === 0) {
-            return setError('No team members available for approval. Add team members first.');
+            return toast('No team members available for approval. Add team members first.', 'error');
         }
 
         let ISOStringTime = undefined;
         if (scheduledTime) {
             const date = new Date(scheduledTime);
-            if (date <= new Date()) return setError('Scheduled time must be in the future');
+            if (date <= new Date()) return toast('Scheduled time must be in the future', 'error');
             ISOStringTime = date.toISOString();
         }
 
-        setError('');
+        toast('', 'error');
         setPublishing(true);
         try {
             const postData = {
@@ -884,16 +885,16 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             router.push('/dashboard');
         } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : 'Operation failed';
-            setError(errorMsg);
+            toast(errorMsg, 'error');
         } finally {
             setPublishing(false);
         }
     };
 
     const handleSaveDraft = async () => {
-        if (!content.trim()) return setError('Please enter post content');
-        if (selectedPages.length === 0) return setError('Please select at least one page');
-        setError('');
+        if (!content.trim()) return toast('Please enter post content', 'error');
+        if (selectedPages.length === 0) return toast('Please select at least one page', 'error');
+        toast('', 'error');
         try {
             const postData = {
                 content,
@@ -910,7 +911,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
             }
             router.push('/dashboard');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Save failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Save failed');
         }
     };
 
@@ -995,8 +996,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                     </div>
                 </div>
 
-                {/* Error alert */}
-                {error && <div className="error-alert">{error}</div>}
+                
 
                 {/* Approval Selection Modal */}
                 {showApprovalModal && (

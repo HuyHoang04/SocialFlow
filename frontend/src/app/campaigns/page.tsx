@@ -28,7 +28,7 @@ export default function CampaignsPage() {
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [error, setError] = useState('');
+    
 
     const loadCampaigns = useCallback(async () => {
         if (!brand) return;
@@ -37,7 +37,7 @@ export default function CampaignsPage() {
             const data = await api.getCampaigns(brand.id);
             setCampaigns(data);
         } catch (err: any) {
-            setError(err.message || 'Failed to load campaigns');
+            toast('Operation failed', 'error', err.message || 'Failed to load campaigns')
         } finally {
             setLoading(false);
         }
@@ -48,10 +48,10 @@ export default function CampaignsPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!brand) return;
-        if (!name.trim()) return setError('Campaign name is required');
+        if (!name.trim()) return toast('Campaign name is required', 'error')
 
         setSubmitting(true);
-        setError('');
+        
         try {
             await api.createCampaign(brand.id, {
                 name,
@@ -66,7 +66,7 @@ export default function CampaignsPage() {
             setEndDate('');
             loadCampaigns();
         } catch (err: any) {
-            setError(err.message || 'Failed to create campaign');
+            toast('Operation failed', 'error', err.message || 'Failed to create campaign')
         } finally {
             setSubmitting(false);
         }
@@ -96,7 +96,7 @@ export default function CampaignsPage() {
                 </div>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24 }}>{error}</div>}
+            
 
             {showForm && (
                 <div className="card" style={{ marginBottom: 32 }}>

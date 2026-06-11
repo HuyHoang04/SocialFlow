@@ -22,7 +22,7 @@ export default function RAGLibraryPage() {
     const [files, setFiles] = useState<LibraryFile[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState('');
+    
     const [success, setSuccess] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -42,12 +42,12 @@ export default function RAGLibraryPage() {
         }
 
         if (!brand.id) {
-            setError('Invalid brand ID');
+            toast('Invalid brand ID', 'error')
             return;
         }
 
         setLoading(true);
-        setError('');
+        
         try {
             const offset = (currentPage - 1) * itemsPerPage;
             console.log('📚 Loading RAG library | Brand:', brand.id, 'Limit:', itemsPerPage, 'Offset:', offset);
@@ -56,7 +56,7 @@ export default function RAGLibraryPage() {
             setFiles(Array.isArray(data) ? data : (data?.files || []));
         } catch (err: any) {
             console.error('✗ Failed to load RAG library:', err);
-            setError(err.message || 'Failed to load library files');
+            toast('Operation failed', 'error', err.message || 'Failed to load library files')
         } finally {
             setLoading(false);
         }
@@ -67,7 +67,7 @@ export default function RAGLibraryPage() {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !brand) {
-            setError('Brand not loaded or no file selected');
+            toast('Brand not loaded or no file selected', 'error')
             return;
         }
 
@@ -77,7 +77,7 @@ export default function RAGLibraryPage() {
         const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         
         if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-            setError('Only PDF, TXT, DOCX, and Markdown files are supported');
+            toast('Only PDF, TXT, DOCX, and Markdown files are supported', 'error')
             return;
         }
 
@@ -88,12 +88,12 @@ export default function RAGLibraryPage() {
 
     const handleConfirmUpload = async () => {
         if (!selectedFile || !brand) {
-            setError('Brand not loaded or no file selected');
+            toast('Brand not loaded or no file selected', 'error')
             return;
         }
 
         setUploading(true);
-        setError('');
+        
         try {
             await api.ragUploadFile(
                 brand.id, 
@@ -112,7 +112,7 @@ export default function RAGLibraryPage() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err: any) {
             console.error('✗ Upload failed:', err);
-            setError(err.message || 'Failed to upload file');
+            toast('Operation failed', 'error', err.message || 'Failed to upload file')
         } finally {
             setUploading(false);
         }
@@ -191,7 +191,7 @@ export default function RAGLibraryPage() {
                 </div>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24 }}>{error}</div>}
+            
             {success && <div className="success-msg" style={{ marginBottom: 24 }}>{success}</div>}
 
             {/* Upload Form Modal */}

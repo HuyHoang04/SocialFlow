@@ -27,7 +27,7 @@ export default function TeamPage() {
     const { toast } = useToast();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    
     const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
     
     // Workflow config state
@@ -60,7 +60,7 @@ export default function TeamPage() {
 
     const loadTeam = useCallback(async () => {
         if (!selectedBrand) return;
-        setError(null);
+        
         try {
             const members = await api.getTeamMembers(selectedBrand.id);
             setTeamMembers(members);
@@ -75,7 +75,7 @@ export default function TeamPage() {
             }
         } catch (err: any) {
             if (err?.message !== 'Unauthorized') {
-                setError(err?.message || 'Failed to load team members');
+                toast('Operation failed', 'error', err?.message || 'Failed to load team members')
             }
         }
         setLoading(false);
@@ -210,7 +210,7 @@ export default function TeamPage() {
                 </div>
 
                 {/* Error/Success Messages */}
-                {error && <div className="error-message" style={{ marginBottom: 20 }}>{error}</div>}
+                
                 {loading && <div className="loading" style={{ marginBottom: 20 }}>Loading team members...</div>}
 
                 {/* Workflow Config Card */}

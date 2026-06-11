@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, setToken, setUser } from '@/lib/api';
@@ -10,12 +11,12 @@ export default function RegisterPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const { toast } = useToast();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        
         setLoading(true);
         try {
             const res = await api.register({ name, email, password });
@@ -23,7 +24,7 @@ export default function RegisterPage() {
             setUser({ email: res.email, name: res.name, userId: res.userId, avatarUrl: res.avatarUrl });
             router.push('/brands');
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Registration failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Registration failed')
         } finally {
             setLoading(false);
         }
@@ -67,7 +68,7 @@ export default function RegisterPage() {
                     </span>
                 </h1>
                 <p className="auth-subtitle">Create your account and start publishing</p>
-                {error && <div className="error-msg">{error}</div>}
+                
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label className="form-label">Name</label>

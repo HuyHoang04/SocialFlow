@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useToast } from '@/components/Toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getUser, isTokenExpired, api, logout, setToken } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
@@ -25,6 +26,7 @@ function JoinPageContent() {
     const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { toast } = useToast();
     const [user, setUser] = useState<{ email: string; name: string; userId: string } | null>(null);
     const [accepting, setAccepting] = useState(false);
     const [accepted, setAccepted] = useState(false);
@@ -49,7 +51,7 @@ function JoinPageContent() {
 
     const loadInvitation = useCallback(async () => {
         if (!token) {
-            setError('No invitation token provided');
+            setError('No invitation token provided')
             setLoading(false);
             return;
         }
@@ -58,7 +60,7 @@ function JoinPageContent() {
             const inv = await api.getInvitationByToken(token);
             setInvitation(inv);
         } catch (err: any) {
-            setError(err?.message || 'Failed to load invitation');
+            setError(err?.message || 'Failed to load invitation')
         }
         setLoading(false);
     }, [token]);
@@ -69,7 +71,7 @@ function JoinPageContent() {
             return;
         }
 
-        setError(null);
+        
         setAccepting(true);
 
         try {
@@ -90,7 +92,7 @@ function JoinPageContent() {
                 router.push('/dashboard');
             }, 2000);
         } catch (err: any) {
-            setError(err?.message || 'Failed to accept invitation');
+            setError(err?.message || 'Failed to accept invitation')
             setAccepting(false);
         }
     };

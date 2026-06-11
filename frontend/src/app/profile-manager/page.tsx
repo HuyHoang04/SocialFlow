@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useToast } from '@/components/Toast';
 import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
@@ -37,7 +38,7 @@ export default function ProfileManagerPage() {
   const [form, setForm] = useState<FormState>({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' });
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<Record<string, string> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const loadPages = useCallback(async () => {
     if (!selectedBrand) return;
@@ -47,7 +48,7 @@ export default function ProfileManagerPage() {
       setPages(data);
       if (data.length > 0) setSelectedPage(data[0]);
     } catch (e: any) {
-      setError(e?.message || 'Failed to load pages');
+      toast('Operation failed', 'error', e?.message || 'Failed to load pages')
     }
     setLoading(false);
   }, [selectedBrand]);
@@ -61,7 +62,7 @@ export default function ProfileManagerPage() {
     if (!selectedPage) return;
     setSaving(true);
     setResult(null);
-    setError(null);
+    
     try {
       const payload: any = {};
       if (form.bio.trim()) payload.bio = form.bio.trim();
@@ -72,7 +73,7 @@ export default function ProfileManagerPage() {
       const res = await api.updatePageProfile(selectedPage.id, payload);
       setResult(res);
     } catch (e: any) {
-      setError(e?.message || 'Update failed');
+      toast('Operation failed', 'error', e?.message || 'Update failed')
     }
     setSaving(false);
   };
@@ -110,7 +111,7 @@ export default function ProfileManagerPage() {
                 {pages.map(page => (
                   <button
                     key={page.id}
-                    onClick={() => { setSelectedPage(page); setForm({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' }); setResult(null); setError(null); }}
+                    onClick={() => { setSelectedPage(page); setForm({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' }); setResult(null);  }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       padding: '10px 12px', borderRadius: 'var(--radius-sm)',
@@ -254,11 +255,7 @@ export default function ProfileManagerPage() {
                         </div>
                       )}
 
-                      {error && (
-                        <div style={{ padding: '12px 16px', background: 'var(--error-bg)', border: '1px solid var(--error)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--error)' }}>
-                          {error}
-                        </div>
-                      )}
+
 
                       <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
                         <button
@@ -271,7 +268,7 @@ export default function ProfileManagerPage() {
                         </button>
                         <button
                           className="btn btn-secondary"
-                          onClick={() => { setForm({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' }); setResult(null); setError(null); }}
+                          onClick={() => { setForm({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' }); setResult(null);  }}
                         >
                           Clear
                         </button>

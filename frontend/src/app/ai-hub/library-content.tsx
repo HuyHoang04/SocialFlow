@@ -20,7 +20,7 @@ export default function LibraryContent() {
     const [files, setFiles] = useState<LibraryFile[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState('');
+    
     const [success, setSuccess] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -39,13 +39,13 @@ export default function LibraryContent() {
     const loadFiles = useCallback(async () => {
         if (!brand) return;
         setLoading(true);
-        setError('');
+        
         try {
             const offset = (currentPage - 1) * itemsPerPage;
             const data = await api.ragListLibrary(brand.id, itemsPerPage, offset);
             setFiles(Array.isArray(data) ? data : (data?.files || []));
         } catch (err: any) {
-            setError(err.message || 'Failed to load library files');
+            toast('Operation failed', 'error', err.message || 'Failed to load library files')
         } finally {
             setLoading(false);
         }
@@ -63,7 +63,7 @@ export default function LibraryContent() {
     const handleConfirmUpload = async () => {
         if (!selectedFile || !brand) return;
         setUploading(true);
-        setError('');
+        
         try {
             await api.ragUploadFile(brand.id, selectedFile, selectedCategory || undefined);
             setSuccess('✓ File uploaded successfully!');
@@ -73,7 +73,7 @@ export default function LibraryContent() {
             setTimeout(() => loadFiles(), 100);
             setTimeout(() => setSuccess(''), 3000);
         } catch (err: any) {
-            setError(err.message || 'Failed to upload file');
+            toast('Operation failed', 'error', err.message || 'Failed to upload file')
         } finally {
             setUploading(false);
         }
@@ -95,12 +95,12 @@ export default function LibraryContent() {
         setEditingFile(file);
         setEditContent('');
         setLoadingContent(true);
-        setError('');
+        
         try {
             const res = await api.ragGetFileContent(brand.id, file.id);
             setEditContent(res?.content || '');
         } catch (err: any) {
-            setError(err.message || 'Failed to load file content');
+            toast('Operation failed', 'error', err.message || 'Failed to load file content')
         } finally {
             setLoadingContent(false);
         }
@@ -109,7 +109,7 @@ export default function LibraryContent() {
     const handleSaveEdit = async () => {
         if (!brand || !editingFile) return;
         setSavingContent(true);
-        setError('');
+        
         try {
             await api.ragUpdateFileContent({
                 brand_id: brand.id,
@@ -120,7 +120,7 @@ export default function LibraryContent() {
             setEditingFile(null);
             setTimeout(() => setSuccess(''), 3000);
         } catch (err: any) {
-            setError(err.message || 'Failed to save document');
+            toast('Operation failed', 'error', err.message || 'Failed to save document')
         } finally {
             setSavingContent(false);
         }
@@ -152,7 +152,7 @@ export default function LibraryContent() {
                 </label>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24 }}>{error}</div>}
+            
             {success && <div className="success-msg" style={{ marginBottom: 24 }}>{success}</div>}
 
             {showUploadForm && selectedFile && (

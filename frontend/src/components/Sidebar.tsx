@@ -66,7 +66,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
             />
 
             <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`} style={{ overflowY: 'auto' }}>
-                <div className="sidebar-header" style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', zIndex: 10, paddingTop: 24 }}>
+                <div className="sidebar-header" style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', zIndex: 10, paddingTop: 24, paddingBottom: 20 }}>
                     <div className="sidebar-logo">
                         <span className="sidebar-logo-icon">
                             <img
@@ -90,7 +90,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                     </button>
                 </div>
 
-                <nav className="sidebar-nav" style={{ paddingBottom: 24 }}>
+                <nav className="sidebar-nav" style={{ paddingBottom: 24, paddingTop: 12 }}>
                     {navGroups.map((group, groupIdx) => (
                         <div key={groupIdx} style={{ marginBottom: collapsed ? 8 : 20 }}>
                             {!collapsed && (

@@ -22,7 +22,7 @@ export default function AssetsPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
-    const [error, setError] = useState('');
+    
     const [searchTerm, setSearchTerm] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +36,7 @@ export default function AssetsPage() {
             const data = await api.getMedia();
             setAssets(data);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to load assets');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to load assets')
         } finally {
             setLoading(false);
         }
@@ -47,24 +47,24 @@ export default function AssetsPage() {
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         setUploading(true);
-        setError('');
+        
 
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-                    setError('Only image and video files are allowed');
+                    toast('Only image and video files are allowed', 'error')
                     continue;
                 }
                 if (file.size > 50 * 1024 * 1024) {
-                    setError('File too large (max 50MB)');
+                    toast('File too large (max 50MB)', 'error');
                     continue;
                 }
                 await api.uploadMedia(file);
             }
             loadAssets();
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Upload failed');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Upload failed')
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -89,7 +89,7 @@ export default function AssetsPage() {
     const handleSaveEditedImage = async (editedData: { imageBase64: string; filename: string }) => {
         setIsEditorOpen(false);
         setUploading(true);
-        setError('');
+        
         try {
             const res = await fetch(editedData.imageBase64);
             const blob = await res.blob();
@@ -102,7 +102,7 @@ export default function AssetsPage() {
             // Still reload to be sure everything is in sync
             setTimeout(loadAssets, 500);
         } catch (err) {
-            setError('Failed to save edited image');
+            toast('Failed to save edited image', 'error')
         } finally {
             setUploading(false);
             setEditingAsset(null);
@@ -168,7 +168,7 @@ export default function AssetsPage() {
                 </div>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 24, borderRadius: 12 }}>{error}</div>}
+            
 
             {/* Gallery Grid - FIXED LAYOUT */}
             {loading ? (

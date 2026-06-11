@@ -42,7 +42,7 @@ export default function InboxPage() {
     const [selectedConversation, setSelectedConversation] = useState<DmConversation | null>(null);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
-    const [error, setError] = useState('');
+    
     const [replyContent, setReplyContent] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
     const [suggestingAi, setSuggestingAi] = useState(false);
@@ -56,7 +56,7 @@ export default function InboxPage() {
             const data = await api.getInbox(brand.id);
             setMessages(data);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to load inbox');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to load inbox')
         } finally {
             setLoading(false);
         }
@@ -135,12 +135,12 @@ export default function InboxPage() {
     const handleSync = async () => {
         if (!brand) return;
         setSyncing(true);
-        setError('');
+        
         try {
             await api.syncInbox(brand.id);
             await loadInbox();
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Failed to sync inbox');
+            toast('Operation failed', 'error', err instanceof Error ? err.message : 'Failed to sync inbox')
         } finally {
             setSyncing(false);
         }
@@ -290,7 +290,7 @@ export default function InboxPage() {
                 </div>
             </div>
 
-            {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
+            
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
