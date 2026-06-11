@@ -487,6 +487,9 @@ public class InstagramPublisher implements CommentFetcher {
                     .block();
 
             log.info("Replied to Instagram DM to recipient {}", recipientId);
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            log.error("Failed to reply to Instagram DM (HTTP {}): {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RuntimeException("Instagram DM reply failed: " + e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Failed to reply to Instagram DM: {}", e.getMessage(), e);
             throw new RuntimeException("Instagram DM reply failed: " + e.getMessage());
