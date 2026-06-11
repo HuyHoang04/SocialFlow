@@ -476,6 +476,28 @@ a:hover {
   font-size: 12px;
 }
 
+.btn-icon-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.btn-icon-small:hover {
+  background: var(--bg-glass-strong);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
 .btn-lg {
   padding: 14px 28px;
   font-size: 16px;
