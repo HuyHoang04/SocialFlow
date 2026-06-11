@@ -9,6 +9,7 @@ class SuggestReplyRequest(BaseModel):
     customer_name: Optional[str] = Field(None, description="Name of the customer")
     brand_name: Optional[str] = Field(None, description="Name of the brand")
     brand_description: Optional[str] = Field(None, description="Description/Bio of the brand")
+    conversation_history: Optional[str] = Field(None, description="Previous messages in the conversation")
     provider: Optional[str] = None
     model: Optional[str] = None
     max_words: int = 100

@@ -252,15 +252,20 @@ Brand Context: {brand_description}
 Platform: {platform}
 Interaction Type: {message_type}
 Customer Name: {customer_name}
-Incoming Message: '{message_content}'
 
 {rag_context}
+
+Conversation History:
+{conversation_history}
+
+Current Incoming Message: '{message_content}'
 
 Task: Write a helpful, engaging, and professional reply in Vietnamese.
 Instructions:
 - Match the brand's voice.
 - Be concise and friendly.
-- Use the context above if relevant to answer questions.
+- Use the RAG context above if relevant to answer questions.
+- Address the current incoming message while keeping the conversation history in mind.
 - If it's a comment, make it public-friendly.
 - If it's a direct message, be more personalized.
 - Return ONLY the suggested reply text, no preamble.
@@ -304,9 +309,11 @@ def format_suggest_reply_prompt(
     message_type: str,
     customer_name: str,
     message_content: str,
+    conversation_history: str = "",
     rag_context: str = ""
 ) -> str:
     """Format the reply suggestion prompt with all necessary context"""
+    history = conversation_history if conversation_history else "(No previous history)"
     return SUGGEST_REPLY_PROMPT.format(
         brand_name=brand_name,
         brand_description=brand_description,
@@ -314,5 +321,6 @@ def format_suggest_reply_prompt(
         message_type=message_type,
         customer_name=customer_name,
         message_content=message_content,
+        conversation_history=history,
         rag_context=rag_context
     )

@@ -34,6 +34,9 @@ public class SuggestReplyRequest {
     @JsonProperty("brand_description")
     private String brandDescription;
     
+    @JsonProperty("conversation_history")
+    private String conversationHistory;
+    
     private String provider;
     private String model;
     

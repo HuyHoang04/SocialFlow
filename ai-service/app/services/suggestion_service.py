@@ -24,10 +24,14 @@ class SuggestionService:
             rag_used = False
             
             try:
-                # Search with the incoming message to find relevant FAQ or guidelines
+                # Use conversation history + current message for better RAG context retrieval
+                search_query = request.message_content
+                if request.conversation_history:
+                    search_query = f"{request.conversation_history}\n{request.message_content}"
+                
                 search_results = await self.rag_service.search_similar_chunks(
                     brand_id=request.brand_id,
-                    query_text=request.message_content,
+                    query_text=search_query,
                     limit=3,
                     threshold=0.3
                 )
@@ -62,6 +66,7 @@ class SuggestionService:
                 message_type=request.message_type,
                 customer_name=request.customer_name or "the customer",
                 message_content=request.message_content,
+                conversation_history=request.conversation_history,
                 rag_context=rag_context + brand_injection
             )
 
