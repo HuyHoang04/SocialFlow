@@ -37,8 +37,8 @@ public class WebhookEventService {
             JsonNode root = objectMapper.readTree(rawPayload);
             String object = root.path("object").asText();
             
-            if (!"instagram".equals(object)) {
-                log.warn("[Webhook-IG] Invalid object type, expected 'instagram' but got: {}", object);
+            if (!"instagram".equals(object) && !"page".equals(object)) {
+                log.warn("[Webhook-IG] Invalid object type, got: {}", object);
                 return;
             }
 
@@ -46,6 +46,12 @@ public class WebhookEventService {
 
             for (JsonNode entry : root.path("entry")) {
                 String pageId = entry.path("id").asText();
+                
+                if (entry.has("messaging")) {
+                    for (JsonNode msgEvent : entry.path("messaging")) {
+                        processInstagramMessagingEvent(pageId, msgEvent);
+                    }
+                }
                 
                 if (entry.has("changes")) {
                     for (JsonNode change : entry.path("changes")) {
@@ -74,8 +80,8 @@ public class WebhookEventService {
             JsonNode root = objectMapper.readTree(rawPayload);
             String object = root.path("object").asText();
             
-            if (!"threads".equals(object)) {
-                log.warn("[Webhook-Threads] Invalid object type, expected 'threads' but got: {}", object);
+            if (!"threads".equals(object) && !"page".equals(object)) {
+                log.warn("[Webhook-Threads] Invalid object type, got: {}", object);
                 return;
             }
 
@@ -83,6 +89,12 @@ public class WebhookEventService {
 
             for (JsonNode entry : root.path("entry")) {
                 String pageId = entry.path("id").asText();
+                
+                if (entry.has("messaging")) {
+                    for (JsonNode msgEvent : entry.path("messaging")) {
+                        processThreadsMessagingEvent(pageId, msgEvent);
+                    }
+                }
                 
                 if (entry.has("changes")) {
                     for (JsonNode change : entry.path("changes")) {
@@ -128,9 +140,9 @@ public class WebhookEventService {
 
     private void processInstagramComment(String platformPageId, JsonNode value) {
         String commentId  = value.path("id").asText();
-        String postId     = value.path("post_id").asText();
+        String postId     = value.has("media") ? value.path("media").path("id").asText() : value.path("post_id").asText();
         String text       = value.path("text").asText("");
-        String authorName = value.path("from").path("name").asText("User");
+        String authorName = value.path("from").has("username") ? value.path("from").path("username").asText() : value.path("from").path("name").asText("Instagram User");
         String authorId   = value.path("from").path("id").asText(null);
         
         log.info("[Webhook-IG] Comment: id={}, author={}", commentId, authorName);
@@ -205,11 +217,54 @@ public class WebhookEventService {
         broadcastMeta(page, saved);
     }
 
+    private void processInstagramMessagingEvent(String platformPageId, JsonNode event) {
+        if (!event.has("message")) return;
+        JsonNode messageNode = event.path("message");
+        if (messageNode.path("is_echo").asBoolean(false)) return;
+
+        String msgId    = messageNode.path("mid").asText();
+        String text     = messageNode.path("text").asText("");
+        String senderId = event.path("sender").path("id").asText();
+        String recipientId = event.path("recipient").path("id").asText();
+        
+        String pageId = platformPageId;
+        if (recipientId != null && !recipientId.equals(senderId)) {
+            pageId = recipientId;
+        }
+
+        log.info("[Webhook-IG] DM received via messaging array: msgId={}, from={}", msgId, senderId);
+
+        SocialPage page = findPageByPlatform(pageId, PlatformType.INSTAGRAM);
+        if (page == null) {
+             page = findPageByPlatform(platformPageId, PlatformType.INSTAGRAM);
+             if (page == null) return;
+        }
+
+        if (inboxRepository.findByPlatformMessageIdAndPageId(msgId, page.getId()).isPresent()) {
+            return;
+        }
+
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(msgId)
+                .conversationId(senderId)
+                .content(text)
+                .authorName("Instagram User")
+                .authorId(senderId)
+                .messageType(MessageType.DIRECT_MESSAGE)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(false)
+                .isFromMe(false)
+                .build());
+
+        broadcastMeta(page, saved);
+    }
+
     private void processThreadsComment(String platformPageId, JsonNode value) {
         String commentId  = value.path("id").asText();
-        String postId     = value.path("post_id").asText();
+        String postId     = value.has("media") ? value.path("media").path("id").asText() : value.path("post_id").asText();
         String text       = value.path("text").asText("");
-        String authorName = value.path("from").path("name").asText("User");
+        String authorName = value.path("from").has("username") ? value.path("from").path("username").asText() : value.path("from").path("name").asText("Threads User");
         String authorId   = value.path("from").path("id").asText(null);
         
         log.info("[Webhook-Threads] Comment: id={}, author={}", commentId, authorName);
@@ -281,6 +336,49 @@ public class WebhookEventService {
                 .build());
         
         log.info("[Webhook-Threads] ✓ Stored DM: {}", messageId);
+        broadcastMeta(page, saved);
+    }
+
+    private void processThreadsMessagingEvent(String platformPageId, JsonNode event) {
+        if (!event.has("message")) return;
+        JsonNode messageNode = event.path("message");
+        if (messageNode.path("is_echo").asBoolean(false)) return;
+
+        String msgId    = messageNode.path("mid").asText();
+        String text     = messageNode.path("text").asText("");
+        String senderId = event.path("sender").path("id").asText();
+        String recipientId = event.path("recipient").path("id").asText();
+        
+        String pageId = platformPageId;
+        if (recipientId != null && !recipientId.equals(senderId)) {
+            pageId = recipientId;
+        }
+
+        log.info("[Webhook-Threads] DM received via messaging array: msgId={}, from={}", msgId, senderId);
+
+        SocialPage page = findPageByPlatform(pageId, PlatformType.THREADS);
+        if (page == null) {
+             page = findPageByPlatform(platformPageId, PlatformType.THREADS);
+             if (page == null) return;
+        }
+
+        if (inboxRepository.findByPlatformMessageIdAndPageId(msgId, page.getId()).isPresent()) {
+            return;
+        }
+
+        InboxMessage saved = inboxRepository.save(InboxMessage.builder()
+                .platformMessageId(msgId)
+                .conversationId(senderId)
+                .content(text)
+                .authorName("Threads User")
+                .authorId(senderId)
+                .messageType(MessageType.DIRECT_MESSAGE)
+                .createdAt(LocalDateTime.now())
+                .page(page)
+                .isRead(false)
+                .isFromMe(false)
+                .build());
+
         broadcastMeta(page, saved);
     }
 

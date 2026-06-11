@@ -468,23 +468,25 @@ public class InstagramPublisher implements CommentFetcher {
         return results;
     }
 
-    public void replyToDM(SocialPage page, String conversationId, String message) {
+    public void replyToDM(SocialPage page, String recipientId, String message) {
         try {
             String token = page.getPageAccessToken();
+            String igAccountId = page.getPlatformPageId();
 
-            WebClient client = webClientBuilder.baseUrl("https://graph.instagram.com/v18.0").build();
+            WebClient client = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
 
             client.post()
-                    .uri("/{conversationId}/messages", conversationId)
+                    .uri("/{igAccountId}/messages", igAccountId)
                     .bodyValue(Map.of(
-                            "message", message,
+                            "recipient", Map.of("id", recipientId),
+                            "message", Map.of("text", message),
                             "access_token", token
                     ))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
 
-            log.info("Replied to Instagram DM in conversation {}", conversationId);
+            log.info("Replied to Instagram DM to recipient {}", recipientId);
         } catch (Exception e) {
             log.error("Failed to reply to Instagram DM: {}", e.getMessage(), e);
             throw new RuntimeException("Instagram DM reply failed: " + e.getMessage());
