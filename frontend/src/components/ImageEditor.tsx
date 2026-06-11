@@ -252,22 +252,21 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
         canvas.discardActiveObject();
         canvas.renderAll();
 
-        // Use getBoundingRect for accurate coordinates regardless of origin/scale
-        const bound = rect.getBoundingRect();
+        // Calculate exact bounds without stroke
+        const cropWidth = rect.width! * rect.scaleX!;
+        const cropHeight = rect.height! * rect.scaleY!;
+        const left = rect.left! - cropWidth / 2;
+        const top = rect.top! - cropHeight / 2;
         
         const croppedData = canvas.toDataURL({
-            left: bound.left,
-            top: bound.top,
-            width: bound.width,
-            height: bound.height,
+            left: left,
+            top: top,
+            width: cropWidth,
+            height: cropHeight,
             format: 'png',
             multiplier: 2 
         });
 
-        // Adjust canvas dimensions to match crop aspect ratio
-        const cropWidth = bound.width;
-        const cropHeight = bound.height;
-        
         canvas.setDimensions({
             width: cropWidth,
             height: cropHeight
@@ -283,10 +282,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 top: 0,
                 originX: 'left',
                 originY: 'top',
-                width: cropWidth,
-                height: cropHeight,
-                scaleX: 1,
-                scaleY: 1,
+                scaleX: 0.5,
+                scaleY: 0.5,
                 selectable: true
             });
 
