@@ -21,6 +21,7 @@ variables:
         -e AWS_DEFAULT_REGION=$AWS_REGION \
         amazon/aws-cli ecr get-login-password --region $AWS_REGION)
       echo "$AWS_TOKEN" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+      docker system prune -a -f --volumes
 
 build_backend:
   <<: *build_template
@@ -30,6 +31,8 @@ build_backend:
 
 build_frontend:
   <<: *build_template
+  needs:
+    - build_backend
   script:
     - >
       docker build 
@@ -42,6 +45,8 @@ build_frontend:
 
 build_ai_service:
   <<: *build_template
+  needs:
+    - build_frontend
   script:
     - docker build -t "$ECR_REGISTRY/socialflow/ai_service:latest" ./ai-service/
     - docker push "$ECR_REGISTRY/socialflow/ai_service:latest"
