@@ -20,6 +20,7 @@ import java.util.UUID;
 public class PostController {
 
     private final PostService postService;
+    private final com.socialflow.service.bot.EngagementBotService engagementBotService;
 
     @GetMapping("/posts")
     public ResponseEntity<List<PostResponse>> getPosts(
@@ -63,6 +64,18 @@ public class PostController {
             @Valid @RequestBody SubmitForApprovalRequest request) {
         postService.submitForApproval(id, request.getAssignedToUserId(), user);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/posts/{id}/engagement-bot")
+    public ResponseEntity<java.util.Map<String, String>> runEngagementBot(
+            @PathVariable String id,
+            @RequestBody java.util.Map<String, String> request) {
+        try {
+            engagementBotService.runEngagementBot(id, request.get("brandId"));
+            return ResponseEntity.ok(java.util.Map.of("status", "success", "message", "Bot engagement initiated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("status", "error", "message", e.getMessage()));
+        }
     }
 
     @DeleteMapping("/posts/{id}")

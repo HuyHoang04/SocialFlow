@@ -166,6 +166,22 @@ export const IconChevronRight = (p: IconProps) => (
   <Icon {...p}><polyline points="9 18 15 12 9 6" /></Icon>
 );
 
+export const IconChevronUp = (p: IconProps) => (
+  <Icon {...p}><polyline points="18 15 12 9 6 15" /></Icon>
+);
+
+export const IconChevronDown = (p: IconProps) => (
+  <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>
+);
+
+export const IconEyeOff = (p: IconProps) => (
+  <Icon {...p}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></Icon>
+);
+
+export const IconTriangle = (p: IconProps) => (
+  <Icon {...p}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></Icon>
+);
+
 export const IconEdit = (p: IconProps) => (
   <Icon {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></Icon>
 );
@@ -188,6 +204,22 @@ export const IconRocket = (p: IconProps) => (
 
 export const IconSparkles = (p: IconProps) => (
   <Icon {...p}><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" /></Icon>
+);
+
+export const IconUndo = (p: IconProps) => (
+  <Icon {...p}><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></Icon>
+);
+
+export const IconRedo = (p: IconProps) => (
+  <Icon {...p}><polyline points="15 14 20 9 15 4" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" /></Icon>
+);
+
+export const IconMinus = (p: IconProps) => (
+  <Icon {...p}><line x1="5" y1="12" x2="19" y2="12" /></Icon>
+);
+
+export const IconWand = (p: IconProps) => (
+  <Icon {...p}><path d="M15 4V2" /><path d="M15 16v-2" /><path d="M8 9h2" /><path d="M20 9h2" /><path d="M17.8 11.8L19 13" /><path d="M15 9h0" /><path d="M17.8 6.2L19 5" /><path d="M3 21l9-9" /><path d="M12.2 6.2L11 5" /></Icon>
 );
 
 export const IconLayers = (p: IconProps) => (
@@ -234,6 +266,22 @@ export const IconUser = (p: IconProps) => (
 
 export const IconBriefcase = (p: IconProps) => (
   <Icon {...p}><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></Icon>
+);
+
+export const IconPlay = (p: IconProps) => (
+  <Icon {...p}><polygon points="5 3 19 12 5 21 5 3" /></Icon>
+);
+
+export const IconDownload = (p: IconProps) => (
+  <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></Icon>
+);
+
+export const IconVolume2 = (p: IconProps) => (
+  <Icon {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></Icon>
+);
+
+export const IconVolumeX = (p: IconProps) => (
+  <Icon {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></Icon>
 );
 
 export const IconInstagram = ({ size = 20, color = '#e1306c', className, style }: IconProps) => (

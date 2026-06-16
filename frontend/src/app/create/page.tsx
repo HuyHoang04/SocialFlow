@@ -262,6 +262,7 @@ function CreatePostContent() {
         useRag: true,
     });
     const [aiLoading, setAiLoading] = useState(false);
+    const [aiStreamStatus, setAiStreamStatus] = useState<string>('');
     const [generatedContent, setGeneratedContent] = useState('');
     const [generatedCaptions, setGeneratedCaptions] = useState<any[]>([]);
     const [ragResults, setRagResults] = useState<any[]>([]);
@@ -452,6 +453,7 @@ function CreatePostContent() {
     const handleAiGenerate = async () => {
         if (!brand) return;
         setAiLoading(true);
+        setAiStreamStatus('Initializing AI agent...');
         try {
             const platforms = selectedPages.map(p => pages.find(pg => pg.id === p)?.platform).filter(Boolean) as string[];
             
@@ -462,21 +464,37 @@ Key Message: ${aiOptions.keyMessage || 'Engaging content'}
 Call to Action: ${aiOptions.callToAction || 'None'}
             `.trim();
 
-            const result = await api.generateCaptionBatch({
-                brand_id: brand.id,
-                platforms: platforms.length > 0 ? platforms : ['general'],
-                category: aiOptions.category,
-                tone: aiOptions.tone,
-                user_brief: composedBrief,
-                use_rag: aiOptions.useRag,
-                scheduled_time: scheduledTime || undefined
+            await new Promise<void>((resolve, reject) => {
+                api.streamGenerateCaptionBatch({
+                    brand_id: brand.id,
+                    platforms: platforms.length > 0 ? platforms : ['general'],
+                    category: aiOptions.category,
+                    tone: aiOptions.tone,
+                    user_brief: composedBrief,
+                    use_rag: aiOptions.useRag,
+                    scheduled_time: scheduledTime || undefined
+                }, 
+                (msg) => {
+                    if (msg.type === 'status') {
+                        setAiStreamStatus(msg.data);
+                    } else if (msg.type === 'result') {
+                        setGeneratedCaptions(msg.data);
+                    }
+                },
+                (err) => {
+                    reject(err);
+                },
+                () => {
+                    resolve();
+                });
             });
-            setGeneratedCaptions(result);
+
             setIsGenerationComplete(true);
         } catch (err: unknown) {
             toast('Operation failed', 'error', err instanceof Error ? err.message : 'AI generation failed');
         } finally {
             setAiLoading(false);
+            setAiStreamStatus('');
         }
     };
 
@@ -849,38 +867,35 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                 platformContent
             };
 
+            let postIdsToProcess: string[] = [];
+
             if (isEditingPost && editingPostId) {
-                // Update existing draft
+                // Update existing draft synchronously
                 await api.updatePost(editingPostId, postData);
-
-                // Handle publish vs approval workflow
-                if (needsApproval) {
-                    // Submit for approval
-                    await api.submitForApproval(editingPostId, selectedApprover!);
-                } else if (!ISOStringTime) {
-                    // Direct publish (no schedule, no approval)
-                    await api.publishPost(editingPostId);
-                }
-                // If scheduled, just save and let scheduler handle it later
+                postIdsToProcess = [editingPostId];
             } else {
-                // Create new post
+                // Create new post synchronously
                 const posts = await api.createPost(postData);
-
-                // Handle publish vs approval workflow for each post
-                if (needsApproval) {
-                    // Submit for approval
-                    await Promise.all(posts.map((p: { id: string }) => 
-                        api.submitForApproval(p.id, selectedApprover!)
-                    ));
-                } else if (!ISOStringTime) {
-                    // Direct publish (no schedule, no approval)
-                    await Promise.all(posts.map((p: { id: string }) => 
-                        api.publishPost(p.id)
-                    ));
-                }
-                // If scheduled, just save and let scheduler handle it later
+                postIdsToProcess = posts.map((p: { id: string }) => p.id);
             }
             
+            // Background the slow publish/approval operations
+            const backgroundTask = async () => {
+                try {
+                    if (needsApproval) {
+                        await Promise.all(postIdsToProcess.map(id => api.submitForApproval(id, selectedApprover!)));
+                    } else if (!ISOStringTime) {
+                        await Promise.all(postIdsToProcess.map(id => api.publishPost(id)));
+                    }
+                } catch (err) {
+                    console.error("Background publish/approval failed:", err);
+                }
+            };
+            
+            // Fire and forget
+            backgroundTask();
+            
+            toast('Saving and processing in background...', 'success');
             setShowApprovalModal(false);
             router.push('/dashboard');
         } catch (err: unknown) {
@@ -1216,13 +1231,14 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     />
                                                 ) : (
-                                                    <div style={{
-                                                        width: '100%', height: '100%',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        background: 'var(--bg-glass)',
-                                                    }}>
-                                                        <IconFilm size={24} color="var(--text-muted)" />
-                                                    </div>
+                                                    <video
+                                                        src={media.url}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        autoPlay
+                                                        muted
+                                                        loop
+                                                        playsInline
+                                                    />
                                                 )}
                                                 <button
                                                     className="media-remove"
@@ -1744,7 +1760,17 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                 textAlign: !isGenerationComplete ? 'center' : 'left',
                                                 whiteSpace: 'pre-wrap'
                                             }}>
-                                                {isGenerationComplete ? generatedContent : 'Results will appear here after generation'}
+                                                {isGenerationComplete 
+                                                    ? generatedContent 
+                                                    : aiLoading 
+                                                        ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                                                                <div className="spinner" style={{ width: 24, height: 24, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                                                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{aiStreamStatus || 'Generating...'}</span>
+                                                                <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                                                            </div>
+                                                        )
+                                                        : 'Results will appear here after generation'}
                                             </div>
                                         )}
                                     </div>
@@ -2303,9 +2329,14 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                 {asset.contentType.startsWith('image/') ? (
                                                     <img src={asset.url} alt={asset.originalName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#18181b' }}>
-                                                        <IconFilm size={40} color="var(--text-muted)" />
-                                                    </div>
+                                                    <video
+                                                        src={asset.url}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        autoPlay
+                                                        muted
+                                                        loop
+                                                        playsInline
+                                                    />
                                                 )}
                                                 {mediaFiles.find(m => m.id === asset.id) && (
                                                     <div style={{ position: 'absolute', top: 12, right: 12, background: '#6c5ce7', color: 'white', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>✓</div>

@@ -2,11 +2,15 @@ package com.socialflow.ai.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.List;
@@ -49,6 +53,9 @@ public class AiController {
     
     // ==================== TEXT GENERATION ENDPOINTS ====================
     
+    @Value("${ai.service.url:http://localhost:5000}")
+    private String pythonServiceUrl;
+
     /**
      * Generate a batch of 3 captions
      * POST /api/ai/generate-caption-batch
@@ -73,6 +80,29 @@ public class AiController {
                 "error", e.getMessage()
             ));
         }
+    }
+    
+    /**
+     * Stream caption generation using SSE
+     * POST /api/ai/stream/generate-captions
+     */
+    @PostMapping(value = "/stream/generate-captions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> streamGenerateCaptions(@Valid @RequestBody Map<String, Object> request) {
+        log.info("API Request: POST /api/ai/stream/generate-captions | Brand: {}", request.get("brand_id"));
+        
+        // Use WebClient to proxy the SSE stream from Python AI service
+        WebClient webClient = WebClient.create(pythonServiceUrl);
+        
+        return webClient.post()
+                .uri("/stream/generate-captions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .onErrorResume(e -> {
+                    log.error("Streaming error: ", e);
+                    return Flux.just("data: {\"type\": \"error\", \"data\": \"Stream proxy failed\"}\n\n");
+                });
     }
     
     /**

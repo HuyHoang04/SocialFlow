@@ -223,7 +223,7 @@ export default function InboxPage() {
         if (!replyContent.trim()) return;
         const targetId = activeTab === 'comments'
             ? selectedComment?.id
-            : selectedConversation?.messages[0]?.id;
+            : selectedConversation?.messages[selectedConversation.messages.length - 1]?.id;
         if (!targetId) return;
 
         setSendingReply(true);
@@ -241,7 +241,7 @@ export default function InboxPage() {
     const handleSuggestReply = async () => {
         const targetId = activeTab === 'comments'
             ? selectedComment?.id
-            : selectedConversation?.messages[0]?.id;
+            : selectedConversation?.messages[selectedConversation.messages.length - 1]?.id;
         if (!targetId || !brand) return;
 
         setSuggestingAi(true);

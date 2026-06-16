@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     IconDashboard, IconBarChart, IconInbox, IconPenSquare,
-    IconImage, IconTarget, IconZap,
+    IconImage, IconTarget, IconZap, IconFilm,
     IconChevronLeft, IconChevronRight, IconSettings,
     IconUsers, IconCheckCircle, IconGlobe, IconUser
 } from './Icons';
@@ -33,6 +33,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                 { href: '/create', icon: <IconPenSquare size={20} />, label: 'Create Post' },
                 { href: '/assets', icon: <IconImage size={20} />, label: 'Media Assets' },
                 { href: '/ai-hub', icon: <IconZap size={20} />, label: 'AI Hub' },
+                { href: '/studio', icon: <IconFilm size={20} />, label: 'Video Studio' },
             ]
         },
         {

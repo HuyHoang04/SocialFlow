@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.services.ai_service import AIService
 from app.services.embedding_service import EmbeddingService
-from app.routes import health, models, generation, embeddings, rag, chat, suggestion
+from app.routes import health, models, generation, embeddings, rag, chat, suggestion, keys, stream
 from app.database import get_db_client, close_db_client
 from app.utils.logger import setup_logger
 
@@ -62,6 +62,12 @@ app.include_router(embeddings.router)
 app.include_router(rag.router)
 app.include_router(chat.router)
 app.include_router(suggestion.router)
+app.include_router(keys.router)
+app.include_router(stream.router)
+
+# Inject ai_service into routes that need it
+keys.set_ai_service(ai_service)
+stream.set_ai_service(ai_service)
 
 # Root endpoint
 @app.get("/")

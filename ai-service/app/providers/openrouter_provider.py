@@ -2,29 +2,51 @@
 import httpx
 from typing import Dict, Any, List
 from openai import OpenAI
-from app.config import OPENROUTER_API_KEY, OPENROUTER_MODELS, OPENROUTER_MAX_TOKENS, DEFAULT_TEMPERATURE, KNOW_MUTI_MODAL_EMBEDDING_MODELS
+from app.config import (
+    OPENROUTER_API_KEY, OPENROUTER_API_KEYS, KEY_COOLDOWN_SECONDS,
+    OPENROUTER_MODELS, OPENROUTER_MAX_TOKENS, DEFAULT_TEMPERATURE,
+    KNOW_MUTI_MODAL_EMBEDDING_MODELS
+)
 from app.providers.base import BaseProvider
+from app.providers.key_rotator import KeyRotator
 from app.utils.logger import setup_logger
 from app.models import TextResponse, ImageResponse, EmbeddingResponse
 
 logger = setup_logger(__name__)
 
+
 class OpenRouterProvider(BaseProvider):
-    """OpenRouter AI Provider"""
+    """OpenRouter AI Provider with multi-key rotation"""
     
     def __init__(self):
-        self.client = OpenAI(
+        # Initialize key rotator
+        self.rotator = KeyRotator(
+            keys=OPENROUTER_API_KEYS if OPENROUTER_API_KEYS else [OPENROUTER_API_KEY or ""],
+            cooldown_seconds=KEY_COOLDOWN_SECONDS
+        )
+        # Keep a default client for backward compatibility (model fetching etc.)
+        self.client = self._create_client(OPENROUTER_API_KEY)
+        self.models_cache = None
+        self.image_models_cache = None
+        self.embedding_models_cache = None
+        self.hardcoded_models = OPENROUTER_MODELS
+
+    def _create_client(self, api_key: str) -> OpenAI:
+        """Create an OpenAI client configured for OpenRouter with a specific key."""
+        return OpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=OPENROUTER_API_KEY,
+            api_key=api_key,
             default_headers={
                 "HTTP-Referer": "https://socialflow.com",
                 "X-OpenRouter-Title": "SocialFlow"
             }
         )
-        self.models_cache = None
-        self.image_models_cache = None
-        self.embedding_models_cache = None
-        self.hardcoded_models = OPENROUTER_MODELS
+
+    def _get_rotated_client(self) -> tuple:
+        """Get a client with the next rotated key. Returns (client, key_used)."""
+        key = self.rotator.get_next_key()
+        client = self._create_client(key)
+        return client, key
     
     async def fetch_models(self) -> Dict[str, Any]:
         """Fetch available models from OpenRouter API"""
@@ -114,37 +136,53 @@ class OpenRouterProvider(BaseProvider):
             return {}
     
     async def generate(self, prompt: str, model: str, max_tokens: int = 500) -> TextResponse:
-        """Generate content using OpenRouter"""
-        try:
-            logger.info(f"Attempting OpenRouter provider ({model}, max_tokens={max_tokens})...")
-            logger.info(f"  API Key length: {len(OPENROUTER_API_KEY) if OPENROUTER_API_KEY else 0}")
-            
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=DEFAULT_TEMPERATURE,
-                extra_body={"reasoning": {"enabled": False}}
-            )
-            
-            content = response.choices[0].message.content
-            cost = self.calculate_cost(response.usage.prompt_tokens, response.usage.completion_tokens, model)
-            
-            logger.info(f"OpenRouter success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
-            
-            return TextResponse(
-                content=content,
-                provider="openrouter",
-                model=model,
-                cost=cost,
-                token_count=response.usage.completion_tokens,
-                success=True,
-                error=None
-            )
+        """Generate content using OpenRouter with key rotation"""
+        last_error = None
+        max_retries = min(len(self.rotator.keys), 3)  # Try up to 3 different keys
         
-        except Exception as e:
-            logger.error(f"OpenRouter failed ({model}): {e}")
-            raise
+        for attempt in range(max_retries):
+            client, key_used = self._get_rotated_client()
+            try:
+                logger.info(f"Attempting OpenRouter ({model}, max_tokens={max_tokens}, attempt={attempt+1}/{max_retries})...")
+                
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_tokens,
+                    temperature=DEFAULT_TEMPERATURE,
+                    extra_body={"reasoning": {"enabled": False}}
+                )
+                
+                content = response.choices[0].message.content
+                cost = self.calculate_cost(response.usage.prompt_tokens, response.usage.completion_tokens, model)
+                
+                logger.info(f"OpenRouter success | Model: {model} | Cost: ${cost:.6f} | Tokens: {response.usage.completion_tokens}")
+                
+                return TextResponse(
+                    content=content,
+                    provider="openrouter",
+                    model=model,
+                    cost=cost,
+                    token_count=response.usage.completion_tokens,
+                    success=True,
+                    error=None
+                )
+            
+            except Exception as e:
+                error_str = str(e)
+                last_error = e
+                # Check for rate limit (429)
+                if "429" in error_str or "rate" in error_str.lower() or "limit" in error_str.lower():
+                    self.rotator.mark_rate_limited(key_used)
+                    logger.warning(f"OpenRouter key rate-limited, retrying with next key...")
+                    continue
+                else:
+                    self.rotator.mark_error(key_used)
+                    logger.error(f"OpenRouter failed ({model}): {e}")
+                    raise
+        
+        logger.error(f"OpenRouter failed after {max_retries} key rotations: {last_error}")
+        raise last_error
     
     def calculate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
         """Calculate cost for OpenRouter model"""
@@ -345,8 +383,9 @@ class OpenRouterProvider(BaseProvider):
                 # Text-only format
                 embedding_input = texts
             
-            # Call embeddings API via OpenAI SDK configured for OpenRouter
-            response = self.client.embeddings.create(
+            # Call embeddings API via rotated key client
+            client, key_used = self._get_rotated_client()
+            response = client.embeddings.create(
                 model=model,
                 input=embedding_input,
                 encoding_format="float"

@@ -290,10 +290,15 @@ export default function AssetsPage() {
                                         className="asset-image"
                                     />
                                 ) : (
-                                    <div style={{ textAlign: 'center' }}>
-                                        <IconFilm size={48} color="var(--text-muted)" />
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>MP4 Video</div>
-                                    </div>
+                                    <video
+                                        src={asset.url}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                                        className="asset-image"
+                                        autoPlay
+                                        muted
+                                        loop
+                                        playsInline
+                                    />
                                 )}
                                 
                                 {/* Overlay Type Badge */}

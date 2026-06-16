@@ -33,10 +33,30 @@ public class AiSuggestionService {
 
         // 1.5 Fetch Conversation History
         String conversationHistory = "";
-        if (message.getConversationId() != null) {
-            java.util.List<InboxMessage> history = inboxRepository.findByConversationIdAndPageId(
+        java.util.List<InboxMessage> history = new java.util.ArrayList<>();
+        
+        if (message.getConversationId() != null && !message.getConversationId().isEmpty()) {
+            history = inboxRepository.findByConversationIdAndPageId(
                 message.getConversationId(), message.getPage().getId());
-                
+        } else if (message.getMessageType() == com.socialflow.model.enums.MessageType.COMMENT) {
+            String threadId = message.getParentMessageId() != null ? message.getParentMessageId() : message.getPlatformMessageId();
+            // Fetch the parent comment and all its replies
+            java.util.List<InboxMessage> threadMessages = new java.util.ArrayList<>();
+            inboxRepository.findByPlatformMessageIdAndPageId(threadId, message.getPage().getId()).ifPresent(threadMessages::add);
+            // Need a way to fetch replies. Since we don't have findByParentMessageIdAndPageId, let's filter the post's comments in memory
+            if (message.getPlatformPostId() != null) {
+                java.util.List<InboxMessage> allPostComments = inboxRepository.findByPlatformPostIdAndPageId(
+                    message.getPlatformPostId(), message.getPage().getId());
+                for (InboxMessage c : allPostComments) {
+                    if (threadId.equals(c.getParentMessageId())) {
+                        threadMessages.add(c);
+                    }
+                }
+            }
+            history = threadMessages;
+        }
+        
+        if (!history.isEmpty()) {
             history.sort((m1, m2) -> m1.getCreatedAt().compareTo(m2.getCreatedAt()));
             
             StringBuilder sb = new StringBuilder();

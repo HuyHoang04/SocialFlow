@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
-import { IconX, IconEdit, IconTrash, IconImage, IconUpload, IconFilm, IconSearch } from '@/components/Icons';
+import { IconX, IconEdit, IconTrash, IconImage, IconUpload, IconFilm, IconSearch, IconEye, IconEyeOff, IconChevronUp, IconChevronDown, IconPenSquare, IconTriangle, IconFileText, IconLayers, IconUndo, IconRedo, IconMinus, IconPlus, IconActivity, IconSettings, IconWand, IconSparkles } from '@/components/Icons';
+import { useImageAI } from '@/hooks/useImageAI';
 
 interface ImageEditorProps {
     isOpen: boolean;
@@ -11,12 +12,13 @@ interface ImageEditorProps {
     filename: string;
 }
 
-type EditorTab = 'filter' | 'adjust' | 'text' | 'shape' | 'crop';
+type EditorTab = 'filter' | 'adjust' | 'text' | 'shape' | 'crop' | 'ai';
 
 const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imageUrl, filename }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fabricCanvas = useRef<fabric.Canvas | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const importImageRef = useRef<HTMLInputElement>(null);
     
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<EditorTab>('filter');
@@ -32,6 +34,83 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
     const [contrast, setContrast] = useState(0);
     const [saturation, setSaturation] = useState(0);
     const [blur, setBlur] = useState(0);
+
+    // AI hook
+    const { processImage, isProcessing, progress, statusMessage, resultUrl, error: aiError } = useImageAI();
+
+    // Layers state
+    const [layers, setLayers] = useState<fabric.Object[]>([]);
+    
+    const updateLayers = useCallback(() => {
+        if (!fabricCanvas.current) return;
+        setLayers([...fabricCanvas.current.getObjects()].reverse());
+    }, []);
+
+    const moveLayerUp = (obj: fabric.Object, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!fabricCanvas.current) return;
+        fabricCanvas.current.bringObjectForward(obj);
+        fabricCanvas.current.renderAll();
+        updateLayers();
+        saveToHistory();
+    };
+
+    const moveLayerDown = (obj: fabric.Object, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!fabricCanvas.current) return;
+        fabricCanvas.current.sendObjectBackwards(obj);
+        fabricCanvas.current.renderAll();
+        updateLayers();
+        saveToHistory();
+    };
+
+    const toggleLayerVisibility = (obj: fabric.Object, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!fabricCanvas.current) return;
+        obj.set('visible', !obj.visible);
+        fabricCanvas.current.discardActiveObject();
+        fabricCanvas.current.renderAll();
+        updateLayers();
+        saveToHistory();
+    };
+
+    const selectLayer = (obj: fabric.Object) => {
+        if (!fabricCanvas.current) return;
+        if (!obj.visible) return;
+        fabricCanvas.current.setActiveObject(obj);
+        fabricCanvas.current.renderAll();
+    };
+
+    const getLayerName = (obj: fabric.Object) => {
+        if (obj.type === 'i-text' || obj.type === 'text') return `Text: "${(obj as any).text?.substring(0, 10)}..."`;
+        if (obj.type === 'rect') return 'Rectangle';
+        if (obj.type === 'circle') return 'Circle';
+        if (obj.type === 'triangle') return 'Triangle';
+        if (obj.type === 'image' || obj instanceof fabric.FabricImage) return 'Image';
+        return 'Layer';
+    };
+
+    const applyAutoEnhance = () => {
+        if (!fabricCanvas.current) return;
+        const active = fabricCanvas.current.getActiveObject();
+        if (active && active instanceof fabric.FabricImage) {
+            // Reset existing filters
+            active.filters = [];
+            
+            // Add enhance filters (slight brightness, higher contrast, and saturation)
+            const brightness = new fabric.filters.Brightness({ brightness: 0.05 });
+            const contrast = new fabric.filters.Contrast({ contrast: 0.15 });
+            const saturation = new fabric.filters.Saturation({ saturation: 0.25 });
+            
+            active.filters.push(brightness, contrast, saturation);
+            active.applyFilters();
+            
+            fabricCanvas.current.renderAll();
+            saveToHistory();
+        } else {
+            alert('Please select an image layer to enhance.');
+        }
+    };
 
     // 1. Initialize Canvas
     useEffect(() => {
@@ -84,9 +163,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
             }
 
             // Event Listeners
-            canvas.on('object:modified', saveToHistory);
-            canvas.on('selection:created', () => forceUpdate());
-            canvas.on('selection:cleared', () => forceUpdate());
+            canvas.on('object:added', updateLayers);
+            canvas.on('object:removed', updateLayers);
+            canvas.on('object:modified', () => { saveToHistory(); updateLayers(); });
+            canvas.on('selection:created', () => { forceUpdate(); updateLayers(); });
+            canvas.on('selection:cleared', () => { forceUpdate(); updateLayers(); });
         };
 
         const timer = setTimeout(initCanvas, 100);
@@ -96,6 +177,88 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
             fabricCanvas.current = null;
         };
     }, [isOpen, imageUrl]);
+
+    // Handle AI result
+    useEffect(() => {
+        if (resultUrl && fabricCanvas.current) {
+            fabric.FabricImage.fromURL(resultUrl, { crossOrigin: 'anonymous' }).then(img => {
+                const canvas = fabricCanvas.current!;
+                
+                const activeObj = canvas.getActiveObject();
+                if (activeObj && (activeObj.type === 'image' || activeObj instanceof fabric.FabricImage)) {
+                    // Match position, scale, rotation of the original
+                    img.set({
+                        scaleX: activeObj.scaleX,
+                        scaleY: activeObj.scaleY,
+                        left: activeObj.left,
+                        top: activeObj.top,
+                        angle: activeObj.angle,
+                        originX: activeObj.originX,
+                        originY: activeObj.originY,
+                        cornerColor: 'white',
+                        cornerStrokeColor: '#6c5ce7',
+                        transparentCorners: false,
+                        cornerSize: 10,
+                        padding: 10,
+                    });
+                    
+                    // Remove the old image
+                    canvas.remove(activeObj);
+                    
+                    // Add the new one at the same position in stack (if possible) or just add
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                } else {
+                    // Scale to fit nicely
+                    const scale = Math.min(
+                        (canvas.width! - 100) / img.width!,
+                        (canvas.height! - 100) / img.height!
+                    );
+                    
+                    img.set({
+                        scaleX: scale,
+                        scaleY: scale,
+                        left: canvas.width! / 2,
+                        top: canvas.height! / 2,
+                        originX: 'center',
+                        originY: 'center',
+                        cornerColor: 'white',
+                        cornerStrokeColor: '#6c5ce7',
+                        transparentCorners: false,
+                        cornerSize: 10,
+                        padding: 10,
+                    });
+                    
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                }
+                saveToHistory();
+            });
+        }
+    }, [resultUrl]);
+
+    const handleImportImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !fabricCanvas.current) return;
+        
+        const url = URL.createObjectURL(file);
+        fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then(img => {
+            const canvas = fabricCanvas.current!;
+            const scale = Math.min((canvas.width! - 100) / img.width!, (canvas.height! - 100) / img.height!);
+            img.set({
+                scaleX: scale, scaleY: scale,
+                left: canvas.width! / 2, top: canvas.height! / 2,
+                originX: 'center', originY: 'center',
+                cornerColor: 'white', cornerStrokeColor: '#6c5ce7',
+                transparentCorners: false, cornerSize: 10, padding: 10,
+            });
+            canvas.add(img);
+            canvas.setActiveObject(img);
+            saveToHistory();
+            // Reset input
+            e.target.value = '';
+        });
+    };
 
     const [, updateState] = useState({});
     const forceUpdate = useCallback(() => updateState({}), []);
@@ -116,6 +279,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
             fabricCanvas.current.loadFromJSON(JSON.parse(history[newIndex]), () => {
                 fabricCanvas.current?.renderAll();
                 setHistoryIndex(newIndex);
+                updateLayers();
             });
         }
     };
@@ -126,6 +290,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
             fabricCanvas.current.loadFromJSON(JSON.parse(history[newIndex]), () => {
                 fabricCanvas.current?.renderAll();
                 setHistoryIndex(newIndex);
+                updateLayers();
             });
         }
     };
@@ -360,12 +525,20 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                     </div>
                     
                     <div className="header-center">
-                        <button className="icon-btn" onClick={undo} disabled={historyIndex <= 0} title="Undo">↩️</button>
-                        <button className="icon-btn" onClick={redo} disabled={historyIndex >= history.length - 1} title="Redo">↪️</button>
+                        <button className="icon-btn" onClick={undo} disabled={historyIndex <= 0} title="Undo">
+                            <IconUndo size={16} />
+                        </button>
+                        <button className="icon-btn" onClick={redo} disabled={historyIndex >= history.length - 1} title="Redo">
+                            <IconRedo size={16} />
+                        </button>
                         <div className="divider" />
-                        <button className="icon-btn" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>➖</button>
+                        <button className="icon-btn" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
+                            <IconMinus size={16} />
+                        </button>
                         <span className="zoom-level">{Math.round(zoom * 100)}%</span>
-                        <button className="icon-btn" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>➕</button>
+                        <button className="icon-btn" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
+                            <IconPlus size={16} />
+                        </button>
                     </div>
 
                     <div className="header-right">
@@ -379,12 +552,17 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 <main className="studio-body">
                     {/* Left Sidebar - Tab Switcher */}
                     <aside className="studio-sidebar">
-                        <TabItem active={activeTab === 'filter'} onClick={() => setActiveTab('filter')} icon="🎭" label="Filters" />
-                        <TabItem active={activeTab === 'adjust'} onClick={() => setActiveTab('adjust')} icon="🎚️" label="Adjust" />
-                        <TabItem active={activeTab === 'text'} onClick={() => setActiveTab('text')} icon="📝" label="Text" />
-                        <TabItem active={activeTab === 'shape'} onClick={() => setActiveTab('shape')} icon="📐" label="Shapes" />
-                        <TabItem active={activeTab === 'crop'} onClick={() => setActiveTab('crop')} icon="✂️" label="Crop" />
-                        <div className="sidebar-bottom">
+                        <TabItem active={activeTab === 'filter'} onClick={() => setActiveTab('filter')} icon={<IconActivity size={24} />} label="Filters" />
+                        <TabItem active={activeTab === 'adjust'} onClick={() => setActiveTab('adjust')} icon={<IconSettings size={24} />} label="Adjust" />
+                        <TabItem active={activeTab === 'text'} onClick={() => setActiveTab('text')} icon={<IconFileText size={24} />} label="Text" />
+                        <TabItem active={activeTab === 'shape'} onClick={() => setActiveTab('shape')} icon={<IconPenSquare size={24} />} label="Shapes" />
+                        <TabItem active={activeTab === 'crop'} onClick={() => setActiveTab('crop')} icon={<IconEdit size={24} />} label="Crop" />
+                        <TabItem active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} icon={<IconSparkles size={24} />} label="AI Magic" />
+                        <div className="sidebar-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <input type="file" ref={importImageRef} style={{ display: 'none' }} accept="image/*" onChange={handleImportImage} />
+                            <button className="tool-btn" onClick={() => importImageRef.current?.click()} title="Import Image">
+                                <IconUpload size={20} />
+                            </button>
                             <button className="tool-btn danger" onClick={() => {
                                 const active = fabricCanvas.current?.getActiveObject();
                                 if (active) {
@@ -478,6 +656,52 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                                     )}
                                 </div>
                             )}
+                            {activeTab === 'ai' && (
+                                <div className="button-list">
+                                    <div style={{ padding: '12px', background: 'var(--bg-glass)', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '8px' }}>
+                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                            AI processing runs completely in your browser using Transformers.js. No images are sent to the server.
+                                        </p>
+                                        
+                                        {isProcessing ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', padding: '16px 0' }}>
+                                                <div className="spinner-large" style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }} />
+                                                <span style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 600 }}>{statusMessage}</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    className="action-btn-large" 
+                                                    style={{ width: '100%', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                    onClick={() => {
+                                                        const activeObj = fabricCanvas.current?.getActiveObject();
+                                                        if (activeObj && (activeObj.type === 'image' || activeObj instanceof fabric.FabricImage)) {
+                                                            const base64 = activeObj.toDataURL({ format: 'png' });
+                                                            processImage('removeBackground', base64);
+                                                        } else {
+                                                            alert('Please select an image layer first');
+                                                        }
+                                                    }}
+                                                >
+                                                    <IconLayers size={16} /> Remove Background
+                                                </button>
+                                                <button 
+                                                    className="action-btn-large" 
+                                                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'linear-gradient(135deg, rgba(108, 92, 231, 0.2), transparent)' }}
+                                                    onClick={applyAutoEnhance}
+                                                >
+                                                    <IconWand size={16} /> Auto Color Enhance
+                                                </button>
+                                            </>
+                                        )}
+                                        {aiError && (
+                                            <p style={{ color: '#ef4444', fontSize: '11px', marginTop: '12px', textAlign: 'center' }}>
+                                                Error: {aiError}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </aside>
 
@@ -493,6 +717,62 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                             </div>
                         )}
                     </section>
+
+                    {/* Right Sidebar - Layers Panel */}
+                    <aside className="studio-layers">
+                        <div className="layers-header">
+                            <h3>LAYERS</h3>
+                        </div>
+                        <div className="layers-list">
+                            {layers.map((layer, index) => {
+                                const isActive = fabricCanvas.current?.getActiveObject() === layer;
+                                return (
+                                    <div 
+                                        key={index} 
+                                        className={`layer-item ${isActive ? 'active' : ''} ${!layer.visible ? 'hidden-layer' : ''}`}
+                                        onClick={() => selectLayer(layer)}
+                                    >
+                                        <div className="layer-info">
+                                            <span className="layer-type-icon" style={{ display: 'flex' }}>
+                                                {layer.type === 'i-text' || layer.type === 'text' ? <IconFileText size={14} color="#a1a1aa" /> : 
+                                                 layer.type === 'image' || layer instanceof fabric.FabricImage ? <IconImage size={14} color="#a1a1aa" /> : 
+                                                 <IconPenSquare size={14} color="#a1a1aa" />}
+                                            </span>
+                                            <span className="layer-name">{getLayerName(layer)}</span>
+                                        </div>
+                                        <div className="layer-actions">
+                                            <button 
+                                                className="layer-btn" 
+                                                onClick={(e) => toggleLayerVisibility(layer, e)}
+                                                title={layer.visible ? "Hide layer" : "Show layer"}
+                                            >
+                                                {layer.visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+                                            </button>
+                                            <button 
+                                                className="layer-btn" 
+                                                onClick={(e) => moveLayerUp(layer, e)}
+                                                disabled={index === 0}
+                                                title="Move up"
+                                            >
+                                                <IconChevronUp size={14} />
+                                            </button>
+                                            <button 
+                                                className="layer-btn" 
+                                                onClick={(e) => moveLayerDown(layer, e)}
+                                                disabled={index === layers.length - 1}
+                                                title="Move down"
+                                            >
+                                                <IconChevronDown size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {layers.length === 0 && (
+                                <div className="no-layers">No layers</div>
+                            )}
+                        </div>
+                    </aside>
                 </main>
             </div>
 
@@ -577,6 +857,27 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 .filename-input { background: #27272a; border: 1px solid #3f3f46; color: white; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; outline: none; width: 180px; }
                 .filename-input:focus { border-color: #6c5ce7; background: #18181b; }
                 .file-ext { color: #71717a; font-size: 13px; font-weight: 500; margin-left: 4px; }
+
+                /* Layers Sidebar */
+                .studio-layers { width: 260px; background: #18181b; border-left: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
+                .layers-header { padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+                .layers-header h3 { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #71717a; }
+                .layers-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+                
+                .layer-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+                .layer-item:hover { border-color: #52525b; background: #2d2d30; }
+                .layer-item.active { border-color: #6c5ce7; background: rgba(108, 92, 231, 0.1); }
+                .layer-item.hidden-layer { opacity: 0.5; }
+                
+                .layer-info { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+                .layer-type-icon { font-size: 14px; }
+                .layer-name { font-size: 12px; font-weight: 500; color: #e4e4e7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+                
+                .layer-actions { display: flex; align-items: center; gap: 4px; }
+                .layer-btn { background: transparent; border: none; color: #a1a1aa; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+                .layer-btn:hover:not(:disabled) { background: #3f3f46; color: white; }
+                .layer-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+                .no-layers { padding: 20px; text-align: center; color: #71717a; font-size: 12px; }
             `}</style>
         </div>
     );

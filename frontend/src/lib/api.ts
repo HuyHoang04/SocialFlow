@@ -203,6 +203,11 @@ export const api = {
     updatePost: (id: string, data: { content: string; pageIds: string[]; mediaFilenames?: string[]; scheduledTime?: string; campaignId?: string; platformContent?: { [pageId: string]: string } }) =>
         request(`/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     publishPost: (id: string) => request(`/posts/${id}/publish`, { method: 'POST' }),
+    runEngagementBot: (id: string, brandId: string) =>
+        request(`/posts/${id}/engagement-bot`, {
+            method: 'POST',
+            body: JSON.stringify({ brandId })
+        }),
     deletePost: (id: string) => request(`/posts/${id}`, { method: 'DELETE' }),
 
     getBrandConnections: (brandId: string) => request(`/brands/${brandId}/connections`),
@@ -285,6 +290,13 @@ export const api = {
     getPageAnalytics: (pageId: string) => request(`/analytics/pages/${pageId}`),
     getPageAnalyticsHistory: (pageId: string) => request(`/analytics/pages/${pageId}/history`),
 
+    // ============= VIDEO STUDIO ENDPOINTS =============
+    getVideoProjects: (brandId: string) => request(`/brands/${brandId}/video-projects`),
+    getVideoProject: (brandId: string, projectId: string) => request(`/brands/${brandId}/video-projects/${projectId}`),
+    createVideoProject: (brandId: string, data: any) => request(`/brands/${brandId}/video-projects`, { method: 'POST', body: JSON.stringify(data) }),
+    updateVideoProject: (brandId: string, projectId: string, data: any) => request(`/brands/${brandId}/video-projects/${projectId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteVideoProject: (brandId: string, projectId: string) => request(`/brands/${brandId}/video-projects/${projectId}`, { method: 'DELETE' }),
+
     // ============= AI SERVICE ENDPOINTS =============
 
     // AI Models
@@ -315,6 +327,63 @@ export const api = {
         provider?: string;
         model?: string;
     }) => request('/ai/generate-caption-batch', { method: 'POST', body: JSON.stringify(data) }),
+
+    streamGenerateCaptionBatch: (
+        data: {
+            brand_id: string;
+            platforms: string[];
+            category: string;
+            tone?: string;
+            user_brief: string;
+            use_rag?: boolean;
+            scheduled_time?: string;
+            provider?: string;
+            model?: string;
+        },
+        onMessage: (msg: any) => void,
+        onError: (err: any) => void,
+        onComplete: () => void
+    ) => {
+        const token = getToken();
+        fetch(`${API_BASE}/ai/stream/generate-captions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify(data)
+        }).then(async response => {
+            if (!response.ok) throw new Error(`Stream failed: ${response.status}`);
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            if (!reader) return;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const eventData = JSON.parse(line.substring(6));
+                            if (eventData.type === 'error') {
+                                onError(new Error(eventData.data));
+                            } else if (eventData.type === 'done') {
+                                onComplete();
+                            } else {
+                                onMessage(eventData);
+                            }
+                        } catch (e) {
+                            // Ignore JSON parse errors for incomplete chunks
+                        }
+                    }
+                }
+            }
+        }).catch(onError);
+    },
 
     // Content Rewrite
     rewriteContent: (data: {

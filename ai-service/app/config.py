@@ -8,6 +8,14 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 PIXAZO_API_KEY = os.getenv("PIXAZO_API_KEY", "").strip()  # For Pixazo (FREE Stable Diffusion)
 
+# Multi-key support: comma-separated list of OpenRouter keys for rotation
+# Falls back to single OPENROUTER_API_KEY if OPENROUTER_API_KEYS not set
+_raw_keys = os.getenv("OPENROUTER_API_KEYS", "").strip()
+OPENROUTER_API_KEYS = [k.strip() for k in _raw_keys.split(",") if k.strip()] if _raw_keys else (
+    [OPENROUTER_API_KEY] if OPENROUTER_API_KEY else []
+)
+KEY_COOLDOWN_SECONDS = int(os.getenv("KEY_COOLDOWN_SECONDS", "43200"))
+
 # Backend integration
 JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://backend:8080")  # Java backend URL
 
