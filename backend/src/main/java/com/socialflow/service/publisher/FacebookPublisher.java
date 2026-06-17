@@ -24,6 +24,7 @@ import java.util.*;
 
 import com.socialflow.dto.PlatformCommentDto;
 import com.socialflow.model.enums.MessageType;
+import com.socialflow.repository.SocialConnectionRepository;
 
 @Component
 @RequiredArgsConstructor
@@ -31,6 +32,7 @@ import com.socialflow.model.enums.MessageType;
 public class FacebookPublisher implements CommentFetcher {
 
     private final WebClient.Builder webClientBuilder;
+    private final SocialConnectionRepository connectionRepository;
 
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
@@ -176,10 +178,26 @@ public class FacebookPublisher implements CommentFetcher {
                     .build();
 
         } catch (Exception e) {
-            log.error("Facebook publish failed: {}", e.getMessage(), e);
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            // Facebook error 190 = token invalid/expired (user logged out, revoked, password changed)
+            if (msg.contains("190") || msg.contains("OAuthException") || msg.contains("access token")) {
+                log.warn("Facebook token invalid for page '{}' — marking connection as expired", page.getPageName());
+                try {
+                    var conn = page.getConnection();
+                    conn.setTokenExpiresAt(LocalDateTime.now().minusSeconds(1));
+                    connectionRepository.save(conn);
+                } catch (Exception ex) {
+                    log.warn("Could not mark token as expired: {}", ex.getMessage());
+                }
+                return PublishResult.builder()
+                        .post(post).success(false)
+                        .errorMessage("Facebook token expired — please reconnect your account in the Accounts page. (" + msg + ")")
+                        .build();
+            }
+            log.error("Facebook publish failed: {}", msg, e);
             return PublishResult.builder()
                     .post(post).success(false)
-                    .errorMessage(e.getMessage())
+                    .errorMessage(msg)
                     .build();
         }
     }
