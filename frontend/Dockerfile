@@ -1,5 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Install dependencies required to build 'canvas' (used by fabric.js)
+RUN apk add --no-cache python3 make g++ cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
@@ -20,6 +22,8 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
+# Install runtime dependencies for canvas
+RUN apk add --no-cache cairo pango jpeg giflib librsvg
 COPY --from=builder /app/.next/standalone ./    
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
