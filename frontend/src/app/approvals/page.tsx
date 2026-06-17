@@ -105,7 +105,7 @@ function PlatformPreview({
                                 <span style={{ fontSize: 32, color: 'var(--text-muted)' }}>🎵</span>
                             </div>
                         )}
-                        <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'white', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'var(--text-primary)', textAlign: 'center' }}>
                             <div>❤️<br /><span style={{ fontSize: 10 }}>234</span></div>
                             <div>💬<br /><span style={{ fontSize: 10 }}>45</span></div>
                             <div>↗️<br /><span style={{ fontSize: 10 }}>89</span></div>

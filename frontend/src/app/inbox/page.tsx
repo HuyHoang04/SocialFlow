@@ -318,8 +318,7 @@ export default function InboxPage() {
                         {tab.label}
                         {tab.unread > 0 && (
                             <span style={{
-                                background: 'var(--primary)',
-                                color: 'white',
+                                background: 'var(--primary)', color: 'white',
                                 borderRadius: 100,
                                 fontSize: 10,
                                 fontWeight: 700,
@@ -401,7 +400,7 @@ export default function InboxPage() {
                                 ) : selectedConversation ? (
                                     <>
                                         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{ background: 'linear-gradient(135deg,#1877f2,#42a5f5)', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: 'white', fontWeight: 700 }}>DM</span>
+                                            <span style={{ background: 'linear-gradient(135deg,#1877f2,#42a5f5)', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: 'var(--text-primary)', fontWeight: 700 }}>DM</span>
                                             {selectedConversation.preview.authorName}
                                         </div>
                                         <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -548,7 +547,7 @@ function Bubble({ msg }: { msg: InboxMessage }) {
             <div style={{
                 width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
                 background: isMe ? 'var(--secondary)' : 'var(--primary)',
-                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontWeight: 700, fontSize: 14,
             }}>
                 {msg.authorName.charAt(0).toUpperCase()}

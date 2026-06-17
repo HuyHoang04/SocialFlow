@@ -235,7 +235,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                         height: 36,
                         borderRadius: '50%',
                         background: s === step ? 'var(--primary)' : s < step ? 'var(--success)' : 'var(--border-hover)',
-                        color: 'white',
+                        color: 'var(--text-primary)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -363,8 +363,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                             htmlFor="logo-input"
                             style={{
                                 padding: '8px 16px',
-                                background: 'var(--primary)',
-                                color: 'white',
+                                background: 'var(--primary)', color: 'white',
                                 borderRadius: 'var(--radius)',
                                 fontSize: 12,
                                 fontWeight: 600,
@@ -423,7 +422,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                                         flex: 1,
                                         padding: '8px 12px',
                                         background: 'var(--success)',
-                                        color: 'white',
+                                        color: 'var(--text-primary)',
                                         border: 'none',
                                         borderRadius: 'var(--radius)',
                                         fontSize: 12,
@@ -692,7 +691,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white',
+                    color: 'var(--text-primary)',
                     fontWeight: 600,
                     fontSize: 12
                 }}>
@@ -707,7 +706,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white',
+                    color: 'var(--text-primary)',
                     fontWeight: 600,
                     fontSize: 12
                 }}>
@@ -856,8 +855,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                                     disabled={creating || (step === 1 && !formData.name.trim())}
                                     style={{
                                         padding: '10px 24px',
-                                        background: 'var(--primary)',
-                                        color: 'white',
+                                        background: 'var(--primary)', color: 'white',
                                         border: 'none',
                                         borderRadius: 'var(--radius)',
                                         cursor: creating || (step === 1 && !formData.name.trim()) ? 'not-allowed' : 'pointer',
@@ -876,7 +874,7 @@ export default function CreateBrandForm({ onSuccess, onCancel }: CreateBrandForm
                                     style={{
                                         padding: '10px 24px',
                                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        color: 'white',
+                                        color: 'var(--text-primary)',
                                         border: 'none',
                                         borderRadius: 'var(--radius)',
                                         cursor: creating || !formData.name.trim() ? 'not-allowed' : 'pointer',

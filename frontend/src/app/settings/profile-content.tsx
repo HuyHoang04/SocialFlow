@@ -131,7 +131,7 @@ export default function ProfileContent() {
                                 }} />
                             ) : (
                                 <span style={{
-                                    fontSize: 36, fontWeight: 700, color: 'white',
+                                    fontSize: 36, fontWeight: 700, color: 'var(--text-primary)',
                                     textShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                 }}>
                                     {name ? name[0]?.toUpperCase() : '?'}

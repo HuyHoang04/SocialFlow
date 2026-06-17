@@ -21,7 +21,7 @@ function LoaderOverlay() {
       position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
       background: 'rgba(17, 17, 19, 0.9)', backdropFilter: 'blur(10px)',
       zIndex: 9999, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', color: 'white'
+      alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)'
     }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
         <IconFilm size={32} color="var(--accent)" />
@@ -2045,7 +2045,7 @@ export default function VideoStudio() {
               </button>
               <button
                 className="btn"
-                style={{ background: isRecording ? '#ff4757' : 'var(--bg-glass)', border: '1px solid var(--border)', color: 'white' }}
+                style={{ background: isRecording ? '#ff4757' : 'var(--bg-glass)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                 onClick={isRecording ? stopRecording : startRecording}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2089,7 +2089,7 @@ export default function VideoStudio() {
                 value={activeScene.script}
                 onChange={val => updateScene({ script: val })}
                 style={{
-                  width: '100%', height: 120, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: 12, color: 'white', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, marginBottom: 20
+                  width: '100%', height: 120, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: 12, color: 'var(--text-primary)', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, marginBottom: 20
                 }}
               />
 
@@ -2097,7 +2097,7 @@ export default function VideoStudio() {
               <select
                 value={activeScene.gesture}
                 onChange={e => updateScene({ gesture: e.target.value })}
-                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: 13, marginBottom: 20 }}
+                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, marginBottom: 20 }}
               >
                 <option value="auto">Auto-sync</option>
                 <option value="natural">Natural</option>
@@ -2114,7 +2114,7 @@ export default function VideoStudio() {
               <select
                 value={activeScene.isMoving ? 'walking' : 'standing'}
                 onChange={e => updateScene({ isMoving: e.target.value === 'walking' })}
-                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: 13, marginBottom: 20 }}
+                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, marginBottom: 20 }}
               >
                 <option value="standing">Standing Still</option>
                 <option value="walking">Walking Around</option>
@@ -2124,7 +2124,7 @@ export default function VideoStudio() {
               <select
                 value={aspectRatio}
                 onChange={e => setAspectRatio(e.target.value as any)}
-                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: 13, marginBottom: 20 }}
+                style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, marginBottom: 20 }}
               >
                 <option value="16:9">Landscape (16:9)</option>
                 <option value="9:16">Portrait / Phone (9:16)</option>
@@ -2139,11 +2139,11 @@ export default function VideoStudio() {
                   value={activeScene.mediaUrl || ''}
                   onChange={(e) => updateScene({ mediaUrl: e.target.value })}
                   placeholder="Enter URL (https://...)"
-                  style={{ flex: 1, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: 13, minWidth: 0 }}
+                  style={{ flex: 1, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, minWidth: 0 }}
                 />
                 <select
                   onChange={(e) => updateScene({ mediaUrl: e.target.value })}
-                  style={{ width: 100, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', color: 'white', fontSize: 12, padding: '0 8px' }}
+                  style={{ width: 100, background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: 12, padding: '0 8px' }}
                 >
                   <option value="">Media Library</option>
                   {mediaAssets.filter(a => a.contentType.startsWith('image/') || a.contentType.startsWith('video/')).map(a => (
@@ -2158,7 +2158,7 @@ export default function VideoStudio() {
                     type="number"
                     value={activeScene.mediaWidth ?? 320}
                     onChange={(e) => updateScene({ mediaWidth: parseInt(e.target.value) || 320 })}
-                    style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'white', fontSize: 12 }}
+                    style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: 12 }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -2167,7 +2167,7 @@ export default function VideoStudio() {
                     type="number"
                     value={activeScene.mediaHeight ?? 180}
                     onChange={(e) => updateScene({ mediaHeight: parseInt(e.target.value) || 180 })}
-                    style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'white', fontSize: 12 }}
+                    style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: 12 }}
                   />
                 </div>
               </div>
@@ -2264,7 +2264,7 @@ export default function VideoStudio() {
                   type="text"
                   value={avatarUrl}
                   onChange={e => setAvatarUrl(e.target.value)}
-                  style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'white', fontSize: 11 }}
+                  style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11 }}
                   placeholder="URL (empty for Robot)"
                 />
 
@@ -2275,7 +2275,7 @@ export default function VideoStudio() {
                     const selected = availableVoices.find(v => v.voiceURI === e.target.value);
                     if (selected) setVoice(selected);
                   }}
-                  style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'white', fontSize: 11 }}
+                  style={{ width: '100%', background: 'var(--bg-glass)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: 11 }}
                 >
                   {availableVoices.map(v => (
                     <option key={v.voiceURI} value={v.voiceURI}>
@@ -2337,7 +2337,7 @@ export default function VideoStudio() {
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6c5ce7', animation: 'bounce 1s infinite 0.2s' }} />
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6c5ce7', animation: 'bounce 1s infinite 0.4s' }} />
                   </div>
-                  <strong style={{ fontSize: 14, color: 'white' }}>Playing: {scenes[playingIndex]?.title}</strong>
+                  <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>Playing: {scenes[playingIndex]?.title}</strong>
                 </div>
               )}
 
@@ -2345,7 +2345,7 @@ export default function VideoStudio() {
               {isConverting && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
                   <div style={{ width: 40, height: 40, border: '4px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                  <h3 style={{ marginTop: 16, color: 'white' }}>Converting to MP4...</h3>
+                  <h3 style={{ marginTop: 16, color: 'var(--text-primary)' }}>Converting to MP4...</h3>
                   <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Transcoding Opus audio to AAC</p>
                 </div>
               )}

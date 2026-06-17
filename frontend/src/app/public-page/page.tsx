@@ -1044,7 +1044,7 @@ function PublicPageEditorContent() {
                                 <div style={{
                                     width: avatarSize, height: avatarSize, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
                                     border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', fontSize: initialsFontSize, fontWeight: 800, color: 'white'
+                                    justifyContent: 'center', fontSize: initialsFontSize, fontWeight: 800, color: 'var(--text-primary)'
                                 }}>
                                     {(settings?.displayName || selectedBrand.name || '?')[0]?.toUpperCase()}
                                 </div>
@@ -1066,8 +1066,8 @@ function PublicPageEditorContent() {
                                     if (!uploadingLogo) e.currentTarget.style.opacity = '0';
                                 }}
                             >
-                                <span style={{ fontSize: 16, color: 'white' }}>📷</span>
-                                <span style={{ fontSize: 8, color: 'white', fontWeight: 'bold', marginTop: 2 }}>
+                                <span style={{ fontSize: 16, color: 'var(--text-primary)' }}>📷</span>
+                                <span style={{ fontSize: 8, color: 'var(--text-primary)', fontWeight: 'bold', marginTop: 2 }}>
                                     {uploadingLogo ? '...' : 'CHANGE'}
                                 </span>
                             </div>
@@ -1083,7 +1083,7 @@ function PublicPageEditorContent() {
                                     style={{
                                         position: 'absolute', bottom: -2, right: -2, width: 18, height: 18,
                                         borderRadius: '50%', background: '#ef4444', border: '1px solid white',
-                                        color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         cursor: 'pointer', fontSize: 8, padding: 0, zIndex: 10
                                     }}
                                     title="Remove Logo"
@@ -1109,7 +1109,7 @@ function PublicPageEditorContent() {
                                     style={{
                                         width: '95%', padding: '10px 16px', fontSize: nameFontSize, fontWeight: 800,
                                         background: 'rgba(0,0,0,0.65)', border: '2px solid var(--accent)', borderRadius: '10px',
-                                        color: 'white', textAlign: 'center', outline: 'none',
+                                        color: 'var(--text-primary)', textAlign: 'center', outline: 'none',
                                         boxShadow: '0 0 16px rgba(99, 102, 241, 0.35)',
                                         transition: 'all 0.2s'
                                     }}
@@ -1119,7 +1119,7 @@ function PublicPageEditorContent() {
                             <div
                                 onClick={handleStartEditName}
                                 style={{
-                                    fontSize: nameFontSize, fontWeight: 800, color: 'white', textAlign: 'center',
+                                    fontSize: nameFontSize, fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center',
                                     cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', border: '1px dashed transparent',
                                     transition: 'all 0.15s'
                                 }}
@@ -1156,7 +1156,7 @@ function PublicPageEditorContent() {
                                     style={{
                                         width: '100%', minHeight: 100, padding: '12px 16px', fontSize: bioFontSize,
                                         background: 'rgba(0,0,0,0.65)', border: '2px solid var(--accent)', borderRadius: '10px',
-                                        color: 'white', textAlign: 'center', outline: 'none', resize: 'vertical',
+                                        color: 'var(--text-primary)', textAlign: 'center', outline: 'none', resize: 'vertical',
                                         lineHeight: 1.5, boxShadow: '0 0 16px rgba(99, 102, 241, 0.35)',
                                         transition: 'all 0.2s'
                                     }}
@@ -1224,7 +1224,7 @@ function PublicPageEditorContent() {
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
                                                         background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
-                                                        color: 'white', outline: 'none', transition: 'all 0.15s ease'
+                                                        color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
                                                         e.currentTarget.style.borderColor = 'var(--accent)';
@@ -1256,7 +1256,7 @@ function PublicPageEditorContent() {
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
                                                         background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
-                                                        color: 'white', outline: 'none', transition: 'all 0.15s ease'
+                                                        color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
                                                         e.currentTarget.style.borderColor = 'var(--accent)';
@@ -1290,7 +1290,7 @@ function PublicPageEditorContent() {
                                                                         padding: '10px 16px',
                                                                         background: `${color}20`,
                                                                         border: `1.5px solid ${color}`,
-                                                                        color: 'white',
+                                                                        color: 'var(--text-primary)',
                                                                         borderRadius: '28px',
                                                                         fontSize: '13px',
                                                                         fontWeight: 700,
@@ -1334,7 +1334,7 @@ function PublicPageEditorContent() {
                                                                         borderRadius: '12px',
                                                                         border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.15)',
                                                                         background: isSelected ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255,255,255,0.04)',
-                                                                        color: 'white',
+                                                                        color: 'var(--text-primary)',
                                                                         cursor: 'pointer',
                                                                         textAlign: 'center',
                                                                         display: 'flex',
@@ -1386,7 +1386,7 @@ function PublicPageEditorContent() {
                                                                 disabled={uploadingIcon}
                                                                 style={{
                                                                     flex: 1, padding: '14px 18px', fontSize: 14, background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.25)',
-                                                                    color: 'white', borderRadius: 12, cursor: 'pointer', fontWeight: 700, transition: 'all 0.15s ease'
+                                                                    color: 'var(--text-primary)', borderRadius: 12, cursor: 'pointer', fontWeight: 700, transition: 'all 0.15s ease'
                                                                 }}
                                                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
                                                                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
@@ -1410,7 +1410,7 @@ function PublicPageEditorContent() {
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
                                                         background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
-                                                        color: 'white', outline: 'none', resize: 'vertical', minHeight: 110, transition: 'all 0.15s ease'
+                                                        color: 'var(--text-primary)', outline: 'none', resize: 'vertical', minHeight: 110, transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
                                                         e.currentTarget.style.borderColor = 'var(--accent)';
@@ -1458,7 +1458,7 @@ function PublicPageEditorContent() {
                                                                 : isDraggingBanner
                                                                     ? '2.5px dashed var(--accent)'
                                                                     : '1.5px dashed rgba(255,255,255,0.25)',
-                                                            color: 'white',
+                                                            color: 'var(--text-primary)',
                                                             borderRadius: 16,
                                                             cursor: uploadingImageBlock ? 'not-allowed' : 'pointer',
                                                             fontWeight: 700,
@@ -1510,7 +1510,7 @@ function PublicPageEditorContent() {
                                                     type="button"
                                                     onClick={() => setEditingBlockId(null)}
                                                     style={{
-                                                        padding: '14px 22px', fontSize: 14, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 12, fontWeight: 700, transition: 'all 0.15s ease'
+                                                        padding: '14px 22px', fontSize: 14, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 12, fontWeight: 700, transition: 'all 0.15s ease'
                                                     }}
                                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
                                                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
@@ -1521,7 +1521,7 @@ function PublicPageEditorContent() {
                                                     type="button"
                                                     onClick={() => handleSaveBlockEdit(block.id)}
                                                     style={{
-                                                        padding: '14px 22px', fontSize: 14, background: 'var(--accent)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 12, fontWeight: 800, transition: 'all 0.15s ease'
+                                                        padding: '14px 22px', fontSize: 14, background: 'var(--accent)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 12, fontWeight: 800, transition: 'all 0.15s ease'
                                                     }}
                                                     onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.15)'}
                                                     onMouseLeave={e => e.currentTarget.style.filter = 'none'}
@@ -1598,7 +1598,7 @@ function PublicPageEditorContent() {
                                                     right: 0,
                                                     background: 'linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%)',
                                                     padding: '16px 20px',
-                                                    color: 'white',
+                                                    color: 'var(--text-primary)',
                                                     fontSize: '15px',
                                                     fontWeight: 600,
                                                     textShadow: '0 1px 4px rgba(0, 0, 0, 0.4)',
@@ -1688,7 +1688,7 @@ function PublicPageEditorContent() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 14,
-                                            color: 'white',
+                                            color: 'var(--text-primary)',
                                             fontSize: 15,
                                             fontWeight: 600,
                                             boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
@@ -1764,7 +1764,7 @@ function PublicPageEditorContent() {
                                                     onClick={() => handleMoveBlock(idx, 'up')}
                                                     disabled={idx === 0}
                                                     style={{
-                                                        background: 'none', border: 'none', color: 'white',
+                                                        background: 'none', border: 'none', color: 'var(--text-primary)',
                                                         fontSize: 9, cursor: 'pointer', padding: '2px 4px',
                                                         opacity: idx === 0 ? 0.3 : 1
                                                     }}
@@ -1777,7 +1777,7 @@ function PublicPageEditorContent() {
                                                     onClick={() => handleMoveBlock(idx, 'down')}
                                                     disabled={idx === customLinks.length - 1}
                                                     style={{
-                                                        background: 'none', border: 'none', color: 'white',
+                                                        background: 'none', border: 'none', color: 'var(--text-primary)',
                                                         fontSize: 9, cursor: 'pointer', padding: '2px 4px',
                                                         opacity: idx === customLinks.length - 1 ? 0.3 : 1
                                                     }}
@@ -1854,7 +1854,7 @@ function PublicPageEditorContent() {
                                                     padding: '12px 6px', borderRadius: '10px',
                                                     border: '1px solid rgba(255,255,255,0.12)',
                                                     background: 'rgba(255,255,255,0.03)',
-                                                    color: 'white', fontSize: 12, fontWeight: 700,
+                                                    color: 'var(--text-primary)', fontSize: 12, fontWeight: 700,
                                                     cursor: 'pointer', transition: 'all 0.15s ease',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
                                                 }}
@@ -1904,7 +1904,7 @@ function PublicPageEditorContent() {
                                                                 borderRadius: '8px',
                                                                 border: `1px solid ${color}40`,
                                                                 background: `${color}15`,
-                                                                color: 'white',
+                                                                color: 'var(--text-primary)',
                                                                 fontSize: '11px',
                                                                 fontWeight: 700,
                                                                 cursor: 'pointer',
@@ -1983,7 +1983,7 @@ function PublicPageEditorContent() {
                                         style={{
                                             width: '100%', padding: '12px 14px', fontSize: 14,
                                             background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px',
-                                            color: 'white', outline: 'none', transition: 'all 0.15s ease'
+                                            color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                         }}
                                         onFocus={e => {
                                             e.currentTarget.style.borderColor = 'var(--accent)';
@@ -2001,7 +2001,7 @@ function PublicPageEditorContent() {
                                         style={{
                                             width: '100%', padding: '12px 14px', fontSize: 14,
                                             background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px',
-                                            color: 'white', outline: 'none', transition: 'all 0.15s ease'
+                                            color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                         }}
                                         onFocus={e => {
                                             e.currentTarget.style.borderColor = 'var(--accent)';
@@ -2017,7 +2017,7 @@ function PublicPageEditorContent() {
                                             type="button"
                                             onClick={() => setEditingWebsite(false)}
                                             style={{
-                                                padding: '10px 16px', fontSize: 12, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 8, fontWeight: 700, transition: 'all 0.15s ease'
+                                                padding: '10px 16px', fontSize: 12, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 8, fontWeight: 700, transition: 'all 0.15s ease'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
@@ -2028,7 +2028,7 @@ function PublicPageEditorContent() {
                                             type="button"
                                             onClick={handleSaveWebsiteEdit}
                                             style={{
-                                                padding: '10px 16px', fontSize: 12, background: 'var(--accent)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 8, fontWeight: 800, transition: 'all 0.15s ease'
+                                                padding: '10px 16px', fontSize: 12, background: 'var(--accent)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 8, fontWeight: 800, transition: 'all 0.15s ease'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.15)'}
                                             onMouseLeave={e => e.currentTarget.style.filter = 'none'}
@@ -2052,7 +2052,7 @@ function PublicPageEditorContent() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 14,
-                                            color: 'white',
+                                            color: 'var(--text-primary)',
                                             fontSize: 15,
                                             fontWeight: 600,
                                             boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
@@ -2126,7 +2126,7 @@ function PublicPageEditorContent() {
                             overflowY: 'auto'
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10 }}>
-                                <span style={{ fontSize: 14, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ fontSize: 16 }}>🎨</span> Theme Styling
                                 </span>
                                 <button
@@ -2221,7 +2221,7 @@ function PublicPageEditorContent() {
                                                 }}
                                             />
                                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                <span style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>Custom Image</span>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>Custom Image</span>
                                                 <span style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 600 }}>Active</span>
                                             </div>
                                             <button
@@ -2261,7 +2261,7 @@ function PublicPageEditorContent() {
                                             gap: 8,
                                             height: 48,
                                             background: 'rgba(255,255,255,0.03)',
-                                            color: 'white',
+                                            color: 'var(--text-primary)',
                                             border: '2px dashed rgba(255,255,255,0.15)',
                                             borderRadius: 10,
                                             cursor: 'pointer',
@@ -2313,7 +2313,7 @@ function PublicPageEditorContent() {
                                                     borderRadius: 8,
                                                     border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.12)',
                                                     background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255,255,255,0.03)',
-                                                    color: 'white',
+                                                    color: 'var(--text-primary)',
                                                     cursor: 'pointer',
                                                     transition: 'all 0.2s ease',
                                                 }}

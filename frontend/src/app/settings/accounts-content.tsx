@@ -319,7 +319,7 @@ export default function AccountsContent() {
                                     {platform.icon}
                                 </div>
                                 <div>
-                                    <div style={{ fontWeight: 700, fontSize: 16, color: 'white' }}>{platform.name}</div>
+                                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{platform.name}</div>
                                     {connected && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>Active</div>}
                                 </div>
                             </div>

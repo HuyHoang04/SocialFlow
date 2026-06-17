@@ -452,12 +452,12 @@ export default function LinktreeContent() {
                             <div style={{
                                 width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
                                 border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center',
-                                justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 8,
+                                justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8,
                             }}>
                                 {(settings?.displayName || selectedBrand.name || '?')[0]?.toUpperCase()}
                             </div>
                         )}
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'white', textAlign: 'center' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>
                             {settings?.displayName || selectedBrand.name}
                         </div>
                         {settings?.bio && (
@@ -475,7 +475,7 @@ export default function LinktreeContent() {
                                 backdropFilter: 'blur(8px)',
                                 border: '1px solid rgba(255,255,255,0.2)',
                                 display: 'flex', alignItems: 'center', gap: 8,
-                                color: 'white', fontSize: 11, fontWeight: 600,
+                                color: 'var(--text-primary)', fontSize: 11, fontWeight: 600,
                             }}>
                                 <PlatformIcon platform={p} size={14} color="white" />
                                 {p.charAt(0).toUpperCase() + p.slice(1)}

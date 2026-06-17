@@ -310,7 +310,7 @@ export default function AssetsPage() {
                                     border: '1px solid rgba(255,255,255,0.1)'
                                 }}>
                                     {asset.contentType.startsWith('image/') ? <IconImage size={14} color="white" /> : <IconFilm size={14} color="white" />}
-                                    <span style={{ fontSize: 10, color: 'white', fontWeight: 600, textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: 10, color: 'var(--text-primary)', fontWeight: 600, textTransform: 'uppercase' }}>
                                         {asset.contentType.split('/')[1]}
                                     </span>
                                 </div>

@@ -113,7 +113,7 @@ function PlatformPreview({
                                 <span style={{ fontSize: 32, color: 'var(--text-muted)' }}>🎵</span>
                             </div>
                         )}
-                        <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'white', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', bottom: 32, right: 12, display: 'flex', flexDirection: 'column', gap: 16, color: 'var(--text-primary)', textAlign: 'center' }}>
                             <div>❤️<br /><span style={{ fontSize: 10 }}>234</span></div>
                             <div>💬<br /><span style={{ fontSize: 10 }}>45</span></div>
                             <div>↗️<br /><span style={{ fontSize: 10 }}>89</span></div>
@@ -2082,7 +2082,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                         cursor: 'pointer',
                                                         transition: 'var(--transition)'
                                                     }}>
-                                                        {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                                                        {selectedImages.has(idx) && <span style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
                                                     </div>
                                                     {imageModal.mode === 'search' && img.photographer && (
                                                         <div style={{
@@ -2177,7 +2177,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                                 cursor: 'pointer',
                                                                 transition: 'var(--transition)'
                                                             }}>
-                                                                {selectedImages.has(idx) && <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                                                                {selectedImages.has(idx) && <span style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
                                                             </div>
                                                             {img.photographer && (
                                                                 <div style={{
@@ -2225,7 +2225,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                         style={{
                                             opacity: imageLoading ? 0.6 : 1,
                                             background: 'var(--text-secondary)',
-                                            color: 'white',
+                                            color: 'var(--text-primary)',
                                             padding: '10px 16px',
                                             border: 'none',
                                             borderRadius: 'var(--radius-sm)',
@@ -2250,8 +2250,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                     style={{
                                         opacity: (imageLoading || (imageModal.mode === 'search' && selectedImages.size === 0) || (isImageGenerationComplete && generatedImages.length === 0)) ? 0.6 : 1,
                                         ...(isImageGenerationComplete || imageModal.mode === 'search' ? {
-                                            background: 'var(--accent)',
-                                            color: 'white',
+                                            background: 'var(--accent)', color: 'white',
                                             padding: '10px 16px',
                                             border: 'none',
                                             borderRadius: 'var(--radius-sm)',
@@ -2292,7 +2291,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                     <div className="modal-overlay" style={{ zIndex: 10000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
                         <div className="modal-container" style={{ maxWidth: 900, width: '95%', height: '85vh', display: 'flex', flexDirection: 'column', background: '#09090b', border: '1px solid #27272a' }}>
                             <div className="modal-header" style={{ borderBottom: '1px solid #27272a', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <h3 style={{ margin: 0, fontSize: 16, color: 'white' }}>Media Assets Library</h3>
+                                <h3 style={{ margin: 0, fontSize: 16, color: 'var(--text-primary)' }}>Media Assets Library</h3>
                                 <button
                                     onClick={() => setIsLibraryOpen(false)}
                                     style={{ background: 'transparent', border: 'none', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
@@ -2339,9 +2338,9 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                     />
                                                 )}
                                                 {mediaFiles.find(m => m.id === asset.id) && (
-                                                    <div style={{ position: 'absolute', top: 12, right: 12, background: '#6c5ce7', color: 'white', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>✓</div>
+                                                    <div style={{ position: 'absolute', top: 12, right: 12, background: '#6c5ce7', color: 'var(--text-primary)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>✓</div>
                                                 )}
-                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: 10, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: 10, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {asset.originalName}
                                                 </div>
                                             </div>
@@ -2352,7 +2351,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px', borderTop: '1px solid #27272a', background: '#09090b' }}>
                                 <button
                                     onClick={() => setIsLibraryOpen(false)}
-                                    style={{ background: '#6c5ce7', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
+                                    style={{ background: '#6c5ce7', color: 'var(--text-primary)', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: '0.2s' }}
                                     onMouseOver={(e) => (e.currentTarget.style.background = '#5b4bc4')}
                                     onMouseOut={(e) => (e.currentTarget.style.background = '#6c5ce7')}
                                 >
