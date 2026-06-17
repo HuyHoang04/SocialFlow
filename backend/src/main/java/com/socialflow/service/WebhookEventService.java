@@ -646,6 +646,7 @@ public class WebhookEventService {
 
     private void broadcast(SocialPage page, InboxMessage message) {
         UUID brandId = page.getConnection().getBrand().getId();
+        log.info("[Webhook] Broadcasting SSE for brandId={} pageId={} msgId={}", brandId, page.getId(), message.getId());
         InboxMessageResponse response = InboxMessageResponse.builder()
                 .id(message.getId())
                 .platformMessageId(message.getPlatformMessageId())
@@ -669,6 +670,7 @@ public class WebhookEventService {
 
     private void broadcastMeta(SocialPage page, InboxMessage message) {
         UUID brandId = page.getConnection().getBrand().getId();
+        log.info("[Webhook] Broadcasting SSE (meta) for brandId={} pageId={} msgId={}", brandId, page.getId(), message.getId());
         InboxMessageResponse response = InboxMessageResponse.builder()
                 .id(message.getId())
                 .platformMessageId(message.getPlatformMessageId())

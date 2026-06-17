@@ -69,8 +69,9 @@ public class InboxEventPublisher {
      */
     public void publishNewMessage(UUID brandId, InboxMessageResponse message) {
         List<SseEmitter> brandEmitters = emitters.getOrDefault(brandId, List.of());
+        log.info("[SSE] publishNewMessage brandId={} subscribers={} msgId={}", brandId, brandEmitters.size(), message.getId());
         if (brandEmitters.isEmpty()) {
-            log.debug("[SSE] No subscribers for brandId={}, skipping broadcast", brandId);
+            log.warn("[SSE] No subscribers for brandId={} — message will not be pushed in realtime. All active brandIds: {}", brandId, emitters.keySet());
             return;
         }
 
