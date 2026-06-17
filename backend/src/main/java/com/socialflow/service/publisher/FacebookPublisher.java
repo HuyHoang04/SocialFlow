@@ -246,6 +246,7 @@ public class FacebookPublisher implements CommentFetcher {
             }
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             log.error("Failed to fetch Facebook comments (HTTP {}): {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            markTokenExpiredIfNeeded(page, e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Failed to fetch Facebook comments: {}", e.getMessage(), e);
         }
@@ -413,6 +414,7 @@ public class FacebookPublisher implements CommentFetcher {
             log.warn("[FB-DM] ❌ HTTP error (status={}): {}. " +
                             "Ensure 'pages_messaging' permission is granted.",
                     e.getStatusCode(), e.getResponseBodyAsString());
+            markTokenExpiredIfNeeded(page, e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("[FB-DM] ❌ Unexpected error: {}", e.getMessage(), e);
         }
@@ -460,6 +462,22 @@ public class FacebookPublisher implements CommentFetcher {
         } catch (Exception e) {
             log.error("Failed to post Facebook reply: {}", e.getMessage(), e);
             throw new RuntimeException(ErrorMessages.FB_REPLY_FAILED + e.getMessage());
+        }
+    }
+
+    private void markTokenExpiredIfNeeded(SocialPage page, String errorBody) {
+        if (errorBody != null && (errorBody.contains("\"code\":190") || errorBody.contains("OAuthException"))) {
+            try {
+                var conn = page.getConnection();
+                if (conn != null) {
+                    conn.setTokenExpiresAt(LocalDateTime.now().minusSeconds(1));
+                    connectionRepository.save(conn);
+                    log.warn("[FB] Marked token as expired for page '{}' (connection={})",
+                            page.getPageName(), conn.getId());
+                }
+            } catch (Exception ex) {
+                log.warn("[FB] Could not mark token as expired: {}", ex.getMessage());
+            }
         }
     }
 }
