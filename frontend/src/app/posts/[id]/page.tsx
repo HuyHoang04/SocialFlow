@@ -163,18 +163,50 @@ export default function PostDetailPage() {
         };
 
         if (p === 'facebook') {
-            let safeUrl = url;
-            // Backend might return https://facebook.com/12345_67890
-            const fbMatch = url.match(/facebook\.com\/(\d+)_(\d+)/);
-            if (fbMatch) {
-                const pageId = fbMatch[1];
-                const postId = fbMatch[2];
-                safeUrl = `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
-            }
-            const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(safeUrl)}&show_text=true&width=500`;
+            // Facebook blocks plugin embeds from unwhitelisted domains.
+            // Show a native preview card instead — reliable on all environments.
             return (
-                <div style={containerStyle}>
-                    <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0" allowFullScreen={true} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+                <div style={{ ...containerStyle, padding: 0, overflow: 'hidden' }}>
+                    {/* Card header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                        <PlatformIcon platform="facebook" size={20} />
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{post?.page?.pageName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Facebook Page</div>
+                        </div>
+                    </div>
+                    {/* Post content */}
+                    <div style={{ padding: '14px 16px' }}>
+                        <p style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {post?.content}
+                        </p>
+                    </div>
+                    {/* Media images */}
+                    {post?.mediaFiles && post.mediaFiles.length > 0 && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: post.mediaFiles.length === 1 ? '1fr' : 'repeat(2, 1fr)',
+                            gap: 2,
+                        }}>
+                            {post.mediaFiles.slice(0, 4).map((m, i) => (
+                                <div key={m.id} style={{ position: 'relative', aspectRatio: post.mediaFiles.length === 1 ? '16/9' : '1' }}>
+                                    <img src={getMediaUrl(m.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                    {i === 3 && post.mediaFiles.length > 4 && (
+                                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700 }}>
+                                            +{post.mediaFiles.length - 4}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {/* Footer */}
+                    <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <a href={url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <IconLink size={12} /> View on Facebook →
+                        </a>
+                    </div>
                 </div>
             );
         }
