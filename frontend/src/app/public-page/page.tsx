@@ -1197,6 +1197,56 @@ function PublicPageEditorContent() {
 
                         {/* Link list */}
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
+                            {/* Automatically injected Social Links (Connected Pages) */}
+                            {connectedPages.map((page: any) => {
+                                const platformKey = page.platform.toLowerCase();
+                                const PLATFORM_LABELS: Record<string, string> = {
+                                    facebook: 'Facebook', instagram: 'Instagram', twitter: 'X (Twitter)',
+                                    linkedin: 'LinkedIn', bluesky: 'Bluesky', threads: 'Threads'
+                                };
+                                const label = page.pageName || PLATFORM_LABELS[platformKey] || page.accountName || platformKey;
+                                
+                                let buttonBackground = 'rgba(var(--text-rgb), 0.15)';
+                                let buttonTextColor = 'var(--text-primary)';
+                                if (platformKey === 'facebook') { buttonBackground = 'rgba(24, 119, 242, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'instagram') { buttonBackground = 'linear-gradient(135deg, rgba(225,48,108,0.6) 0%, rgba(253,121,61,0.6) 100%)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'twitter' || platformKey === 'x') { buttonBackground = 'rgba(15, 20, 25, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'linkedin') { buttonBackground = 'rgba(10, 102, 194, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'bluesky') { buttonBackground = 'rgba(0, 133, 255, 0.5)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'threads') { buttonBackground = 'rgba(0, 0, 0, 0.5)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'telegram') { buttonBackground = 'rgba(0, 136, 204, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'whatsapp') { buttonBackground = 'rgba(37, 211, 102, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'youtube') { buttonBackground = 'rgba(255, 0, 0, 0.6)'; buttonTextColor = 'white'; }
+                                else if (platformKey === 'tiktok') { buttonBackground = 'rgba(0, 0, 0, 0.6)'; buttonTextColor = 'white'; }
+
+                                return (
+                                    <div key={page.id} style={{
+                                        width: '100%',
+                                        padding: '16px 20px',
+                                        borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
+                                        background: buttonBackground,
+                                        backdropFilter: 'blur(12px)',
+                                        WebkitBackdropFilter: 'blur(12px)',
+                                        border: '1px solid rgba(var(--text-rgb),0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 14,
+                                        color: buttonTextColor,
+                                        fontSize: 15,
+                                        fontWeight: 600,
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                                        letterSpacing: '0.1px',
+                                        opacity: 0.95,
+                                        cursor: 'default'
+                                    }}>
+                                        <div style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <PlatformIcon platform={platformKey} size={20} color="white" />
+                                        </div>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                                    </div>
+                                );
+                            })}
+
                             {customLinks.map((block, idx) => {
                                 const isHovered = hoveredBlockId === block.id;
                                 const isEditing = editingBlockId === block.id;
@@ -1675,16 +1725,17 @@ function PublicPageEditorContent() {
 
                                     // Determine platform-tinted color background if any
                                     let buttonBackground = 'rgba(var(--text-rgb), 0.15)';
-                                    if (platformKey === 'facebook') buttonBackground = 'rgba(24, 119, 242, 0.6)';
-                                    else if (platformKey === 'instagram') buttonBackground = 'linear-gradient(135deg, rgba(225,48,108,0.6) 0%, rgba(253,121,61,0.6) 100%)';
-                                    else if (platformKey === 'twitter') buttonBackground = 'rgba(15, 20, 25, 0.6)';
-                                    else if (platformKey === 'linkedin') buttonBackground = 'rgba(10, 102, 194, 0.6)';
-                                    else if (platformKey === 'bluesky') buttonBackground = 'rgba(0, 133, 255, 0.5)';
-                                    else if (platformKey === 'threads') buttonBackground = 'rgba(0, 0, 0, 0.5)';
-                                    else if (platformKey === 'telegram') buttonBackground = 'rgba(0, 136, 204, 0.6)';
-                                    else if (platformKey === 'whatsapp') buttonBackground = 'rgba(37, 211, 102, 0.6)';
-                                    else if (platformKey === 'youtube') buttonBackground = 'rgba(255, 0, 0, 0.6)';
-                                    else if (platformKey === 'tiktok') buttonBackground = 'rgba(0, 0, 0, 0.6)';
+                                    let buttonTextColor = 'var(--text-primary)';
+                                    if (platformKey === 'facebook') { buttonBackground = 'rgba(24, 119, 242, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'instagram') { buttonBackground = 'linear-gradient(135deg, rgba(225,48,108,0.6) 0%, rgba(253,121,61,0.6) 100%)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'twitter' || platformKey === 'x') { buttonBackground = 'rgba(15, 20, 25, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'linkedin') { buttonBackground = 'rgba(10, 102, 194, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'bluesky') { buttonBackground = 'rgba(0, 133, 255, 0.5)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'threads') { buttonBackground = 'rgba(0, 0, 0, 0.5)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'telegram') { buttonBackground = 'rgba(0, 136, 204, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'whatsapp') { buttonBackground = 'rgba(37, 211, 102, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'youtube') { buttonBackground = 'rgba(255, 0, 0, 0.6)'; buttonTextColor = 'white'; }
+                                    else if (platformKey === 'tiktok') { buttonBackground = 'rgba(0, 0, 0, 0.6)'; buttonTextColor = 'white'; }
 
                                     innerBlockElement = (
                                         <div style={{
@@ -1698,7 +1749,7 @@ function PublicPageEditorContent() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 14,
-                                            color: 'var(--text-primary)',
+                                            color: buttonTextColor,
                                             fontSize: 15,
                                             fontWeight: 600,
                                             boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
