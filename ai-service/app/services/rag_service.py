@@ -328,7 +328,7 @@ class RagService:
                 self.embedding_service.embed(
                     brand_id=brand_id,
                     texts=[q],
-                    model=model or DEFAULT_EMBEDDING_MODEL,
+                    model=DEFAULT_EMBEDDING_MODEL,  # Force default embed model, ignore text model
                     provider="openrouter",
                     save=False
                 )
@@ -355,12 +355,9 @@ class RagService:
                     async with pool.connection() as conn:
                         async with conn.cursor() as cursor:
                             # Phase 3: Execute vector similarity search using Cosine Similarity (<=>)
+                            # Do NOT filter by text model
                             model_filter = ""
                             params = [vector_str, brand_id]
-                            
-                            if model:
-                                model_filter = "AND model = %s"
-                                params.append(model)
                             
                             params.extend([vector_str, threshold, limit])
                             
