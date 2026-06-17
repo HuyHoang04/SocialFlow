@@ -111,7 +111,7 @@ export default function AccountsContent() {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState('');
-    
+
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [showAppConfigModal, setShowAppConfigModal] = useState(false);
     const fbLoaded = useRef(false);
@@ -186,7 +186,7 @@ export default function AccountsContent() {
                         .catch((err: Error) => toast('Facebook connect failed: ' + err.message, 'error'))
                         .finally(() => setConnecting(null));
                 } else { setConnecting(null); }
-            }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging' });
+            }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging', auth_type: 'rerequest' } as any);
         } else if (platform === 'bluesky') {
             setShowBskyForm(true);
         } else {
@@ -208,7 +208,7 @@ export default function AccountsContent() {
                             window.removeEventListener('message', handleMessage);
                             clearInterval(checkPopup);
                             setSuccessMsg(platform.charAt(0).toUpperCase() + platform.slice(1));
-                            
+
                             loadConnections();
                             setConnecting(null);
                             try { popup.close(); } catch (e) { }
@@ -288,7 +288,7 @@ export default function AccountsContent() {
 
 
             {successMsg && (
-                <div className="success-msg" style={{ 
+                <div className="success-msg" style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     background: 'var(--success-bg)', border: '1px solid var(--success)',
                     padding: '12px 20px', borderRadius: 'var(--radius)',
@@ -315,18 +315,18 @@ export default function AccountsContent() {
                             display: 'flex', flexDirection: 'column'
                         }}>
                             <div style={{ background: platform.gradient, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(var(--text-rgb),0.2)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     {platform.icon}
                                 </div>
                                 <div>
-                                    <div style={{ fontWeight: 700, fontSize: 16, color: 'white' }}>{platform.name}</div>
-                                    {connected && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>Active</div>}
+                                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{platform.name}</div>
+                                    {connected && <div style={{ fontSize: 11, color: 'rgba(var(--text-rgb),0.9)' }}>Active</div>}
                                 </div>
                             </div>
 
                             <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 20 }}>{platform.description}</p>
-                                
+
                                 {connected ? (
                                     <div style={{ marginTop: 'auto' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', marginBottom: 12 }}>

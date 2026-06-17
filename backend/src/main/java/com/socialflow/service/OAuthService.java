@@ -201,8 +201,32 @@ public class OAuthService {
                 .bodyToMono(JsonNode.class)
                 .block();
 
-        String userAccessToken = tokenResp.get("access_token").asText();
-        long expiresIn = tokenResp.has("expires_in") ? tokenResp.get("expires_in").asLong() : 0;
+        String shortLivedToken = tokenResp.get("access_token").asText();
+
+        // Exchange for long-lived token to ensure Page Access Tokens are permanent
+        JsonNode longLivedResp = null;
+        try {
+            longLivedResp = fb.get()
+                    .uri(uri -> uri.path("/oauth/access_token")
+                            .queryParam("grant_type", "fb_exchange_token")
+                            .queryParam("client_id", clientId)
+                            .queryParam("client_secret", clientSecret)
+                            .queryParam("fb_exchange_token", shortLivedToken)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+        } catch (Exception e) {
+            log.warn("Could not exchange FB short-lived token for long-lived: {}", e.getMessage());
+        }
+
+        String userAccessToken = (longLivedResp != null && longLivedResp.has("access_token"))
+                ? longLivedResp.get("access_token").asText()
+                : shortLivedToken;
+        long expiresIn = (longLivedResp != null && longLivedResp.has("expires_in"))
+                ? longLivedResp.get("expires_in").asLong()
+                : 0;
+
         upsertFacebookConnection(brand, userAccessToken, expiresIn);
 
         return frontendUrl + "/accounts?connected=facebook";

@@ -795,7 +795,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 .studio-header {
                     height: 64px;
                     background: #18181b;
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                    border-bottom: 1px solid rgba(var(--text-rgb),0.05);
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -824,12 +824,12 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 .studio-body { flex: 1; display: flex; overflow: hidden; background: #09090b; }
                 
                 /* Sidebar Tab Switcher */
-                .studio-sidebar { width: 80px; background: #111113; border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+                .studio-sidebar { width: 80px; background: #111113; border-right: 1px solid rgba(var(--text-rgb),0.05); display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
                 .sidebar-bottom { margin-top: auto; padding-bottom: 24px; }
                 
                 /* Controls Sidebar */
-                .studio-controls { width: 280px; background: #18181b; border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
-                .controls-header { padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+                .studio-controls { width: 280px; background: #18181b; border-right: 1px solid rgba(var(--text-rgb),0.05); display: flex; flex-direction: column; }
+                .controls-header { padding: 24px; border-bottom: 1px solid rgba(var(--text-rgb),0.03); }
                 .controls-header h3 { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #71717a; }
                 .controls-content { padding: 20px; flex: 1; overflow-y: auto; }
                 
@@ -845,7 +845,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 .canvas-shadow-box { box-shadow: 0 40px 100px rgba(0,0,0,0.8); border: 1px solid #27272a; border-radius: 4px; overflow: hidden; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
                 
                 .loading-overlay { position: absolute; inset: 0; background: #09090b; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
-                .spinner-large { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.05); border-top: 4px solid #6c5ce7; border-radius: 50%; animation: spin 1s linear infinite; }
+                .spinner-large { width: 48px; height: 48px; border: 4px solid rgba(var(--text-rgb),0.05); border-top: 4px solid #6c5ce7; border-radius: 50%; animation: spin 1s linear infinite; }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                 .aspect-ratios { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
                 .aspect-ratios button { background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa; padding: 8px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s; }
@@ -859,8 +859,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ isOpen, onClose, onSave, imag
                 .file-ext { color: #71717a; font-size: 13px; font-weight: 500; margin-left: 4px; }
 
                 /* Layers Sidebar */
-                .studio-layers { width: 260px; background: #18181b; border-left: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; }
-                .layers-header { padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+                .studio-layers { width: 260px; background: #18181b; border-left: 1px solid rgba(var(--text-rgb),0.05); display: flex; flex-direction: column; }
+                .layers-header { padding: 24px; border-bottom: 1px solid rgba(var(--text-rgb),0.03); }
                 .layers-header h3 { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #71717a; }
                 .layers-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
                 

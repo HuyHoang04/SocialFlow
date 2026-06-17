@@ -33,7 +33,7 @@ function ProfilePreview({ form, page }: {
         borderRadius: 40,
         background: '#1a1a1a',
         padding: '14px 10px',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(var(--text-rgb),0.08)',
         position: 'relative',
       }}>
         <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 72, height: 18, background: '#1a1a1a', borderRadius: 10, zIndex: 2 }} />
@@ -320,7 +320,7 @@ export default function ProfileManagerPage() {
                               <img src={form.coverImageUrl} alt="cover" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'block' }} />
                               <button
                                 onClick={() => setForm(f => ({ ...f, coverImageUrl: '' }))}
-                                style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: 'var(--text-primary)', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 title="Remove"
                               >×</button>
                             </div>

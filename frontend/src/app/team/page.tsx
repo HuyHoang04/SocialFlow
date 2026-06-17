@@ -368,7 +368,7 @@ export default function TeamPage() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: 'white',
+                                            color: 'var(--text-primary)',
                                             fontWeight: 700,
                                             fontSize: 18,
                                             flexShrink: 0

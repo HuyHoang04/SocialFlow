@@ -789,7 +789,7 @@ export default function ChatDrawer() {
                     z-index: 1001;
                 }
                 .resize-handle:hover {
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(var(--text-rgb),0.05);
                 }
                 .chat-drawer.open {
                     transform: translateY(0) scale(1);
@@ -803,7 +803,7 @@ export default function ChatDrawer() {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    background: rgba(255,255,255,0.02);
+                    background: rgba(var(--text-rgb),0.02);
                 }
                 .header-info {
                     display: flex;
@@ -829,7 +829,7 @@ export default function ChatDrawer() {
                     display: flex; align-items: center; justify-content: center;
                     width: 32px; height: 32px; border-radius: 8px; transition: all 0.2s;
                 }
-                .icon-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+                .icon-btn:hover { background: rgba(var(--text-rgb),0.05); color: white; }
 
                 .drawer-body {
                     flex: 1;
@@ -847,7 +847,7 @@ export default function ChatDrawer() {
                 }
                 .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 0 16px; }
                 .quick-chips button {
-                    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+                    background: rgba(var(--text-rgb),0.05); border: 1px solid var(--border);
                     color: white; padding: 8px 16px; border-radius: 12px; font-size: 13px;
                     cursor: pointer; transition: all 0.2s;
                 }
@@ -871,7 +871,7 @@ export default function ChatDrawer() {
                     border-bottom-right-radius: 4px;
                 }
                 .assistant .message-bubble {
-                    background: rgba(255,255,255,0.08);
+                    background: rgba(var(--text-rgb),0.08);
                     border-bottom-left-radius: 4px;
                     max-width: 92%;
                 }
@@ -881,7 +881,7 @@ export default function ChatDrawer() {
                     gap: 8px;
                     margin-top: 12px;
                     padding-top: 12px;
-                    border-top: 1px solid rgba(255,255,255,0.1);
+                    border-top: 1px solid rgba(var(--text-rgb),0.1);
                 }
                 .chip-btn {
                     background: rgba(108, 92, 231, 0.15);
@@ -912,7 +912,7 @@ export default function ChatDrawer() {
                 .chat-welcome p { margin: 0 0 24px; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
                 .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
                 .quick-chips button {
-                    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+                    background: rgba(var(--text-rgb),0.05); border: 1px solid var(--border);
                     color: white; padding: 8px 16px; border-radius: 12px; font-size: 13px;
                     cursor: pointer; transition: all 0.2s;
                 }
@@ -949,7 +949,7 @@ export default function ChatDrawer() {
                     transition: all 0.2s;
                     position: relative;
                 }
-                .history-item:hover { background: rgba(255,255,255,0.05); }
+                .history-item:hover { background: rgba(var(--text-rgb),0.05); }
                 .history-item.active { background: var(--primary-glow); border: 1px solid var(--primary); }
                 .history-preview {
                     flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -962,7 +962,7 @@ export default function ChatDrawer() {
                 .drawer-footer {
                     padding: 16px;
                     border-top: 1px solid var(--border);
-                    background: rgba(255,255,255,0.02);
+                    background: rgba(var(--text-rgb),0.02);
                     display: flex;
                     flex-direction: column;
                     gap: 12px;
@@ -1024,7 +1024,7 @@ export default function ChatDrawer() {
                 }
                 .chat-tabs button {
                     flex: 1;
-                    background: rgba(255,255,255,0.03);
+                    background: rgba(var(--text-rgb),0.03);
                     border: 1px solid var(--border);
                     color: var(--text-secondary);
                     padding: 8px 0;
@@ -1035,7 +1035,7 @@ export default function ChatDrawer() {
                     transition: all 0.2s;
                 }
                 .chat-tabs button:hover {
-                    background: rgba(255,255,255,0.08);
+                    background: rgba(var(--text-rgb),0.08);
                 }
                 .chat-tabs button.active {
                     background: var(--primary-glow);
@@ -1050,7 +1050,7 @@ export default function ChatDrawer() {
                     flex-wrap: wrap;
                 }
                 .quick-select {
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(var(--text-rgb),0.05);
                     border: 1px solid var(--border);
                     color: var(--text-primary);
                     padding: 6px 12px;
@@ -1065,7 +1065,7 @@ export default function ChatDrawer() {
                 }
 
                 .input-wrapper {
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(var(--text-rgb),0.05);
                     border: 1px solid var(--border);
                     border-radius: 20px;
                     padding: 8px 12px;
@@ -1149,10 +1149,10 @@ export default function ChatDrawer() {
                 }
                 .md-li > .md-ul { list-style: circle; }
                 .md-li > .md-ol { list-style: lower-alpha; }
-                .md-hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0; }
+                .md-hr { border: none; border-top: 1px solid rgba(var(--text-rgb),0.1); margin: 12px 0; }
                 .md-inline-code {
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(255,255,255,0.12);
+                    background: rgba(var(--text-rgb),0.1);
+                    border: 1px solid rgba(var(--text-rgb),0.12);
                     border-radius: 4px;
                     padding: 1px 5px;
                     font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -1163,7 +1163,7 @@ export default function ChatDrawer() {
                     overflow-x: auto;
                     margin: 8px 0;
                     border-radius: 8px;
-                    border: 1px solid rgba(255,255,255,0.12);
+                    border: 1px solid rgba(var(--text-rgb),0.12);
                 }
                 .md-table {
                     width: 100%;
@@ -1176,21 +1176,21 @@ export default function ChatDrawer() {
                     font-weight: 600;
                     padding: 7px 10px;
                     text-align: left;
-                    border-bottom: 1px solid rgba(255,255,255,0.1);
+                    border-bottom: 1px solid rgba(var(--text-rgb),0.1);
                     white-space: nowrap;
                 }
                 .md-td {
                     padding: 6px 10px;
-                    border-bottom: 1px solid rgba(255,255,255,0.06);
+                    border-bottom: 1px solid rgba(var(--text-rgb),0.06);
                     color: #a1a1aa;
                     vertical-align: top;
                     line-height: 1.55;
                 }
                 .md-table tbody tr:last-child .md-td { border-bottom: none; }
-                .md-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+                .md-table tbody tr:hover { background: rgba(var(--text-rgb),0.03); }
                 .md-code-block {
                     background: rgba(0,0,0,0.35);
-                    border: 1px solid rgba(255,255,255,0.1);
+                    border: 1px solid rgba(var(--text-rgb),0.1);
                     border-radius: 10px;
                     overflow: hidden;
                     margin: 6px 0;
@@ -1200,8 +1200,8 @@ export default function ChatDrawer() {
                     justify-content: space-between;
                     align-items: center;
                     padding: 5px 10px;
-                    background: rgba(255,255,255,0.04);
-                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                    background: rgba(var(--text-rgb),0.04);
+                    border-bottom: 1px solid rgba(var(--text-rgb),0.08);
                 }
                 .md-code-lang {
                     font-size: 11px;

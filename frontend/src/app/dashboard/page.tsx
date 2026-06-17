@@ -314,20 +314,7 @@ export default function DashboardPage() {
                             {g.lead.scheduledTime ? new Date(g.lead.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Draft'}
                           </span>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            {g.lead.status === 'PUBLISHED' && (
-                                <button 
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        toast('Starting engagement bot...', 'success');
-                                        api.runEngagementBot(g.lead.id, selectedBrand!.id)
-                                            .then(() => toast('Bot engagement triggered successfully!', 'success'))
-                                            .catch((err) => toast('Failed to run bot: ' + err.message, 'error'));
-                                    }}
-                                    style={{ fontSize: 10, padding: '4px 8px', background: 'var(--bg-glass-strong)', border: '1px solid var(--accent)', color: 'var(--accent)', borderRadius: '4px', cursor: 'pointer' }}
-                                >
-                                    ✨ Bot Engage
-                                </button>
-                            )}
+
                             <Link href={`/posts/${g.lead.id}`} style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
                               View {g.posts.length > 1 ? `(${g.posts.length} platforms)` : 'Details'}
                             </Link>

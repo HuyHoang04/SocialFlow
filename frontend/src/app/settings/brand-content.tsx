@@ -330,8 +330,7 @@ export default function BrandSettingsContent() {
                                 disabled={loading}
                                 style={{
                                     padding: '10px 24px',
-                                    background: 'var(--primary)',
-                                    color: 'white',
+                                    background: 'var(--primary)', color: 'white',
                                     border: 'none',
                                     borderRadius: 'var(--radius)',
                                     fontSize: 14,

@@ -63,17 +63,34 @@ public class EngagementBotService {
             throw new RuntimeException("Post has not been successfully published yet");
         }
 
-        // Find available pages to interact. In a real scenario we'd use other accounts.
-        // For demo, we just use the first available Facebook page in the brand.
         List<SocialPage> pages = pageRepository.findByConnectionBrandId(brandId);
-        SocialPage botPage = pages.stream()
+        List<SocialPage> otherFbPages = pages.stream()
                 .filter(p -> com.socialflow.model.enums.PlatformType.FACEBOOK.equals(p.getPlatform()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No Facebook page available for bot engagement"));
+                .filter(p -> !p.getId().equals(post.getPage().getId()))
+                .toList();
 
+        if (otherFbPages.isEmpty()) {
+            SocialPage botPage = post.getPage();
+            if (!com.socialflow.model.enums.PlatformType.FACEBOOK.equals(botPage.getPlatform())) {
+                throw new RuntimeException("Post must be a Facebook post to use Facebook engagement bot");
+            }
+            engageWithPage(botPage, platformPostId);
+        } else {
+            for (SocialPage botPage : otherFbPages) {
+                engageWithPage(botPage, platformPostId);
+                try {
+                    Thread.sleep(1000); // Prevent spamming Facebook API too quickly
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    private void engageWithPage(SocialPage botPage, String platformPostId) {
         String token = botPage.getPageAccessToken();
         if (token == null || token.isEmpty()) {
-            throw new RuntimeException("Page token is missing");
+            throw new RuntimeException("Page token is missing for " + botPage.getPageName());
         }
 
         WebClient client = webClientBuilder.baseUrl("https://graph.facebook.com/v18.0").build();
@@ -81,36 +98,44 @@ public class EngagementBotService {
 
         // 1. Attempt to LIKE the post
         try {
-            log.info("Bot attempting to like post {}", platformPostId);
+            log.info("Bot ({}) attempting to like post {}", botPage.getPageName(), platformPostId);
             client.post()
-                    .uri("/{postId}/likes", platformPostId)
-                    .bodyValue(java.util.Map.of("access_token", token))
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/{postId}/likes")
+                            .queryParam("access_token", token)
+                            .build(platformPostId))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
-            log.info("Bot successfully liked the post");
+            log.info("Bot ({}) successfully liked the post", botPage.getPageName());
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            log.warn("Bot ({}) failed to like post (HTTP {}): {}", botPage.getPageName(), e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
-            log.warn("Bot failed to like post (maybe already liked): {}", e.getMessage());
+            log.warn("Bot ({}) failed to like post: {}", botPage.getPageName(), e.getMessage());
         }
 
         // 2. Attempt to COMMENT on the post
         try {
             String commentText = POSITIVE_COMMENTS.get(random.nextInt(POSITIVE_COMMENTS.size()));
-            log.info("Bot attempting to comment: '{}'", commentText);
+            log.info("Bot ({}) attempting to comment: '{}'", botPage.getPageName(), commentText);
             
             client.post()
-                    .uri("/{postId}/comments", platformPostId)
-                    .bodyValue(java.util.Map.of(
-                            "message", commentText,
-                            "access_token", token
-                    ))
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/{postId}/comments")
+                            .queryParam("access_token", token)
+                            .build(platformPostId))
+                    .body(org.springframework.web.reactive.function.BodyInserters.fromFormData("message", commentText))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
-            log.info("Bot successfully commented on the post");
+            log.info("Bot ({}) successfully commented on the post", botPage.getPageName());
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.error("Bot ({}) failed to comment on post. HTTP {}: {}", botPage.getPageName(), e.getStatusCode(), errorBody);
+            throw new RuntimeException("Failed to comment as " + botPage.getPageName() + ": " + errorBody);
         } catch (Exception e) {
-            log.error("Bot failed to comment on post: {}", e.getMessage());
-            throw new RuntimeException("Failed to comment on post: " + e.getMessage());
+            log.error("Bot ({}) failed to comment on post: {}", botPage.getPageName(), e.getMessage());
+            throw new RuntimeException("Failed to comment as " + botPage.getPageName() + ": " + e.getMessage());
         }
     }
 }

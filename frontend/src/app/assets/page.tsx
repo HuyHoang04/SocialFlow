@@ -155,7 +155,7 @@ export default function AssetsPage() {
                                 onClick={() => setSearchTerm('')}
                                 style={{ 
                                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                                    background: 'rgba(255,255,255,0.1)', border: 'none', 
+                                    background: 'rgba(var(--text-rgb),0.1)', border: 'none', 
                                     color: 'var(--text-primary)', cursor: 'pointer',
                                     width: 24, height: 24, borderRadius: '50%',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -178,7 +178,7 @@ export default function AssetsPage() {
             ) : filteredAssets.length === 0 ? (
                 <div className="empty-state" style={{ padding: '80px 40px', borderRadius: 24, background: 'var(--bg-glass)' }}>
                     <div style={{ 
-                        width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+                        width: 80, height: 80, borderRadius: '50%', background: 'rgba(var(--text-rgb),0.05)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px'
                     }}>
                         <IconImage size={40} color="var(--text-muted)" />
@@ -307,10 +307,10 @@ export default function AssetsPage() {
                                     padding: '6px 10px', borderRadius: 8,
                                     background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
                                     display: 'flex', alignItems: 'center', gap: 6,
-                                    border: '1px solid rgba(255,255,255,0.1)'
+                                    border: '1px solid rgba(var(--text-rgb),0.1)'
                                 }}>
                                     {asset.contentType.startsWith('image/') ? <IconImage size={14} color="white" /> : <IconFilm size={14} color="white" />}
-                                    <span style={{ fontSize: 10, color: 'white', fontWeight: 600, textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: 10, color: 'var(--text-primary)', fontWeight: 600, textTransform: 'uppercase' }}>
                                         {asset.contentType.split('/')[1]}
                                     </span>
                                 </div>
@@ -341,7 +341,7 @@ export default function AssetsPage() {
                             </div>
 
                             {/* Details Area */}
-                            <div style={{ padding: 16, background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0) 100%)' }}>
+                            <div style={{ padding: 16, background: 'linear-gradient(180deg, rgba(var(--text-rgb),0.02) 0%, rgba(0,0,0,0) 100%)' }}>
                                 <div style={{
                                     fontSize: 15, fontWeight: 600, color: 'var(--text-primary)',
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

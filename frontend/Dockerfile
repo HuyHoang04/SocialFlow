@@ -1,7 +1,8 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+# Bo qua cac script tu dong cai dat thu vien C++ de tranh bi treo mang khi tai binary
+RUN npm ci --legacy-peer-deps --ignore-scripts
 COPY . .
 
 # Khai bao cac bien can thiet luc Build
@@ -18,7 +19,7 @@ ENV NEXT_PUBLIC_UNSPLASH_ACCESS_KEY=$NEXT_PUBLIC_UNSPLASH_ACCESS_KEY
 
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 COPY --from=builder /app/.next/standalone ./    
 COPY --from=builder /app/.next/static ./.next/static

@@ -276,7 +276,7 @@ class RagService:
         threshold: float = 0.3,
         model: Optional[str] = None,
         provider: Optional[str] = None,
-        use_multi_query: bool = True
+        use_multi_query: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Search for similar content chunks using Multi-Query strategy.

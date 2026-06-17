@@ -306,6 +306,15 @@
   flex-shrink: 0;
 }
 
+.engRateMuted {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ── Pages List ── */
 .pagesList {
   display: flex;
@@ -494,6 +503,16 @@
   font-weight: 700;
   background: rgba(253, 121, 168, 0.12);
   color: #fd79a8;
+}
+
+.engBadgeMuted {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-glass);
+  color: var(--text-muted);
 }
 
 .postLink {

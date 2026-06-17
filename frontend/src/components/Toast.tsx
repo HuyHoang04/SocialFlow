@@ -71,7 +71,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{
                   width: 20, height: 20, borderRadius: '50%',
-                  background: c.border, color: '#fff',
+                  background: c.border, color: 'var(--text-primary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700, flexShrink: 0
                 }}>{c.icon}</span>
