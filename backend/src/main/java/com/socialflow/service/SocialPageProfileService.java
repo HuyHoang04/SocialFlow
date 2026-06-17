@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.LinkedHashMap;
@@ -51,12 +54,17 @@ public class SocialPageProfileService {
         String token = page.getPageAccessToken();
         String pageId = page.getPlatformPageId();
 
-        // Update bio / description
+        // Update bio — Graph API requires form-encoded, not JSON
         if (req.getBio() != null && !req.getBio().isBlank()) {
             try {
+                MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+                form.add("about", req.getBio());
+                form.add("access_token", token);
+
                 JsonNode resp = client.post()
                         .uri("/{pageId}", pageId)
-                        .bodyValue(Map.of("about", req.getBio(), "access_token", token))
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .body(BodyInserters.fromFormData(form))
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
@@ -67,17 +75,19 @@ public class SocialPageProfileService {
             }
         }
 
-        // Update cover photo via URL
+        // Update cover photo — POST /{pageId}/photos with type=page_cover
         if (req.getCoverImageUrl() != null && !req.getCoverImageUrl().isBlank()) {
             try {
+                MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+                form.add("url", req.getCoverImageUrl());
+                form.add("type", "page_cover");
+                form.add("published", "true");
+                form.add("access_token", token);
+
                 JsonNode resp = client.post()
                         .uri("/{pageId}/photos", pageId)
-                        .bodyValue(Map.of(
-                                "url", req.getCoverImageUrl(),
-                                "type", "page_cover",
-                                "published", true,
-                                "access_token", token
-                        ))
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .body(BodyInserters.fromFormData(form))
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
@@ -88,21 +98,21 @@ public class SocialPageProfileService {
             }
         }
 
-        // Update profile picture via URL
+        // Update profile picture — POST /{pageId}/picture (not /photos)
         if (req.getAvatarUrl() != null && !req.getAvatarUrl().isBlank()) {
             try {
+                MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+                form.add("url", req.getAvatarUrl());
+                form.add("access_token", token);
+
                 JsonNode resp = client.post()
-                        .uri("/{pageId}/photos", pageId)
-                        .bodyValue(Map.of(
-                                "url", req.getAvatarUrl(),
-                                "type", "profile",
-                                "published", true,
-                                "access_token", token
-                        ))
+                        .uri("/{pageId}/picture", pageId)
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .body(BodyInserters.fromFormData(form))
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
-                result.put("avatar", resp != null && resp.has("id") ? "updated" : "failed");
+                result.put("avatar", resp != null && resp.path("success").asBoolean() ? "updated" : "failed");
             } catch (Exception e) {
                 log.warn("FB avatar update failed: {}", e.getMessage());
                 result.put("avatar", "error: " + e.getMessage());
