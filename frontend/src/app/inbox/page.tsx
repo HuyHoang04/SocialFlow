@@ -73,12 +73,17 @@ export default function InboxPage() {
             eventSourceRef.current.close();
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-        const url = `${backendUrl}/api/inbox/stream?brandId=${brand.id}`;
+        // Relative URL: browser hits Nginx/Traefik at /api/inbox/stream on production,
+        // Next.js rewrite proxies it on local dev — avoids hardcoded backend port
+        const url = `/api/inbox/stream?brandId=${brand.id}`;
         const es = new EventSource(url);
         eventSourceRef.current = es;
         setRealtimeStatus('connecting');
 
+        // onopen fires when HTTP headers arrive (before body) — reliable across proxies
+        es.onopen = () => setRealtimeStatus('connected');
+
+        // Also listen for the custom 'connected' event as fallback
         es.addEventListener('connected', () => {
             setRealtimeStatus('connected');
         });

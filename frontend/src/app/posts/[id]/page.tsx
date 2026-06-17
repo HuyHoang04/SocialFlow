@@ -163,8 +163,23 @@ export default function PostDetailPage() {
         };
 
         if (p === 'facebook') {
-            // Facebook blocks plugin embeds from unwhitelisted domains.
-            // Show a native preview card instead — reliable on all environments.
+            // plugins/post.php works on whitelisted domains (socialflow.io.vn registered in FB App Domains).
+            // Falls back to native card on localhost where FB blocks the embed.
+            const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+            if (!isLocalhost) {
+                let safeUrl = url;
+                const fbMatch = url.match(/facebook\.com\/(\d+)_(\d+)/);
+                if (fbMatch) {
+                    safeUrl = `https://www.facebook.com/permalink.php?story_fbid=${fbMatch[2]}&id=${fbMatch[1]}`;
+                }
+                const embedUrl = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(safeUrl)}&show_text=true&width=500`;
+                return (
+                    <div style={containerStyle}>
+                        <iframe src={embedUrl} width="100%" style={{ border: 'none', overflow: 'hidden', height: 'calc(100vh - 350px)', minHeight: 500, maxHeight: 800 }} scrolling="no" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" />
+                    </div>
+                );
+            }
+            // Localhost fallback — native preview card
             return (
                 <div style={{ ...containerStyle, padding: 0, overflow: 'hidden' }}>
                     {/* Card header */}

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.socialflow.dto.InboxMessageResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -92,5 +93,29 @@ public class InboxEventPublisher {
             }
         }
         brandEmitters.removeAll(dead);
+    }
+
+    /**
+     * Sends a comment heartbeat to all connected clients every 30 seconds.
+     * This prevents proxies (Traefik, Nginx) from buffering the SSE stream
+     * and keeps the connection alive through idle-timeout firewalls.
+     */
+    @Scheduled(fixedDelay = 30000)
+    public void sendHeartbeats() {
+        if (emitters.isEmpty()) return;
+        for (Map.Entry<UUID, List<SseEmitter>> entry : emitters.entrySet()) {
+            List<SseEmitter> dead = new CopyOnWriteArrayList<>();
+            for (SseEmitter emitter : entry.getValue()) {
+                try {
+                    emitter.send(SseEmitter.event().comment("heartbeat"));
+                } catch (IOException e) {
+                    dead.add(emitter);
+                }
+            }
+            if (!dead.isEmpty()) {
+                entry.getValue().removeAll(dead);
+                log.debug("[SSE] Removed {} dead emitters during heartbeat for brandId={}", dead.size(), entry.getKey());
+            }
+        }
     }
 }
