@@ -357,18 +357,24 @@ export const api = {
             const reader = response.body?.getReader();
             const decoder = new TextDecoder();
             if (!reader) return;
+            
+            let buffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
 
                 for (const line of lines) {
-                    if (line.startsWith('data: ')) {
+                    if (line.trim().length === 0) continue;
+                    
+                    if (line.startsWith('data:')) {
                         try {
-                            const eventData = JSON.parse(line.substring(6));
+                            const jsonStr = line.startsWith('data: ') ? line.substring(6) : line.substring(5);
+                            const eventData = JSON.parse(jsonStr);
                             if (eventData.type === 'error') {
                                 onError(new Error(eventData.data));
                             } else if (eventData.type === 'done') {
@@ -377,7 +383,9 @@ export const api = {
                                 onMessage(eventData);
                             }
                         } catch (e) {
-                            // Ignore JSON parse errors for incomplete chunks
+                            // If JSON parse fails, maybe the data spans multiple lines.
+                            // But usually SSE data is on a single line starting with data:
+                            // We just ignore it if it's invalid.
                         }
                     }
                 }
