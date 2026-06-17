@@ -5,6 +5,93 @@ import { api } from '@/lib/api';
 import { useBrand } from '@/lib/brand-context';
 import AppShell from '@/components/AppShell';
 import { PlatformIcon } from '@/components/Icons';
+import ImagePickerModal from '@/components/ImagePickerModal';
+
+function ProfilePreview({ form, page }: {
+  form: { bio: string; coverImageUrl: string; avatarUrl: string };
+  page: { pageName: string; platform: string } | null;
+}) {
+  if (!page) return null;
+  const hasCover  = !!form.coverImageUrl.trim();
+  const hasAvatar = !!form.avatarUrl.trim();
+  const hasBio    = !!form.bio.trim();
+
+  return (
+    <div style={{ position: 'sticky', top: 80 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Live Preview
+        </p>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', textTransform: 'capitalize' }}>
+          {page.platform.toLowerCase()}
+        </span>
+      </div>
+
+      {/* Phone frame */}
+      <div style={{
+        width: 270, height: 520,
+        borderRadius: 40,
+        background: '#1a1a1a',
+        padding: '14px 10px',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08)',
+        position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 72, height: 18, background: '#1a1a1a', borderRadius: 10, zIndex: 2 }} />
+        <div style={{ position: 'absolute', right: -3, top: 100, width: 4, height: 48, background: '#333', borderRadius: '0 3px 3px 0' }} />
+        <div style={{ position: 'absolute', left: -3, top: 90,  width: 4, height: 32, background: '#333', borderRadius: '3px 0 0 3px' }} />
+        <div style={{ position: 'absolute', left: -3, top: 130, width: 4, height: 32, background: '#333', borderRadius: '3px 0 0 3px' }} />
+
+        {/* Screen */}
+        <div style={{ width: '100%', height: '100%', borderRadius: 28, overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          {/* Cover */}
+          <div style={{
+            width: '100%', height: 90, flexShrink: 0, position: 'relative',
+            background: hasCover ? 'transparent' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          }}>
+            {hasCover && <img src={form.coverImageUrl} alt="cover" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+            {/* Avatar */}
+            <div style={{
+              position: 'absolute', bottom: -20, left: 14,
+              width: 44, height: 44, borderRadius: '50%',
+              border: '3px solid #fff',
+              background: hasAvatar ? 'transparent' : '#d0d0d0',
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            }}>
+              {hasAvatar
+                ? <img src={form.avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#aaa' }}>👤</div>
+              }
+            </div>
+          </div>
+
+          {/* Info */}
+          <div style={{ padding: '26px 14px 14px', flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1c1e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {page.pageName}
+            </div>
+            {hasBio
+              ? <p style={{ fontSize: 11, color: '#555', margin: '6px 0 0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{form.bio}</p>
+              : <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0', fontStyle: 'italic' }}>Bio will appear here…</p>
+            }
+            <div style={{ display: 'flex', gap: 14, marginTop: 14, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+              {['Posts', 'Followers', 'Following'].map(label => (
+                <div key={label} style={{ textAlign: 'center' }}>
+                  <div style={{ width: 26, height: 8, background: '#ebebeb', borderRadius: 4, marginBottom: 3 }} />
+                  <div style={{ fontSize: 9, color: '#bbb' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+        Updates as you type
+      </p>
+    </div>
+  );
+}
 
 interface SocialPage {
   id: string;
@@ -38,6 +125,7 @@ export default function ProfileManagerPage() {
   const [form, setForm] = useState<FormState>({ bio: '', coverImageUrl: '', avatarUrl: '', website: '' });
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<Record<string, string> | null>(null);
+  const [picker, setPicker] = useState<'avatar' | 'cover' | null>(null);
   const { toast } = useToast();
 
   const loadPages = useCallback(async () => {
@@ -100,7 +188,7 @@ export default function ProfileManagerPage() {
             <p style={{ fontSize: 13 }}>Connect a social account first from the Accounts page.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 280px', gap: 24, alignItems: 'start' }}>
 
             {/* Left: Page list */}
             <div className="card" style={{ padding: 16, height: 'fit-content' }}>
@@ -136,7 +224,7 @@ export default function ProfileManagerPage() {
               </div>
             </div>
 
-            {/* Right: Edit form */}
+            {/* Middle: Edit form */}
             <div className="card" style={{ padding: 28 }}>
               {selectedPage && (
                 <>
@@ -194,51 +282,58 @@ export default function ProfileManagerPage() {
                       {support?.avatar && (
                         <div>
                           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'var(--text-secondary)' }}>
-                            Profile Picture URL
+                            Profile Picture
                           </label>
-                          <input
-                            type="url"
-                            value={form.avatarUrl}
-                            onChange={e => setForm(f => ({ ...f, avatarUrl: e.target.value }))}
-                            placeholder="https://res.cloudinary.com/..."
-                            style={{
-                              width: '100%', padding: '10px 12px',
-                              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                              background: 'var(--bg-glass)', color: 'var(--text-primary)',
-                              fontSize: 13, outline: 'none', transition: 'var(--transition)'
-                            }}
-                          />
-                          {form.avatarUrl && (
-                            <img src={form.avatarUrl} alt="avatar preview" style={{ marginTop: 10, width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
-                          )}
-                          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                            Upload the image via Media Assets first, then paste the Cloudinary URL here.
-                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {form.avatarUrl
+                              ? <img src={form.avatarUrl} alt="avatar" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0 }} />
+                              : <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--bg-glass)', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>👤</div>
+                            }
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <button
+                                className="btn btn-secondary"
+                                onClick={() => setPicker('avatar')}
+                                style={{ fontSize: 12, padding: '6px 14px', width: '100%' }}
+                              >
+                                {form.avatarUrl ? '🔄 Change Photo' : '📁 Choose Photo'}
+                              </button>
+                              {form.avatarUrl && (
+                                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {form.avatarUrl.split('/').pop()}
+                                </p>
+                              )}
+                            </div>
+                            {form.avatarUrl && (
+                              <button onClick={() => setForm(f => ({ ...f, avatarUrl: '' }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 4 }} title="Remove">×</button>
+                            )}
+                          </div>
                         </div>
                       )}
 
                       {support?.cover && (
                         <div>
                           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'var(--text-secondary)' }}>
-                            Cover Photo URL
+                            Cover Photo
                           </label>
-                          <input
-                            type="url"
-                            value={form.coverImageUrl}
-                            onChange={e => setForm(f => ({ ...f, coverImageUrl: e.target.value }))}
-                            placeholder="https://res.cloudinary.com/..."
-                            style={{
-                              width: '100%', padding: '10px 12px',
-                              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                              background: 'var(--bg-glass)', color: 'var(--text-primary)',
-                              fontSize: 13, outline: 'none', transition: 'var(--transition)'
-                            }}
-                          />
-                          {form.coverImageUrl && (
-                            <img src={form.coverImageUrl} alt="cover preview" style={{ marginTop: 10, width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }} />
-                          )}
+                          {form.coverImageUrl ? (
+                            <div style={{ position: 'relative', marginBottom: 8 }}>
+                              <img src={form.coverImageUrl} alt="cover" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', display: 'block' }} />
+                              <button
+                                onClick={() => setForm(f => ({ ...f, coverImageUrl: '' }))}
+                                style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Remove"
+                              >×</button>
+                            </div>
+                          ) : null}
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => setPicker('cover')}
+                            style={{ fontSize: 12, padding: '6px 14px', width: '100%' }}
+                          >
+                            {form.coverImageUrl ? '🔄 Change Cover' : '📁 Choose Cover Photo'}
+                          </button>
                           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                            Recommended size: 820 × 312 px (Facebook). Upload via Media Assets first.
+                            Recommended: 820 × 312 px
                           </p>
                         </div>
                       )}
@@ -278,9 +373,20 @@ export default function ProfileManagerPage() {
                 </>
               )}
             </div>
+
+            {/* Right: Live preview */}
+            <ProfilePreview form={form} page={selectedPage} />
           </div>
         )}
       </div>
+
+      {picker && (
+        <ImagePickerModal
+          title={picker === 'avatar' ? 'Select Profile Picture' : 'Select Cover Photo'}
+          onSelect={url => { setForm(f => picker === 'avatar' ? { ...f, avatarUrl: url } : { ...f, coverImageUrl: url }); setPicker(null); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </AppShell>
   );
 }
