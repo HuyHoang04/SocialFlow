@@ -111,7 +111,7 @@ export default function AccountsContent() {
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState('');
-    
+
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [showAppConfigModal, setShowAppConfigModal] = useState(false);
     const fbLoaded = useRef(false);
@@ -186,7 +186,7 @@ export default function AccountsContent() {
                         .catch((err: Error) => toast('Facebook connect failed: ' + err.message, 'error'))
                         .finally(() => setConnecting(null));
                 } else { setConnecting(null); }
-            }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging' });
+            }, { scope: 'pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_show_list,pages_manage_metadata,pages_messaging', auth_type: 'rerequest' } as any);
         } else if (platform === 'bluesky') {
             setShowBskyForm(true);
         } else {
@@ -208,7 +208,7 @@ export default function AccountsContent() {
                             window.removeEventListener('message', handleMessage);
                             clearInterval(checkPopup);
                             setSuccessMsg(platform.charAt(0).toUpperCase() + platform.slice(1));
-                            
+
                             loadConnections();
                             setConnecting(null);
                             try { popup.close(); } catch (e) { }
@@ -288,7 +288,7 @@ export default function AccountsContent() {
 
 
             {successMsg && (
-                <div className="success-msg" style={{ 
+                <div className="success-msg" style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     background: 'var(--success-bg)', border: '1px solid var(--success)',
                     padding: '12px 20px', borderRadius: 'var(--radius)',
@@ -326,7 +326,7 @@ export default function AccountsContent() {
 
                             <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 20 }}>{platform.description}</p>
-                                
+
                                 {connected ? (
                                     <div style={{ marginTop: 'auto' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', marginBottom: 12 }}>
