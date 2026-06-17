@@ -84,9 +84,8 @@ export default function InboxPage() {
         es.onopen = () => setRealtimeStatus('connected');
 
         // Also listen for the custom 'connected' event as fallback
-        es.addEventListener('connected', () => {
-            setRealtimeStatus('connected');
-        });
+        es.addEventListener('connected', () => setRealtimeStatus('connected'));
+
 
         es.addEventListener('new_message', (event) => {
             try {
