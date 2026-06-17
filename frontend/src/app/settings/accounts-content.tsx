@@ -315,12 +315,12 @@ export default function AccountsContent() {
                             display: 'flex', flexDirection: 'column'
                         }}>
                             <div style={{ background: platform.gradient, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(var(--text-rgb),0.2)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     {platform.icon}
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{platform.name}</div>
-                                    {connected && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>Active</div>}
+                                    {connected && <div style={{ fontSize: 11, color: 'rgba(var(--text-rgb),0.9)' }}>Active</div>}
                                 </div>
                             </div>
 

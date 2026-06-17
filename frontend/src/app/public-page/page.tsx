@@ -863,7 +863,7 @@ function PublicPageEditorContent() {
                         onClick={() => setIsMobileFrame(prev => !prev)}
                         style={{
                             padding: '10px 16px',
-                            background: isMobileFrame ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                            background: isMobileFrame ? 'rgba(99, 102, 241, 0.25)' : 'rgba(var(--text-rgb), 0.05)',
                             color: isMobileFrame ? 'var(--accent)' : 'var(--text-primary)',
                             border: isMobileFrame ? '1px solid var(--accent)' : '1px solid var(--border)',
                             borderRadius: '8px',
@@ -876,10 +876,10 @@ function PublicPageEditorContent() {
                             transition: 'all 0.2s',
                         }}
                         onMouseEnter={e => {
-                            if (!isMobileFrame) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                            if (!isMobileFrame) e.currentTarget.style.background = 'rgba(var(--text-rgb), 0.1)';
                         }}
                         onMouseLeave={e => {
-                            if (!isMobileFrame) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                            if (!isMobileFrame) e.currentTarget.style.background = 'rgba(var(--text-rgb), 0.05)';
                         }}
                     >
                         {isMobileFrame ? '📱 Phone Size: ON' : '🖥️ Phone Size: OFF'}
@@ -900,14 +900,14 @@ function PublicPageEditorContent() {
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                            padding: '10px 16px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)',
+                            padding: '10px 16px', background: 'rgba(var(--text-rgb), 0.05)', color: 'var(--text-primary)',
                             border: '1px solid var(--border)', borderRadius: '8px',
                             cursor: 'pointer', fontSize: 13, fontWeight: 700,
                             textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
                             transition: 'all 0.2s'
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--text-rgb), 0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--text-rgb), 0.05)'}
                     >
                         <IconEye size={15} /> Visit
                     </a>
@@ -954,8 +954,8 @@ function PublicPageEditorContent() {
                     borderRadius: isMobileFrame ? '40px' : '24px',
                     overflow: 'hidden',
                     boxShadow: isMobileFrame
-                        ? '0 24px 64px rgba(0,0,0,0.6), 0 0 0 12px rgba(255, 255, 255, 0.05)'
-                        : '0 20px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+                        ? '0 24px 64px rgba(0,0,0,0.6), 0 0 0 12px rgba(var(--text-rgb), 0.05)'
+                        : '0 20px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(var(--text-rgb), 0.05)',
                     background: settings?.bgImageUrl ? `url('${settings.bgImageUrl}') center/cover` : activePreset.css,
                     display: 'flex',
                     flexDirection: 'column',
@@ -964,7 +964,7 @@ function PublicPageEditorContent() {
                     padding: isMobileFrame ? '40px 24px 24px' : '24px',
                     gap: 16,
                     position: 'relative',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(var(--text-rgb), 0.1)',
                     boxSizing: 'border-box',
                     transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}>
@@ -984,7 +984,7 @@ function PublicPageEditorContent() {
                             background: '#000000',
                             borderRadius: '12px',
                             zIndex: 100,
-                            boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.1)'
+                            boxShadow: 'inset 0 1px 2px rgba(var(--text-rgb),0.1)'
                         }} />
                     )}
 
@@ -996,7 +996,7 @@ function PublicPageEditorContent() {
                             position: 'absolute', top: 12, right: 12, zIndex: 100,
                             width: 32, height: 32, borderRadius: '50%',
                             background: 'rgba(24, 24, 27, 0.85)', backdropFilter: 'blur(8px)',
-                            border: themeDrawerOpen ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.15)',
+                            border: themeDrawerOpen ? '2px solid var(--accent)' : '1px solid rgba(var(--text-rgb),0.15)',
                             color: themeDrawerOpen ? 'var(--accent)' : 'white',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -1038,12 +1038,12 @@ function PublicPageEditorContent() {
                                 <img
                                     src={settings.logoUrl}
                                     alt="logo"
-                                    style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.4)' }}
+                                    style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(var(--text-rgb),0.4)' }}
                                 />
                             ) : (
                                 <div style={{
-                                    width: avatarSize, height: avatarSize, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
-                                    border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center',
+                                    width: avatarSize, height: avatarSize, borderRadius: '50%', background: 'rgba(var(--text-rgb),0.2)',
+                                    border: '2px solid rgba(var(--text-rgb),0.4)', display: 'flex', alignItems: 'center',
                                     justifyContent: 'center', fontSize: initialsFontSize, fontWeight: 800, color: 'var(--text-primary)'
                                 }}>
                                     {(settings?.displayName || selectedBrand.name || '?')[0]?.toUpperCase()}
@@ -1125,7 +1125,7 @@ function PublicPageEditorContent() {
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.border = '1px dashed var(--accent)';
-                                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                    e.currentTarget.style.background = 'rgba(var(--text-rgb),0.05)';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.border = '1px dashed transparent';
@@ -1161,20 +1161,20 @@ function PublicPageEditorContent() {
                                         transition: 'all 0.2s'
                                     }}
                                 />
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600, letterSpacing: '0.2px' }}>Press Enter to save, Shift+Enter for newline</div>
+                                <div style={{ fontSize: 10, color: 'rgba(var(--text-rgb),0.6)', fontWeight: 600, letterSpacing: '0.2px' }}>Press Enter to save, Shift+Enter for newline</div>
                             </div>
                         ) : (
                             <div
                                 onClick={handleStartEditBio}
                                 style={{
-                                    fontSize: bioFontSize, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 1.6,
+                                    fontSize: bioFontSize, color: 'rgba(var(--text-rgb),0.85)', textAlign: 'center', lineHeight: 1.6,
                                     maxWidth: '360px', wordBreak: 'break-word', cursor: 'pointer', padding: '4px 8px',
                                     borderRadius: '4px', border: '1px dashed transparent', transition: 'all 0.15s',
                                     marginBottom: bioMarginBottom
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.border = '1px dashed var(--accent)';
-                                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                    e.currentTarget.style.background = 'rgba(var(--text-rgb),0.05)';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.border = '1px dashed transparent';
@@ -1188,7 +1188,7 @@ function PublicPageEditorContent() {
                                         <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>✎</span>
                                     </>
                                 ) : (
-                                    <span style={{ color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
+                                    <span style={{ color: 'rgba(var(--text-rgb),0.45)', fontStyle: 'italic' }}>
                                         + Add brand biography ✎
                                     </span>
                                 )}
@@ -1223,7 +1223,7 @@ function PublicPageEditorContent() {
                                                     placeholder={block.type === 'header' ? 'Header Title' : 'Title / Label'}
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
-                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
+                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(var(--text-rgb),0.2)', borderRadius: '12px',
                                                         color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
@@ -1231,7 +1231,7 @@ function PublicPageEditorContent() {
                                                         e.currentTarget.style.boxShadow = '0 0 12px rgba(99, 102, 241, 0.3)';
                                                     }}
                                                     onBlur={e => {
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.2)';
                                                         e.currentTarget.style.boxShadow = 'none';
                                                     }}
                                                     autoFocus
@@ -1255,7 +1255,7 @@ function PublicPageEditorContent() {
                                                     placeholder={block.type === 'video' ? 'YouTube Video URL' : 'Redirect Link (URL)'}
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
-                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
+                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(var(--text-rgb),0.2)', borderRadius: '12px',
                                                         color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
@@ -1263,59 +1263,16 @@ function PublicPageEditorContent() {
                                                         e.currentTarget.style.boxShadow = '0 0 12px rgba(99, 102, 241, 0.3)';
                                                     }}
                                                     onBlur={e => {
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.2)';
                                                         e.currentTarget.style.boxShadow = 'none';
                                                     }}
                                                 />
                                             )}
 
-                                            {/* Quick Bind Connected Pages inside inline link editor */}
-                                            {block.type === 'link' && connectedPages.length > 0 && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                                                    <span style={{ fontSize: 12, fontWeight: 800, color: '#e2e8f0', letterSpacing: '0.06em' }}>⚡ QUICK BIND ACCOUNT:</span>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                                        {connectedPages.map((page: any) => {
-                                                            const color = getPlatformColor(page.platform);
-                                                            return (
-                                                                <button
-                                                                    key={page.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const url = getUrlForPlatform(page.platform, page.platformPageId, page.pageName);
-                                                                        setEditUrl(url);
-                                                                        setEditTitle(page.pageName || `Visit our ${page.platform}`);
-                                                                        setEditIconType(page.platform.toLowerCase());
-                                                                    }}
-                                                                    style={{
-                                                                        padding: '10px 16px',
-                                                                        background: `${color}20`,
-                                                                        border: `1.5px solid ${color}`,
-                                                                        color: 'var(--text-primary)',
-                                                                        borderRadius: '28px',
-                                                                        fontSize: '13px',
-                                                                        fontWeight: 700,
-                                                                        cursor: 'pointer',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        gap: 8,
-                                                                        transition: 'all 0.15s'
-                                                                    }}
-                                                                    onMouseEnter={e => { e.currentTarget.style.background = `${color}40`; }}
-                                                                    onMouseLeave={e => { e.currentTarget.style.background = `${color}20`; }}
-                                                                >
-                                                                    <PlatformIcon platform={page.platform} size={14} color="white" />
-                                                                    {page.pageName || page.platform}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-
                                             {/* Platform/Icon selector & Custom Icon Uploader inside inline link editor */}
                                             {block.type === 'link' && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                                                    <span style={{ fontSize: 12, fontWeight: 800, color: '#e2e8f0', letterSpacing: '0.06em' }}>SELECT PLATFORM ICON:</span>
+                                                    <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.06em' }}>SELECT PLATFORM ICON:</span>
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
                                                         {PLATFORM_OPTIONS.map(opt => {
                                                             const isSelected = editIconType === opt.key;
@@ -1332,8 +1289,8 @@ function PublicPageEditorContent() {
                                                                     style={{
                                                                         padding: '14px 8px',
                                                                         borderRadius: '12px',
-                                                                        border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.15)',
-                                                                        background: isSelected ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255,255,255,0.04)',
+                                                                        border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(var(--text-rgb),0.15)',
+                                                                        background: isSelected ? 'rgba(99, 102, 241, 0.22)' : 'rgba(var(--text-rgb),0.04)',
                                                                         color: 'var(--text-primary)',
                                                                         cursor: 'pointer',
                                                                         textAlign: 'center',
@@ -1346,14 +1303,14 @@ function PublicPageEditorContent() {
                                                                     }}
                                                                     onMouseEnter={e => {
                                                                         if (!isSelected) {
-                                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                                                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
+                                                                            e.currentTarget.style.background = 'rgba(var(--text-rgb),0.08)';
+                                                                            e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.25)';
                                                                         }
                                                                     }}
                                                                     onMouseLeave={e => {
                                                                         if (!isSelected) {
-                                                                            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                                                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                                                                            e.currentTarget.style.background = 'rgba(var(--text-rgb),0.04)';
+                                                                            e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.15)';
                                                                         }
                                                                     }}
                                                                 >
@@ -1385,20 +1342,73 @@ function PublicPageEditorContent() {
                                                                 onClick={() => iconFileRef.current?.click()}
                                                                 disabled={uploadingIcon}
                                                                 style={{
-                                                                    flex: 1, padding: '14px 18px', fontSize: 14, background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.25)',
+                                                                    flex: 1, padding: '14px 18px', fontSize: 14, background: 'rgba(var(--text-rgb),0.06)', border: '1.5px dashed rgba(var(--text-rgb),0.25)',
                                                                     color: 'var(--text-primary)', borderRadius: 12, cursor: 'pointer', fontWeight: 700, transition: 'all 0.15s ease'
                                                                 }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.12)'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.06)'}
                                                             >
                                                                 {uploadingIcon ? '⏳ Uploading...' : '☁ Upload Custom Icon'}
                                                             </button>
                                                             {editIconUrl && (
-                                                                <img src={editIconUrl} alt="" style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.25)' }} />
+                                                                <img src={editIconUrl} alt="" style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(var(--text-rgb),0.25)' }} />
                                                             )}
                                                         </div>
                                                     )}
                                                 </div>
+                                            )}
+
+                                            {/* Quick Bind Connected Pages inside inline link editor */}
+                                            {block.type === 'link' && connectedPages.length > 0 && (
+                                                (() => {
+                                                    const relevantPages = (editIconType && editIconType !== 'none' && editIconType !== 'custom')
+                                                        ? connectedPages.filter((p: any) => p.platform.toLowerCase() === editIconType.toLowerCase())
+                                                        : connectedPages;
+
+                                                    if (relevantPages.length === 0) return null;
+
+                                                    return (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                                                            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.06em' }}>⚡ QUICK BIND ACCOUNT:</span>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                                {relevantPages.map((page: any) => {
+                                                                    const color = getPlatformColor(page.platform);
+                                                                    return (
+                                                                        <button
+                                                                            key={page.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const url = getUrlForPlatform(page.platform, page.platformPageId, page.pageName);
+                                                                                setEditUrl(url);
+                                                                                setEditTitle(page.pageName || `Visit our ${page.platform}`);
+                                                                                setEditIconType(page.platform.toLowerCase());
+                                                                            }}
+                                                                            style={{
+                                                                                padding: '10px 16px',
+                                                                                background: `${color}20`,
+                                                                                border: `1.5px solid ${color}`,
+                                                                                color: 'var(--text-primary)',
+                                                                                borderRadius: '28px',
+                                                                                fontSize: '13px',
+                                                                                fontWeight: 700,
+                                                                                cursor: 'pointer',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: 8,
+                                                                                transition: 'all 0.15s'
+                                                                            }}
+                                                                            onMouseEnter={e => { e.currentTarget.style.background = `${color}40`; }}
+                                                                            onMouseLeave={e => { e.currentTarget.style.background = `${color}20`; }}
+                                                                        >
+                                                                            <PlatformIcon platform={page.platform} size={14} color="white" />
+                                                                            {page.pageName || page.platform}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()
                                             )}
 
                                             {/* Description (for text) */}
@@ -1409,7 +1419,7 @@ function PublicPageEditorContent() {
                                                     placeholder="Write some body paragraph text…"
                                                     style={{
                                                         width: '100%', padding: '14px 16px', fontSize: 15,
-                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(255,255,255,0.2)', borderRadius: '12px',
+                                                        background: 'rgba(0,0,0,0.4)', border: '1.5px solid rgba(var(--text-rgb),0.2)', borderRadius: '12px',
                                                         color: 'var(--text-primary)', outline: 'none', resize: 'vertical', minHeight: 110, transition: 'all 0.15s ease'
                                                     }}
                                                     onFocus={e => {
@@ -1417,7 +1427,7 @@ function PublicPageEditorContent() {
                                                         e.currentTarget.style.boxShadow = '0 0 12px rgba(99, 102, 241, 0.3)';
                                                     }}
                                                     onBlur={e => {
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.2)';
                                                         e.currentTarget.style.boxShadow = 'none';
                                                     }}
                                                     autoFocus
@@ -1449,15 +1459,15 @@ function PublicPageEditorContent() {
                                                             padding: '30px 20px',
                                                             fontSize: 14,
                                                             background: uploadingImageBlock 
-                                                                ? 'rgba(255,255,255,0.03)' 
+                                                                ? 'rgba(var(--text-rgb),0.03)' 
                                                                 : isDraggingBanner 
                                                                     ? 'rgba(99, 102, 241, 0.15)' 
-                                                                    : 'rgba(255,255,255,0.06)',
+                                                                    : 'rgba(var(--text-rgb),0.06)',
                                                             border: uploadingImageBlock
-                                                                ? '2px dashed rgba(255,255,255,0.1)'
+                                                                ? '2px dashed rgba(var(--text-rgb),0.1)'
                                                                 : isDraggingBanner
                                                                     ? '2.5px dashed var(--accent)'
-                                                                    : '1.5px dashed rgba(255,255,255,0.25)',
+                                                                    : '1.5px dashed rgba(var(--text-rgb),0.25)',
                                                             color: 'var(--text-primary)',
                                                             borderRadius: 16,
                                                             cursor: uploadingImageBlock ? 'not-allowed' : 'pointer',
@@ -1467,14 +1477,14 @@ function PublicPageEditorContent() {
                                                         }}
                                                         onMouseEnter={e => {
                                                             if (!uploadingImageBlock && !isDraggingBanner) {
-                                                                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+                                                                e.currentTarget.style.background = 'rgba(var(--text-rgb),0.12)';
                                                                 e.currentTarget.style.borderColor = 'var(--accent)';
                                                             }
                                                         }}
                                                         onMouseLeave={e => {
                                                             if (!uploadingImageBlock && !isDraggingBanner) {
-                                                                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                                                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
+                                                                e.currentTarget.style.background = 'rgba(var(--text-rgb),0.06)';
+                                                                e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.25)';
                                                             }
                                                         }}
                                                     >
@@ -1496,9 +1506,9 @@ function PublicPageEditorContent() {
                                                         )}
                                                     </div>
                                                     {editImageUrl && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
-                                                            <img src={editImageUrl} alt="Current Banner" style={{ width: 80, height: 48, objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }} />
-                                                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Current Banner Preview</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(var(--text-rgb),0.02)', padding: 10, borderRadius: 10, border: '1px solid rgba(var(--text-rgb),0.08)' }}>
+                                                            <img src={editImageUrl} alt="Current Banner" style={{ width: 80, height: 48, objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(var(--text-rgb),0.2)' }} />
+                                                            <span style={{ fontSize: 12, color: 'rgba(var(--text-rgb),0.5)', fontWeight: 600 }}>Current Banner Preview</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1510,10 +1520,10 @@ function PublicPageEditorContent() {
                                                     type="button"
                                                     onClick={() => setEditingBlockId(null)}
                                                     style={{
-                                                        padding: '14px 22px', fontSize: 14, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 12, fontWeight: 700, transition: 'all 0.15s ease'
+                                                        padding: '14px 22px', fontSize: 14, background: 'rgba(var(--text-rgb),0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 12, fontWeight: 700, transition: 'all 0.15s ease'
                                                     }}
-                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.15)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.08)'}
                                                 >
                                                     Cancel
                                                 </button>
@@ -1545,11 +1555,11 @@ function PublicPageEditorContent() {
                                             fontWeight: 700,
                                             textTransform: 'uppercase',
                                             letterSpacing: '1.5px',
-                                            color: 'rgba(255, 255, 255, 0.65)',
+                                            color: 'rgba(var(--text-rgb), 0.65)',
                                             marginTop: 20,
                                             marginBottom: 8,
                                             paddingBottom: 6,
-                                            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+                                            borderBottom: '1px solid rgba(var(--text-rgb), 0.12)',
                                         }}>
                                             {block.title}
                                         </div>
@@ -1559,13 +1569,13 @@ function PublicPageEditorContent() {
                                         <div style={{
                                             width: '100%',
                                             padding: '16px 20px',
-                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            background: 'rgba(var(--text-rgb), 0.08)',
                                             backdropFilter: 'blur(12px)',
                                             WebkitBackdropFilter: 'blur(12px)',
-                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                            border: '1px solid rgba(var(--text-rgb), 0.12)',
                                             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
                                             borderRadius: 12,
-                                            color: 'rgba(255, 255, 255, 0.95)',
+                                            color: 'rgba(var(--text-rgb), 0.95)',
                                             fontSize: '14.5px',
                                             lineHeight: 1.6,
                                             textAlign: 'justify',
@@ -1580,10 +1590,10 @@ function PublicPageEditorContent() {
                                             width: '100%',
                                             borderRadius: 14,
                                             overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                                            border: '1px solid rgba(var(--text-rgb), 0.18)',
                                             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
                                             position: 'relative',
-                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            background: 'rgba(var(--text-rgb), 0.05)',
                                         }}>
                                             <img
                                                 src={block.imageUrl}
@@ -1624,7 +1634,7 @@ function PublicPageEditorContent() {
                                             height: 0,
                                             borderRadius: 14,
                                             overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.18)',
+                                            border: '1px solid rgba(var(--text-rgb), 0.18)',
                                             boxShadow: '0 6px 20px rgba(0, 0, 0, 0.22)',
                                             background: '#000',
                                         }}>
@@ -1643,7 +1653,7 @@ function PublicPageEditorContent() {
                                                         width: 48,
                                                         height: 48,
                                                         borderRadius: '50%',
-                                                        background: 'rgba(255,255,255,0.9)',
+                                                        background: 'rgba(var(--text-rgb),0.9)',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
@@ -1653,7 +1663,7 @@ function PublicPageEditorContent() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+                                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(var(--text-rgb),0.4)', fontSize: 13 }}>
                                                     YouTube Video
                                                 </div>
                                             )}
@@ -1664,7 +1674,7 @@ function PublicPageEditorContent() {
                                     const hasCustomIcon = !!block.iconUrl;
 
                                     // Determine platform-tinted color background if any
-                                    let buttonBackground = 'rgba(255, 255, 255, 0.15)';
+                                    let buttonBackground = 'rgba(var(--text-rgb), 0.15)';
                                     if (platformKey === 'facebook') buttonBackground = 'rgba(24, 119, 242, 0.6)';
                                     else if (platformKey === 'instagram') buttonBackground = 'linear-gradient(135deg, rgba(225,48,108,0.6) 0%, rgba(253,121,61,0.6) 100%)';
                                     else if (platformKey === 'twitter') buttonBackground = 'rgba(15, 20, 25, 0.6)';
@@ -1684,7 +1694,7 @@ function PublicPageEditorContent() {
                                             background: buttonBackground,
                                             backdropFilter: 'blur(12px)',
                                             WebkitBackdropFilter: 'blur(12px)',
-                                            border: '1px solid rgba(255,255,255,0.2)',
+                                            border: '1px solid rgba(var(--text-rgb),0.2)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 14,
@@ -1819,8 +1829,8 @@ function PublicPageEditorContent() {
                                             type="button"
                                             onClick={() => setQuickAddOpen(false)}
                                             style={{
-                                                background: 'rgba(255,255,255,0.05)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                background: 'rgba(var(--text-rgb),0.05)',
+                                                border: '1px solid rgba(var(--text-rgb),0.1)',
                                                 color: '#ef4444',
                                                 fontSize: 12,
                                                 cursor: 'pointer',
@@ -1830,7 +1840,7 @@ function PublicPageEditorContent() {
                                                 transition: 'all 0.15s ease'
                                             }}
                                             onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.05)'}
                                         >
                                             ✕
                                         </button>
@@ -1852,8 +1862,8 @@ function PublicPageEditorContent() {
                                                 }}
                                                 style={{
                                                     padding: '12px 6px', borderRadius: '10px',
-                                                    border: '1px solid rgba(255,255,255,0.12)',
-                                                    background: 'rgba(255,255,255,0.03)',
+                                                    border: '1px solid rgba(var(--text-rgb),0.12)',
+                                                    background: 'rgba(var(--text-rgb),0.03)',
                                                     color: 'var(--text-primary)', fontSize: 12, fontWeight: 700,
                                                     cursor: 'pointer', transition: 'all 0.15s ease',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
@@ -1863,8 +1873,8 @@ function PublicPageEditorContent() {
                                                     e.currentTarget.style.borderColor = 'var(--accent)';
                                                 }}
                                                 onMouseLeave={(e) => {
-                                                    e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                                                    e.currentTarget.style.background = 'rgba(var(--text-rgb),0.03)';
+                                                    e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.12)';
                                                 }}
                                             >
                                                 {opt.label}
@@ -1874,8 +1884,8 @@ function PublicPageEditorContent() {
 
                                     {/* Quick Add Connected Pages Grid */}
                                     {connectedPages.length > 0 && (
-                                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8 }}>
-                                            <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
+                                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid rgba(var(--text-rgb),0.1)', paddingTop: 8 }}>
+                                            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
                                                 ⚡ QUICK ADD CONNECTED PAGES
                                             </span>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
@@ -1940,11 +1950,11 @@ function PublicPageEditorContent() {
                                     style={{
                                         width: '100%', padding: '8px 12px',
                                         borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
-                                        border: '1px dashed rgba(255,255,255,0.3)',
+                                        border: '1px dashed rgba(var(--text-rgb),0.3)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                                        color: 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: 700,
+                                        color: 'rgba(var(--text-rgb),0.65)', fontSize: 10, fontWeight: 700,
                                         cursor: 'pointer', transition: 'all 0.15s ease',
-                                        background: 'rgba(255,255,255,0.02)',
+                                        background: 'rgba(var(--text-rgb),0.02)',
                                         marginTop: 6
                                     }}
                                     onMouseEnter={(e) => {
@@ -1953,9 +1963,9 @@ function PublicPageEditorContent() {
                                         e.currentTarget.style.color = 'white';
                                     }}
                                     onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
-                                        e.currentTarget.style.color = 'rgba(255,255,255,0.65)';
+                                        e.currentTarget.style.background = 'rgba(var(--text-rgb),0.02)';
+                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.3)';
+                                        e.currentTarget.style.color = 'rgba(var(--text-rgb),0.65)';
                                     }}
                                     title="Add block direct inside phone mockup"
                                 >
@@ -1982,7 +1992,7 @@ function PublicPageEditorContent() {
                                         placeholder="Button Label (e.g. Visit our website)"
                                         style={{
                                             width: '100%', padding: '12px 14px', fontSize: 14,
-                                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px',
+                                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(var(--text-rgb),0.2)', borderRadius: '10px',
                                             color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                         }}
                                         onFocus={e => {
@@ -1990,7 +2000,7 @@ function PublicPageEditorContent() {
                                             e.currentTarget.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.25)';
                                         }}
                                         onBlur={e => {
-                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                            e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.2)';
                                             e.currentTarget.style.boxShadow = 'none';
                                         }}
                                     />
@@ -2000,7 +2010,7 @@ function PublicPageEditorContent() {
                                         placeholder="Website Link (e.g. socialflow.io)"
                                         style={{
                                             width: '100%', padding: '12px 14px', fontSize: 14,
-                                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px',
+                                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(var(--text-rgb),0.2)', borderRadius: '10px',
                                             color: 'var(--text-primary)', outline: 'none', transition: 'all 0.15s ease'
                                         }}
                                         onFocus={e => {
@@ -2008,7 +2018,7 @@ function PublicPageEditorContent() {
                                             e.currentTarget.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.25)';
                                         }}
                                         onBlur={e => {
-                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                            e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.2)';
                                             e.currentTarget.style.boxShadow = 'none';
                                         }}
                                     />
@@ -2017,10 +2027,10 @@ function PublicPageEditorContent() {
                                             type="button"
                                             onClick={() => setEditingWebsite(false)}
                                             style={{
-                                                padding: '10px 16px', fontSize: 12, background: 'rgba(255,255,255,0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 8, fontWeight: 700, transition: 'all 0.15s ease'
+                                                padding: '10px 16px', fontSize: 12, background: 'rgba(var(--text-rgb),0.08)', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: 8, fontWeight: 700, transition: 'all 0.15s ease'
                                             }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.15)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--text-rgb),0.08)'}
                                         >
                                             Cancel
                                         </button>
@@ -2045,10 +2055,10 @@ function PublicPageEditorContent() {
                                             width: '100%',
                                             padding: '16px 20px',
                                             borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
-                                            background: 'rgba(255,255,255,0.2)',
+                                            background: 'rgba(var(--text-rgb),0.2)',
                                             backdropFilter: 'blur(12px)',
                                             WebkitBackdropFilter: 'blur(12px)',
-                                            border: '1px solid rgba(255,255,255,0.2)',
+                                            border: '1px solid rgba(var(--text-rgb),0.2)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 14,
@@ -2067,7 +2077,7 @@ function PublicPageEditorContent() {
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.transform = 'scale(1)';
-                                            e.currentTarget.style.border = '1px solid rgba(255,255,255,0.2)';
+                                            e.currentTarget.style.border = '1px solid rgba(var(--text-rgb),0.2)';
                                         }}
                                         title="Click to edit website button"
                                     >
@@ -2084,12 +2094,12 @@ function PublicPageEditorContent() {
                                             width: '100%',
                                             padding: '16px 20px',
                                             borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
-                                            border: '1.5px dashed rgba(255,255,255,0.25)',
+                                            border: '1.5px dashed rgba(var(--text-rgb),0.25)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             gap: 8,
-                                            color: 'rgba(255,255,255,0.5)',
+                                            color: 'rgba(var(--text-rgb),0.5)',
                                             fontSize: 14,
                                             fontWeight: 700,
                                             cursor: 'pointer',
@@ -2097,12 +2107,12 @@ function PublicPageEditorContent() {
                                             marginTop: 4
                                         }}
                                         onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                            e.currentTarget.style.background = 'rgba(var(--text-rgb),0.05)';
                                             e.currentTarget.style.color = 'white';
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.background = 'transparent';
-                                            e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                                            e.currentTarget.style.color = 'rgba(var(--text-rgb),0.5)';
                                         }}
                                         title="Click to add website link button"
                                     >
@@ -2125,7 +2135,7 @@ function PublicPageEditorContent() {
                             height: '65vh',
                             overflowY: 'auto'
                         }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(var(--text-rgb),0.1)', paddingBottom: 10 }}>
                                 <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ fontSize: 16 }}>🎨</span> Theme Styling
                                 </span>
@@ -2158,7 +2168,7 @@ function PublicPageEditorContent() {
 
                             {/* Presets Grid */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>BACKGROUND PRESETS</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>BACKGROUND PRESETS</span>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
                                     {BG_PRESETS.map(preset => {
                                         const isSelected = settings?.bgStyle === preset.key && !settings?.bgImageUrl;
@@ -2175,7 +2185,7 @@ function PublicPageEditorContent() {
                                                     background: preset.css,
                                                     border: isSelected
                                                         ? '2px solid white'
-                                                        : '1px solid rgba(255,255,255,0.2)',
+                                                        : '1px solid rgba(var(--text-rgb),0.2)',
                                                     boxShadow: isSelected
                                                         ? '0 0 12px var(--accent), 0 4px 10px rgba(0,0,0,0.3)'
                                                         : '0 2px 4px rgba(0,0,0,0.1)',
@@ -2197,17 +2207,17 @@ function PublicPageEditorContent() {
 
                             {/* Custom Background Uploader */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>CUSTOM BACKGROUND IMAGE</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>CUSTOM BACKGROUND IMAGE</span>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     {settings?.bgImageUrl ? (
                                         <div style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 12,
-                                            background: 'rgba(255,255,255,0.03)',
+                                            background: 'rgba(var(--text-rgb),0.03)',
                                             padding: '10px 12px',
                                             borderRadius: '10px',
-                                            border: '1px solid rgba(255,255,255,0.06)'
+                                            border: '1px solid rgba(var(--text-rgb),0.06)'
                                         }}>
                                             <img
                                                 src={settings.bgImageUrl}
@@ -2217,7 +2227,7 @@ function PublicPageEditorContent() {
                                                     height: 42,
                                                     objectFit: 'cover',
                                                     borderRadius: 6,
-                                                    border: '1px solid rgba(255,255,255,0.15)'
+                                                    border: '1px solid rgba(var(--text-rgb),0.15)'
                                                 }}
                                             />
                                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -2260,9 +2270,9 @@ function PublicPageEditorContent() {
                                             justifyContent: 'center',
                                             gap: 8,
                                             height: 48,
-                                            background: 'rgba(255,255,255,0.03)',
+                                            background: 'rgba(var(--text-rgb),0.03)',
                                             color: 'var(--text-primary)',
-                                            border: '2px dashed rgba(255,255,255,0.15)',
+                                            border: '2px dashed rgba(var(--text-rgb),0.15)',
                                             borderRadius: 10,
                                             cursor: 'pointer',
                                             fontSize: 12,
@@ -2270,12 +2280,12 @@ function PublicPageEditorContent() {
                                             transition: 'all 0.2s ease',
                                         }}
                                         onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                                            e.currentTarget.style.background = 'rgba(var(--text-rgb),0.06)';
                                             e.currentTarget.style.borderColor = 'var(--accent)';
                                         }}
                                         onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                                            e.currentTarget.style.background = 'rgba(var(--text-rgb),0.03)';
+                                            e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.15)';
                                         }}
                                         >
                                             {uploadingBg ? '⏳ Uploading...' : '☁  Upload Background Image'}
@@ -2293,7 +2303,7 @@ function PublicPageEditorContent() {
 
                             {/* Button Corners Style */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>BUTTON CORNER STYLE</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>BUTTON CORNER STYLE</span>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                                     {BUTTON_STYLES.map(btn => {
                                         const isSelected = settings?.buttonStyle === btn.key;
@@ -2311,29 +2321,29 @@ function PublicPageEditorContent() {
                                                     justifyContent: 'center',
                                                     gap: 4,
                                                     borderRadius: 8,
-                                                    border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(255,255,255,0.12)',
-                                                    background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255,255,255,0.03)',
+                                                    border: isSelected ? '2px solid var(--accent)' : '1px solid rgba(var(--text-rgb),0.12)',
+                                                    background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'rgba(var(--text-rgb),0.03)',
                                                     color: 'var(--text-primary)',
                                                     cursor: 'pointer',
                                                     transition: 'all 0.2s ease',
                                                 }}
                                                 onMouseEnter={(e) => {
                                                     if (!isSelected) {
-                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)';
+                                                        e.currentTarget.style.background = 'rgba(var(--text-rgb),0.07)';
+                                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.25)';
                                                     }
                                                 }}
                                                 onMouseLeave={(e) => {
                                                     if (!isSelected) {
-                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                                                        e.currentTarget.style.background = 'rgba(var(--text-rgb),0.03)';
+                                                        e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.12)';
                                                     }
                                                 }}
                                             >
                                                 <div style={{
                                                     width: 28,
                                                     height: 10,
-                                                    border: isSelected ? '1px solid white' : '1px solid rgba(255,255,255,0.4)',
+                                                    border: isSelected ? '1px solid white' : '1px solid rgba(var(--text-rgb),0.4)',
                                                     borderRadius: previewRadius,
                                                     background: isSelected ? 'var(--accent)' : 'transparent',
                                                 }} />
@@ -2347,7 +2357,7 @@ function PublicPageEditorContent() {
                     )}
 
                     {/* Footer */}
-                    <div style={{ marginTop: 'auto', paddingTop: 20, fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>
+                    <div style={{ marginTop: 'auto', paddingTop: 20, fontSize: 9, color: 'rgba(var(--text-rgb),0.3)', textAlign: 'center' }}>
                         Made with SocialFlow
                     </div>
                 </div>

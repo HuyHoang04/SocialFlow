@@ -1688,7 +1688,7 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                     {ragResults.map((res, idx) => (
                                                         <div key={idx} style={{
                                                             padding: 8,
-                                                            background: 'rgba(255, 255, 255, 0.03)',
+                                                            background: 'rgba(var(--text-rgb), 0.03)',
                                                             borderRadius: 4,
                                                             fontSize: 10,
                                                             color: 'var(--text-muted)',
@@ -1944,9 +1944,9 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                             <button 
                                                                 key={t.label} type="button" 
                                                                 onClick={() => setImagePrompt(t.tmpl)}
-                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: '0.2s' }}
+                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(var(--text-rgb),0.1)', cursor: 'pointer', transition: '0.2s' }}
                                                                 onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.1)'}
                                                             >
                                                                 {t.label}
                                                             </button>
@@ -1985,9 +1985,9 @@ Call to Action: ${aiOptions.callToAction || 'None'}
                                                                     ...prev,
                                                                     details: prev.details ? `${prev.details}\n\n${t.tmpl}` : t.tmpl
                                                                 }))}
-                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: '0.2s' }}
+                                                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid rgba(var(--text-rgb),0.1)', cursor: 'pointer', transition: '0.2s' }}
                                                                 onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                                                                onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(var(--text-rgb),0.1)'}
                                                             >
                                                                 {t.label}
                                                             </button>

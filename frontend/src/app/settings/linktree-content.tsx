@@ -447,11 +447,11 @@ export default function LinktreeContent() {
                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%' }}>
                         {/* Avatar preview */}
                         {settings?.logoUrl ? (
-                            <img src={settings.logoUrl} alt="logo" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)', marginBottom: 8 }} />
+                            <img src={settings.logoUrl} alt="logo" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(var(--text-rgb),0.5)', marginBottom: 8 }} />
                         ) : (
                             <div style={{
-                                width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
-                                border: '2px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center',
+                                width: 60, height: 60, borderRadius: '50%', background: 'rgba(var(--text-rgb),0.2)',
+                                border: '2px solid rgba(var(--text-rgb),0.4)', display: 'flex', alignItems: 'center',
                                 justifyContent: 'center', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8,
                             }}>
                                 {(settings?.displayName || selectedBrand.name || '?')[0]?.toUpperCase()}
@@ -461,19 +461,33 @@ export default function LinktreeContent() {
                             {settings?.displayName || selectedBrand.name}
                         </div>
                         {settings?.bio && (
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 1.5, maxWidth: 200 }}>
+                            <div style={{ fontSize: 10, color: 'rgba(var(--text-rgb),0.75)', textAlign: 'center', lineHeight: 1.5, maxWidth: 200 }}>
                                 {settings.bio.slice(0, 80)}{settings.bio.length > 80 ? '…' : ''}
                             </div>
                         )}
 
                         {/* Preview buttons */}
+                        {settings?.website && (
+                            <div style={{
+                                width: '100%', padding: '8px 12px',
+                                borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
+                                background: 'rgba(var(--text-rgb),0.15)',
+                                backdropFilter: 'blur(8px)',
+                                border: '1px solid rgba(var(--text-rgb),0.2)',
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                color: 'var(--text-primary)', fontSize: 11, fontWeight: 600,
+                            }}>
+                                <IconGlobe size={14} color="white" />
+                                {settings?.websiteLabel || 'Visit our website'}
+                            </div>
+                        )}
                         {['facebook', 'instagram', 'bluesky'].map(p => (
                             <div key={p} style={{
                                 width: '100%', padding: '8px 12px',
                                 borderRadius: BUTTON_STYLES.find(b => b.key === settings?.buttonStyle)?.radius || '14px',
-                                background: 'rgba(255,255,255,0.15)',
+                                background: 'rgba(var(--text-rgb),0.15)',
                                 backdropFilter: 'blur(8px)',
-                                border: '1px solid rgba(255,255,255,0.2)',
+                                border: '1px solid rgba(var(--text-rgb),0.2)',
                                 display: 'flex', alignItems: 'center', gap: 8,
                                 color: 'var(--text-primary)', fontSize: 11, fontWeight: 600,
                             }}>

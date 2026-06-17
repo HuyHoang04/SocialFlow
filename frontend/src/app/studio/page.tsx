@@ -27,7 +27,7 @@ function LoaderOverlay() {
         <IconFilm size={32} color="var(--accent)" />
         <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Đang chuẩn bị Studio...</h2>
       </div>
-      <div style={{ width: 300, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ width: 300, height: 6, background: 'rgba(var(--text-rgb),0.1)', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ width: `${progress}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s ease' }} />
       </div>
       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12, fontFamily: 'monospace' }}>
@@ -61,14 +61,14 @@ function MediaOverlay({ url, scale = 1.0, width = 320, height = 180, aspectRatio
       borderRadius: '12px',
       overflow: 'hidden',
       boxShadow: '0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(108, 92, 231, 0.4)',
-      border: '1px solid rgba(255,255,255,0.2)',
+      border: '1px solid rgba(var(--text-rgb),0.2)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexDirection: 'column',
       zIndex: 10,
       transition: 'all 0.3s ease'
     }}>
       {hasError ? (
-        <div style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'sans-serif', textAlign: 'center', padding: '20px' }}>
+        <div style={{ color: 'rgba(var(--text-rgb),0.5)', fontFamily: 'sans-serif', textAlign: 'center', padding: '20px' }}>
           <IconFilm size={32} />
           <div style={{ fontSize: '13px', marginTop: '8px' }}>Không tải được hình ảnh/video</div>
         </div>
@@ -2344,9 +2344,9 @@ export default function VideoStudio() {
               {/* Converting Overlay */}
               {isConverting && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-                  <div style={{ width: 40, height: 40, border: '4px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  <div style={{ width: 40, height: 40, border: '4px solid rgba(var(--text-rgb),0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   <h3 style={{ marginTop: 16, color: 'var(--text-primary)' }}>Converting to MP4...</h3>
-                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Transcoding Opus audio to AAC</p>
+                  <p style={{ color: 'rgba(var(--text-rgb),0.6)', fontSize: 13 }}>Transcoding Opus audio to AAC</p>
                 </div>
               )}
             </div>

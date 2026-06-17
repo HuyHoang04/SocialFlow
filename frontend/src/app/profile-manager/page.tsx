@@ -33,7 +33,7 @@ function ProfilePreview({ form, page }: {
         borderRadius: 40,
         background: '#1a1a1a',
         padding: '14px 10px',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(var(--text-rgb),0.08)',
         position: 'relative',
       }}>
         <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 72, height: 18, background: '#1a1a1a', borderRadius: 10, zIndex: 2 }} />

@@ -77,7 +77,7 @@ export default function LinktreePage() {
     if (loading) {
         return (
             <div className={`${styles.page} ${styles['bg-gradient-night']}`}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginTop: 80 }}>Loading…</div>
+                <div style={{ color: 'rgba(var(--text-rgb),0.4)', fontSize: 15, marginTop: 80 }}>Loading…</div>
             </div>
         );
     }

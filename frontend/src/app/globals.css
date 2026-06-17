@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  --text-rgb: 244, 233, 215;
   --bg-primary: #0f1010;
   --bg-secondary: #1a1b1b;
   --bg-card: rgba(244, 233, 215, 0.03);
@@ -43,6 +44,7 @@
 }
 
 .light-theme {
+  --text-rgb: 26, 27, 27;
   --bg-primary: #F4E9D7;
   --bg-secondary: #e8ded0;
   --bg-card: rgba(15, 16, 16, 0.05);

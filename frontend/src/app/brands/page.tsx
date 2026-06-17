@@ -154,9 +154,9 @@ export default function BrandsPage() {
                                                         height: '48px',
                                                         borderRadius: '10px',
                                                         objectFit: 'contain',
-                                                        background: 'rgba(255,255,255,0.05)',
+                                                        background: 'rgba(var(--text-rgb),0.05)',
                                                         padding: '4px',
-                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        border: '1px solid rgba(var(--text-rgb),0.1)',
                                                         flexShrink: 0,
                                                     }}
                                                 />
