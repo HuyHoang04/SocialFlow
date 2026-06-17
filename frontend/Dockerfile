@@ -1,7 +1,8 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+# Bo qua cac script tu dong cai dat thu vien C++ de tranh bi treo mang khi tai binary
+RUN npm ci --legacy-peer-deps --ignore-scripts
 COPY . .
 
 # Khai bao cac bien can thiet luc Build
