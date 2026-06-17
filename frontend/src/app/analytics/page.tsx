@@ -313,7 +313,7 @@ export default function AnalyticsPage() {
                                                             {(post.postContent?.length ?? 0) > 80 && '…'}
                                                         </div>
                                                         <div className={styles.barWrap}>
-                                                            <div className={styles.bar} style={{ width: `${pct}%` }} />
+                                                            <div className={styles.bar} style={{ width: `${Math.max(pct, 1.5)}%` }} />
                                                             <span className={styles.barLabel}>
                                                                 {post.likes > 0 && `♥${fmt(post.likes)} `}
                                                                 {post.comments > 0 && `💬${fmt(post.comments)} `}
@@ -322,7 +322,9 @@ export default function AnalyticsPage() {
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                                                        <span className={styles.engRate}>{post.engagementRate}%</span>
+                                                        <span className={post.engagementRate > 0 ? styles.engRate : styles.engRateMuted}>
+                                                            {post.engagementRate > 0 ? `${post.engagementRate}%` : '—'}
+                                                        </span>
                                                         <button
                                                             className={styles.chatSmallBtn}
                                                             onClick={() => handleSendPostToChat(post)}
@@ -359,7 +361,7 @@ export default function AnalyticsPage() {
                                                 </div>
                                                 <div className={styles.pageStats}>
                                                     <span title="Followers"><IconUsers size={12} /> {fmt(pg.followers)}</span>
-                                                    <span title="Avg Engagement"><IconActivity size={12} /> {pg.avgEngagementRate}%</span>
+                                                    <span title="Avg Engagement"><IconActivity size={12} /> {pg.avgEngagementRate > 0 ? `${pg.avgEngagementRate}%` : '—'}</span>
                                                     <span title="New Followers"><IconUserPlus size={12} /> +{fmt(pg.newFollowers)}</span>
                                                 </div>
                                             </div>
@@ -434,7 +436,11 @@ export default function AnalyticsPage() {
                                                     <td className={styles.td}><Num val={post.impressions} /></td>
                                                     <td className={styles.td}><Num val={post.reach} /></td>
                                                     <td className={styles.td}>
-                                                        <span className={styles.engBadge}>{post.engagementRate}%</span>
+                                                        {post.engagementRate > 0 ? (
+                                                            <span className={styles.engBadge}>{post.engagementRate}%</span>
+                                                        ) : (
+                                                            <span className={styles.engBadgeMuted}>—</span>
+                                                        )}
                                                     </td>
                                                     <td className={styles.td}>
                                                         {post.platformPostUrl && (
