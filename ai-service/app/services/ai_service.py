@@ -190,7 +190,9 @@ class AIService:
                     brand_id=brand_id,
                     query_text=user_brief,
                     limit=3,
-                    threshold=0.3
+                    threshold=0.3,
+                    provider=provider,
+                    model=model
                 )
                 if rag_results:
                     rag_text = "\n\n".join([f"- {r.get('text', '')}" for r in rag_results])

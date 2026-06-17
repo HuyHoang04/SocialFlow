@@ -68,7 +68,9 @@ async def stream_generate_captions(request: StreamCaptionRequest):
                         brand_id=request.brand_id,
                         query_text=request.user_brief,
                         limit=3,
-                        threshold=0.3
+                        threshold=0.3,
+                        provider=request.provider,
+                        model=request.model
                     )
                     if rag_results:
                         rag_text = "\n\n".join([f"- {r.get('text', '')}" for r in rag_results])

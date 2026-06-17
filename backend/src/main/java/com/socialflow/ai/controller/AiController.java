@@ -88,7 +88,21 @@ public class AiController {
      */
     @PostMapping(value = "/stream/generate-captions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamGenerateCaptions(@Valid @RequestBody Map<String, Object> request) {
-        log.info("API Request: POST /api/ai/stream/generate-captions | Brand: {}", request.get("brand_id"));
+        String brandId = (String) request.get("brand_id");
+        log.info("API Request: POST /api/ai/stream/generate-captions | Brand: {}", brandId);
+        
+        // Inject model config
+        if (brandId != null) {
+            com.socialflow.model.AiModelConfig config = aiModelConfigService.getConfigByBrandIdStr(brandId);
+            if (config != null) {
+                if (config.getTextProvider() != null && !request.containsKey("provider")) {
+                    request.put("provider", config.getTextProvider());
+                }
+                if (config.getTextModel() != null && !request.containsKey("model")) {
+                    request.put("model", config.getTextModel());
+                }
+            }
+        }
         
         // Use WebClient to proxy the SSE stream from Python AI service
         WebClient webClient = WebClient.create(pythonServiceUrl);
