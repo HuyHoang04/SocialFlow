@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🚀 SocialFlow
+# 🚀 SocialFlow - AI-Powered Multi-Platform Social Media Management
 <img src="./frontend/public/logo.svg" alt="Logo" />
-### AI-Powered Multi-Platform Social Media Management
+
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Spring_Boot](https://img.shields.io/badge/Spring_Boot-3.2-6DB33F?style=for-the-badge&logo=springboot)](https://spring.io/)
