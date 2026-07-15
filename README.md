@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🚀 SocialFlow
-
+<img src="./frontend/public/logo.svg" alt="Logo" />
 ### AI-Powered Multi-Platform Social Media Management
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
@@ -14,8 +14,8 @@
 [![GitLab CI](https://img.shields.io/badge/GitLab_CI-CD-FC6D26?style=for-the-badge&logo=gitlab)](https://docs.gitlab.com/ee/ci/)
 
 **Create brand-aligned content with AI, edit it in a rich in-browser studio, and publish to Facebook, Instagram, Threads & LinkedIn — all from one place.**
+<img src="./frontend/public/landing.png" alt="landing" />
 
-🌐 **Live:** [socialflow.io.vn](https://socialflow.io.vn)
 
 <a href="#-about">About</a> ·
 <a href="#-features">Features</a> ·
